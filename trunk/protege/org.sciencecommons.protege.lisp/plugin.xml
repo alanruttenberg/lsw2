@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?eclipse version="3.0"?>
+
+<plugin>
+
+<!-- ./org.protege.editor.owl/src/org/protege/editor/owl/ui/action/ConvertEntityURIsToLabels.java  
+
+    <extension id="menu.ConvertEntityURIsToLabels"
+               point="org.protege.editor.core.application.EditorKitMenuAction">
+        <name value="Convert entity URIs to labels..."/>
+        <class value="org.protege.editor.owl.ui.action.ConvertEntityURIsToLabels"/>
+        <toolTip value="Change the URI of all entities to an ID and move the name to a label annotation on the entity as per settings in the New Entity preferences"/>
+        <path value="org.protege.editor.owl.menu.Refactor/SlotA-Y"/>
+        <editorKitId value="OWLEditorKit"/>
+    </extension>
+-->
+
+    <extension id="LispShellView"
+               point="org.protege.editor.core.application.ViewComponent">
+        <label value="Lisp Shell"/>
+        <class value="org.sciencecommons.protege.lisp.LispShellView"/>
+    </extension>
+
+</plugin>

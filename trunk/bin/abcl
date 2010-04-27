@@ -1,0 +1,81 @@
+#!/usr/bin/perl
+
+# Either use ABCL_WD, or figure out where with are using $0. Latter works 
+# on both on cygwin and os x
+
+if ($ENV{ABCL_WD})
+  { $here = $ENV{ABCL_WD} }
+else
+  { $here = $0;
+
+    # Assume there's a trailing slash.
+    # Flush trailing stuff from last slash.
+    # Sort of like shell 'basename'.
+    $here =~ s=/[^/]*$==g;
+    $here .= "/..";
+  }
+
+if ($ENV{ABCL_BITS}) 
+  { $bits = "-d$ENV{ABCL_BITS}" }
+else
+  { $bits = "-d32";
+  }
+
+if ($ENV{ABCL_RAM}) 
+  { $ram = "-Xmx$ENV{ABCL_RAM}m" }
+else
+  { $ram = "-Xmx1024m";
+  }
+
+if ($ENV{ABCL_STACK}) 
+  { $stack = "-Xss$ENV{ABCL_STACK}m" }
+else
+  { $stack = "-Xss24m";
+  }
+  
+$java = $ENV{ABCL_JAVA} || "java";
+@version = `$java -version 2>&1`;
+$sep = "================================================================";
+
+# flushed: chdir $here;
+
+if ($ENV{OS} =~ /windows/i) {$pathJoin = ";"} else {$pathJoin = ":" }
+if (!(@version[0] =~ /version/) ) 
+  { complainCantTellVersion() }
+elsif (!(@version[0] =~ /"1.[56]/) ) 
+  { complainWrongVersion(); exit() }
+@libs = grep(/.jar$/,split /\n/,`find "$here/lib" -follow`);
+
+# flushed: map {s/$here\///} @libs;
+
+if ($ENV{ABCL_JAR})
+{ @libs = ($ENV{ABCL_JAR},grep(!/abcl.jar/,@libs))}
+
+$libjar = join($pathJoin,@libs);
+
+
+if ($ENV{ABCL_PROFILE_SHARK})
+  { @profileargs = ("-XrunShark") }
+
+if (`uname` =~ /Darwin/)
+ { @dock = ("-Xdock:icon=$here/images/lswicon.icns","-Xdock:name=Armed Bear Common Lisp")}
+
+@args  = ($ram,$stack,$bits,@profileargs,"-cp", $libjar, @dock);
+
+if (!($ENV{OS} =~ /windows/i)) { @args = ("-server",@args);}
+print "$java @args org.armedbear.lisp.Main --load $here/scripts/system-registry.lisp @ARGV\n";
+exec("$java",@args,"org.armedbear.lisp.Main","--load","$here/scripts/system-registry.lisp",@ARGV);
+
+sub complainCantTellVersion ()
+{ print("I'm trying to tell which version of java you are running, but \"$java -version\" prints\n$sep\n");
+  print @version;
+  print("$sep\nGoing to try anyways, but this may not work...\n");
+}
+
+sub complainWrongVersion ()
+{ print("This project needs java 1.5 or 1.6 , but \"$java -version\" prints\n$sep\n");
+  print @version;
+  print("$sep\nYou either need to install java version 1.5 or 1.6, and/or first set the\n");
+  print("environment variable ABCL_JAVA to the appropriate java executable (e.g.\n");
+  print("in Mac OS X: /System/Library/Frameworks/JavaVM.framework/Versions/1.5/Commands/java)\n"); 
+}
