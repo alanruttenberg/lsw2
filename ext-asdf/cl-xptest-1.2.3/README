@@ -1,0 +1,37 @@
+xptest - An "Extreme Programming" test framework for Comon Lisp
+======================================================================
+
+xptest is a framework for building test cases, managing test data, and
+putting these together into test suites.  It provides a minimal level
+of support for reports on test runs.  It's also a nice development
+tool in that one can easily use it for organizing code fragments when
+developing more complex features.
+
+
+License (well, non-License)
+======================================================================
+xptest is in the public domain.  It's so simple that even a copyright
+is just a pathetic clinging some romantic notion of the author.
+
+
+Installation
+======================================================================
+
+xptest uses defsystem, so your lisp needs to support defsystem.  You
+may need to modify the XPTest.system file in order to tell defsystem
+where the source files are stored, and/or set up the appropirate
+logial path translations.  Alternatively you can just load up the
+files by hand.
+
+
+
+Author
+======================================================================
+
+xptest is maintained by Craig Brozefsky <craig@red-bean.com>.  Any bug
+reports, comments, or patches can be sent to him.
+
+Others who have contributed:
+Lyn Headley <lyn@onshore.com>
+Stig Erik Sandoe <stig@ii.uib.no>
+Kevin Rosenberg <kevin@rosenberg.net>

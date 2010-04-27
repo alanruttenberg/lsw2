@@ -1,0 +1,15 @@
+(let ((*load-verbose* nil)
+      (*compile-verbose* nil)
+      (*suppress-compiler-warnings* (not *load-verbose*)))
+  (asdf::oos 'asdf::load-op 'owl :verbose nil))
+
+(defun browse (string)
+  (let ((args
+	 (if (find #\space string)
+	     (read-delimited-list #\space string)
+	     (if (char= (char string 0) #\:)
+		 (list (read-from-string string))
+		 (list string)))))
+    (setf (car args) (load-kb-jena (car args)))
+    (apply 'show-classtree args)
+    (apply 'show-propertytree args)))
