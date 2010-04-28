@@ -76,14 +76,14 @@
       (let ((ont
 	     (if uri
 		 (#"loadOntologyFromOntologyDocument" manager (to-iri uri))
-		 (#"loadOntologyFromOntologyDocument" manager (new 'java.io.StringBufferInputStream
+		 (#"loadOntologyFromOntologyDocument" manager (new 'java.io.ByteArrayInputStream
 								   (if (consp source)
 								       (if (keywordp (car source))
 									   (#0"toString" (second source))
 									   (let ((model (apply 't-jena source nil)))
 									     (let ((sw (new 'StringWriter)))
 									       (#"write" model sw "RDF/XML")
-									       (#0"toString" sw))))
+									       (#0"getBytes" (#0"toString" sw) "UTF-8"))))
 								       (#0"toString" source))))
 		 )))
 	(let ((it (make-v3kb :name (or uri name) :manager manager :ont ont :datafactory (#"getOWLDataFactory" manager) :default-reasoner reasoner)))
@@ -119,6 +119,7 @@
 	     :name ',name
 	     )))
        (let ((*default-kb* ,name))
+	 (declare (ignorable *default-kb* ))
 	 ,@body))))
 
 ;; (defmethod print-object ((obj (jclass "org.semanticweb.HermiT.Reasoner")) stream) 
