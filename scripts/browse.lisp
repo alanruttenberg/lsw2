@@ -1,7 +1,7 @@
 (let ((*load-verbose* nil)
       (*compile-verbose* nil)
       (*suppress-compiler-warnings* (not *load-verbose*)))
-  (asdf::oos 'asdf::load-op 'owl :verbose nil))
+  (asdf::oos 'asdf::load-op 'owl2 :verbose nil))
 
 (defun browse (string)
   (let ((args

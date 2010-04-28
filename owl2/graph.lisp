@@ -465,11 +465,6 @@
    "(?s)\\n(\\n)" "$1")
   )
 
-(defun simple-subclassof-axiom? (ax)
-  (and (jinstance-of-p ax (find-java-class 'OWLSubClassOfAxiom ))
-       (= (#"size" (#"getClassesInSignature" ax)) 2)
-       (every (lambda(e) (jinstance-of-p e (find-java-class 'OWLClass))) (set-to-list (#"getClassExpressions" ax)))))
-
 (defun manchester-logical-axioms-for-class (class ont)
   (setq ont (or (v3kb-weakened-from ont) ont))
   (if (stringp class) (setq class (make-uri class)))
