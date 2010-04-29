@@ -403,7 +403,7 @@
 ;; http://sourceforge.net/tracker/?func=detail&aid=2975911&group_id=90989&atid=595534
 
 (defun to-jena-model (kb)
-  (let ((model (#"createDefaultModel" 'modelfactory)))
+  (let ((model (#"createDefaultModel" 'com.hp.hpl.jena.rdf.model.ModelFactory)))
     (loop for source in (loaded-documents kb)
        do
        (if (or (search "inputstream" source)
