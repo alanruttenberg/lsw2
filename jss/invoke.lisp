@@ -663,6 +663,18 @@
       (loop for jar in (all-jars-below directory) do (cl-user::add-to-classpath jar))
       (loop for jar in (directory (merge-pathnames "*.jar" directory)) do (cl-user::add-to-classpath jar))))
 
+(defun need-to-add-directory-jar? (directory recursive-p)
+  (if recursive-p
+      (loop for jar in (all-jars-below directory)
+	 do
+	   (if (not (member (namestring (truename jar)) *added-to-classpath* :test 'equal))
+	       (return-from need-to-add-directory-jar? t)))
+      (loop for jar in (directory (merge-pathnames "*.jar" directory))
+	 do
+	   (if (not (member (namestring (truename jar)) *added-to-classpath* :test 'equal))
+	       (return-from need-to-add-directory-jar? t))))
+  nil)
+
 (defun set-to-list (set)
   (declare (optimize (speed 3) (safety 0)))
   (with-constant-signature ((iterator "iterator" t) (hasnext "hasNext") (next "next"))
@@ -776,7 +788,7 @@
     (cl-user::add-directory-jars-to-class-path (truename (component-pathname c)) t)))
 
 (defmethod operation-done-p ((operation load-op) (c jar-directory))
-  nil)
+  (not (cl-user::need-to-add-directory-jar? (component-pathname c) t)))
 
 (defmethod operation-done-p ((operation compile-op) (c jar-directory))
   t)
@@ -790,7 +802,7 @@
   (cl-user::add-to-classpath (component-pathname c)))
 
 (defmethod operation-done-p ((operation load-op) (c jar-file))
-  nil)
+  (member (namestring (truename (component-pathname c))) cl-user::*added-to-classpath* :test 'equal))
 
 (defmethod operation-done-p ((operation compile-op) (c jar-file))
   t)
