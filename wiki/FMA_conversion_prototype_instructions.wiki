@@ -34,7 +34,7 @@ Start up lsw:
 
 Tell LSW where the sql is:
 
-<pre>(setq *fma-sql-path* "path to fma sql")</pre>
+<pre>`(setq *fma-sql-path* "path to fma sql")`</pre>
 
 Load the FMA code:
 
