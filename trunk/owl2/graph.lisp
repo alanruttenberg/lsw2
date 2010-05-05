@@ -421,11 +421,22 @@
   (and string
        (#"replaceAll" string "<" "&lt;")))
 
+(defvar *workaround-applet-css* t)
+
 (defun tree-tooltip-css ()
-  "<head><style TYPE=\"text/css\">
+  (if *workaround-applet-css*
+      ""
+      "<head><style TYPE=\"text/css\">
 .manchesterKeyword { color: #ee0088;}
 .logical {color: #151B8D;}
-</style></head>")
+</style></head>"))
+
+(defun workaround-replace-styles (text)
+  (if *workaround-applet-css*
+      (progn
+	(setq text (#"replaceAll" text "(?s)<span class=\"manchesterKeyword\">(.*?)</span>" "<font color=\"#ee0088\">$1</font>"))
+	(#"replaceAll" text "(?s)<span class=\"logical\">(.*?)</span>" "<font color=\"#151b8d\">$1</font>"))
+      tex))
 
 (defun tree-tooltip (kb entity &key (width 600) (type :class))
   (setq @ (make-uri entity))
@@ -433,24 +444,25 @@
 	 (comment (html-quote (rdfs-comment entity kb)))
 	 (labels (rdfs-label entity kb)))
     (setq @@
-	  (format nil "<html>~a<div style=\"font-size:~a;width:~a;height=800\"><b>~a</b>~a<i>~a</i>~a</div></html>"
-		  (tree-tooltip-css)
-		  *toolip-font-size* width
-		  (uris-for-entity-html entity kb)
-		  (if labels (format nil "~{<b><i>~a</i></b>~^<br>~}" labels) "")
-		  (if (equal entity (uri-full !owl:Nothing)) 
-		      "<br>These classes are unsatisfiable!<br>"
-		      (if (and comment  (not (equal comment "")))
-			  (format nil "<div style=\"margin-left:5px;margin-top:2px;margin-bottom:2px\">~a</div>" comment)
-			  (if labels  "<br>" "")))
-		  (cond ((eq type :class)
-			 (html-for-class entity kb))
-			((eq type :individual)
-			 (html-for-individual entity kb)
-			 )
-			((member type '(:object-property :datatype-property))
-			 (html-for-property entity kb))
-			(t ""))))))
+	  (workaround-replace-styles
+	   (format nil "<html>~a<div style=\"font-size:~a;width:~a;height=800\"><b>~a</b>~a<i>~a</i>~a</div></html>"
+		   (tree-tooltip-css)
+		   *toolip-font-size* width
+		   (uris-for-entity-html entity kb)
+		   (if labels (format nil "~{<b><i>~a</i></b>~^<br>~}" labels) "")
+		   (if (equal entity (uri-full !owl:Nothing)) 
+		       "<br>These classes are unsatisfiable!<br>"
+		       (if (and comment  (not (equal comment "")))
+			   (format nil "<div style=\"margin-left:5px;margin-top:2px;margin-bottom:2px\">~a</div>" comment)
+			   (if labels  "<br>" "")))
+		   (cond ((eq type :class)
+			  (html-for-class entity kb))
+			 ((eq type :individual)
+			  (html-for-individual entity kb)
+			  )
+			 ((member type '(:object-property :datatype-property))
+			  (html-for-property entity kb))
+			 (t "")))))))
 
 	 
 (defun @ ()
@@ -495,4 +507,4 @@
   (list !oboinowl:DbXref !oboinowl:Definition !oboinowl:ObsoleteClass !oboinowl:ObsoleteProperty !oboinowl:Subset !oboinowl:Synonym !oboinowl:SynonymType !protegeowl:PAL-CONSTRAINT !protegeowl:DIRECTED-BINARY-RELATION !protegeowl:TO !protegeowl:FROM !protegeowl:SLOT-CONSTRAINTS !protegeowl:PAL-NAME !protegeowl:PAL-CONSTRAINTS !protegeowl:PAL-STATEMENT !protegeowl:PAL-RANGE !protegeowl:PAL-DESCRIPTION))
 
 (defparameter *obi-noise-classes* 
-  (append *obo-noise-classes* (list !obi:OBI_0000449 !obi:OBI_0000233 !obi:OBI_0000683 !obi:OBI_0600065)))
+  (append *obo-noise-classes* (list !obi:OBI_0000449 !obi:OBI_0000233 !obi:OBI_0000683 !obi:OBI_0600065 !snap:Object !snap:ObjectAggregate !snap:FiatObjectPart !snap:SpatialRegion !span:TemporalRegion !span:Process !span:ProcessBoundary !span:ProcessualContext !span:FiatProcessPart !span:ProcessAggregate !span:SpatiotemporalRegion !owl:Nothing !snap:ObjectBoundary !snap:Site )))

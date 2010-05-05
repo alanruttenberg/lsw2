@@ -18,9 +18,10 @@
   changes ;; to collect ontology changes before doing an update
   weakened-from ;; when creating a weakened kb, link to what it was weakened from
   default-reasoner ;; (:factpp :hermit :pellet) - can be overidden by an explicit call to check ontology or instantiate reasoner
+  mapper 
   ) 
 
-(defvar *default-reasoner* :factpp)
+(defvar *default-reasoner* :hermit)
 
 (defmethod jena-model ((o v3kb))
   (or (v3kb-told-jena-model o) 
@@ -87,7 +88,7 @@
 									       (#0"getBytes" (#0"toString" sw) "UTF-8"))))
 								       (#0"toString" source))))
 		 )))
-	(let ((it (make-v3kb :name (or uri name) :manager manager :ont ont :datafactory (#"getOWLDataFactory" manager) :default-reasoner reasoner)))
+	(let ((it (make-v3kb :name (or uri name) :manager manager :ont ont :datafactory (#"getOWLDataFactory" manager) :default-reasoner reasoner :mapper mapper)))
 	  (setf (v3kb-uri2entity it) (compute-uri2entity it))
 	  it
 	)))))
