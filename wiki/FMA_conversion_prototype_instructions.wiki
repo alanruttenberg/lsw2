@@ -9,53 +9,53 @@ These instruction explain how to run prototype code to convert aspects of the FM
 
 Assume are installing into ~/repos/
 
-<pre>
+<code>
 cd ~/repos
 svn co https://lsw2.googlecode.com/svn/trunk lsw2
 cd lsw2
 svn co http://svn.neurocommons.org/svn/trunk/convert/fma
-</pre>
+</code>
 
 get a version of the SQL dump of the FMA. Here's one, in protege 3.4 database format
 
-<pre>wget http://dl.dropbox.com/u/4905123/fma_11-20-09_p3.4.zip</pre>
+<code>wget http://dl.dropbox.com/u/4905123/fma_11-20-09_p3.4.zip</code>
 
-unzip it to get  fma_11-20-09_p3.4.sql
+unzip it to get  fma_11_20_09_p3.4.sql
 
-<pre>unzip fma_11-20-09_p3.4.zip</pre>
+<code>unzip fma_11-20-09_p3.4.zip</code>
 
 Start up lsw:
 
-<pre>bin/lsw</pre>
+<code>bin/lsw</code>
 
 Tell LSW where the sql is:
 
-<pre>`(setq *fma-sql-path* "path to fma sql")`</pre>
+<code>`(setq *fma-sql-path* "path to fma sql")`</code>
 
 Load the FMA code:
 
-<pre>(asdf::oos 'asdf::load-op 'fma2)</pre>
+<code>(asdf::oos 'asdf::load-op 'fma2)</code>
 
 Read in FMA
 
-<pre>(read-fma-sql)</pre>
+<code>(read-fma-sql)</code>
 
 Run the kidney conversion
 
-<pre>(kidney-experiment)</pre>
+<code>(kidney-experiment)</code>
 
 Will print some stuff. `(setq *log-assertions* t)` if you want to see more.
 
 After a few minutes it will have written the following 6 files in the fma directory:
 
-<pre>
+<code>
 -rw-r--r--  1 alanr  alanr    776907 May  5 13:26 kidney-partonomy-treeml.xml
 -rw-r--r--  1 alanr  alanr    108113 May  5 13:25 kidney-partonomy.owl
 -rw-r--r--  1 alanr  alanr  21074336 May  5 13:25 kidney-hierarchy-with-part-types-treeml.xml
 -rw-r--r--  1 alanr  alanr   1249887 May  5 13:22 kidney-hierarchy-with-part-types.owl
 -rw-r--r--  1 alanr  alanr   1531214 May  5 13:22 kidney-hierarchy-treeml.xml
 -rw-r--r--  1 alanr  alanr   1049349 May  5 13:21 kidney-hierarchy.owl
-</pre>
+</code>
 
 The treeml.xml files are what are behind the web pages such as http://ashby.csail.mit.edu/treeview/kidney-partonomy.html
 
@@ -63,12 +63,12 @@ There are three OWL files generated:
 
   * kidney-hierarchy.owl - the hierarchy plus part relationships
   * kidney-hierarchy-with-part-types.owl - the above plus classes "part some x" for all classes in the hierarchy. This file is used to derived the partonomy
-  * kidney-partonomy.owl - a derived partonomy - not that the subclass relations here mean "part" not "is_a" - this is for visualization.
+  * kidney-partonomy.owl - a derived partonomy - note that the subclass relations here mean "part" not "is_a" - this is for visualization.
 
 In the lisp environment these are bound to the variables k1, k2, k3, respectively.
 
 To browse the partonomy in lisp, 
 
-<pre>(show-classtree k3)</pre>
+<code>(show-classtree k3)</code>
 
 Anything at the top level is probably something that needs to be repaired.
