@@ -48,7 +48,7 @@ Run the kidney conversion
 
 <pre>(kidney-experiment)</pre>
 
-Will print some stuff. (setq *log-assertions* t) if you want to see more.
+Will print some stuff. `(setq *log-assertions* t)` if you want to see more.
 
 After a few minutes it will have written the following 6 files in the fma directory:
 
