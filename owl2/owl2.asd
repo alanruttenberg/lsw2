@@ -12,12 +12,45 @@
 
 (in-package :asdf)
 
+;; taken from the Factpp manifest. I don't think the ppc entries are right, but I'll monkey it.
+(defparameter *factpp-natives*
+  '((("WindowsXP"  "Windows XP"  "WinXP"   "WindowsVista"  "Windows Vista"  "Windows2003"  "Windows 7")
+     ("x86_64" "amd64")	  
+     "64bit" "FaCTPlusPlusJNI.dll")
+    (("Windows95"  "Windows 95" "Win95"  "Windows98"  "Windows 98"  "Win98"  "WindowsNT" "Windows NT"  "WinNT"  "WindowsCE"  "Winndows CE" "WinCE"  "WindowsXP"  "Windows XP" "WinXP" "WindowsVista" "Windows Vista" "Windows2003" "Windows 7")
+     ("i386" "x86")
+     "32bit" "FaCTPlusPlusJNI.dll")
+    (("Linux")
+     ("86_64" "amd64")
+     "64bit" "libFaCTPlusPlusJNI.so")
+    (("Linux")
+     ("i386")
+     "32bit" "libFaCTPlusPlusJNI.so")
+    (("MacOSX"  "Mac OS X")
+     ("ppc64" "x86_64")
+     "64bit" "libFaCTPlusPlusJNI.jnilib")
+    (("MacOSX" "Mac OS X")
+     ("ppc" "i386")
+     "32bit" "libFaCTPlusPlusJNI.jnilib")))
+
+(defun factpp-native-dir (arch os)
+  (third (find-if (lambda(e) (and (member arch (second e) :test 'equal)
+				  (member os (first e) :test 'equal)))
+		  *factpp-natives*)))
+
+(defun factpp-library-name (arch os)
+  (pathname-name (fourth (find-if (lambda(e) (and (member arch (second e) :test 'equal)
+						  (member os (first e) :test 'equal)))
+				  *factpp-natives*))))
+			   
 (defparameter cl-user::*factpp-jni-path*
-  (namestring (merge-pathnames
-	       (make-pathname :directory '(:relative "lib")
-			      :name "libFaCTPlusPlusJNI"
-			      :type "jnilib")
-	       *load-pathname*)))
+  (let ((arch (#"getProperty" 'system "os.arch"))
+	(os (#"getProperty" 'system "os.name")))
+    (namestring (merge-pathnames
+		 (make-pathname :directory `(:relative "lib" "factpp-native-1.4.0" ,(factpp-native-dir arch os))
+				:name (factpp-library-name arch os)
+				:type "jnilib")
+		 *load-pathname*))))
 
 (defsystem :owl2
   :name "OWL"
@@ -28,7 +61,7 @@
 	    :components
 	    ((:jar-file "org.semanticweb.HermiT.jar")
 	     (:jar-file "owlapi-bin.jar")
-	     (:jar-file "factplusplus-1.3.1.jar")
+	     (:jar-file "factplusplus-1.4.0.jar")
 	     (:jar-directory "pellet")
 	     (:jar-directory "prefuse")
 	     ))
