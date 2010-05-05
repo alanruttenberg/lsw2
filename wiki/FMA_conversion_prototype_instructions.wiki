@@ -54,7 +54,31 @@ Run the kidney conversion
 
 Will print some stuff. (setq *log-assertions* t) if you want to see more.
 
-After a few minutes:
+After a few minutes it will have written the following 6 files in the fma directory:
 
+<pre>
+-rw-r--r--  1 alanr  alanr    776907 May  5 13:26 kidney-partonomy-treeml.xml
+-rw-r--r--  1 alanr  alanr    108113 May  5 13:25 kidney-partonomy.owl
+-rw-r--r--  1 alanr  alanr  21074336 May  5 13:25 kidney-hierarchy-with-part-types-treeml.xml
+-rw-r--r--  1 alanr  alanr   1249887 May  5 13:22 kidney-hierarchy-with-part-types.owl
+-rw-r--r--  1 alanr  alanr   1531214 May  5 13:22 kidney-hierarchy-treeml.xml
+-rw-r--r--  1 alanr  alanr   1049349 May  5 13:21 kidney-hierarchy.owl
+</pre>
+
+The treeml.xml files are what are behind the web pages such as http://ashby.csail.mit.edu/treeview/kidney-partonomy.html
+
+There are three OWL files generated:
+
+  * kidney-hierarchy.owl - the hierarchy plus part relationships
+  * kidney-hierarchy-with-part-types.owl - the above plus classes "part some x" for all classes in the hierarchy. This file is used to derived the partonomy
+  * kidney-partonomy.owl - a derived partonomy - not that the subclass relations here mean "part" not "is_a" - this is for visualization.
+
+In the lisp environment these are bound to the variables k1, k2, k3, respectively.
+
+To browse the partonomy in lisp, 
+
+<pre>(show-classtree k3)</pre>
+
+Anything at the top level is probably something that needs to be repaired.
 
 
