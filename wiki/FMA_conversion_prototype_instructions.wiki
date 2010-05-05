@@ -20,7 +20,7 @@ get a version of the SQL dump of the FMA. Here's one, in protege 3.4 database fo
 
 <pre>wget http://dl.dropbox.com/u/4905123/fma_11-20-09_p3.4.zip</pre>
 
-Here's a later version in the earlier sql format (but a later version of fma)
+Here's a later version in the earlier sql format (but a later version of fma). Both load fine.
 
 <pre>wget http://dl.dropbox.com/u/4905123/fma_3_12_10.zip</pre>
 
@@ -42,11 +42,7 @@ Load the FMA code:
 
 Read in FMA
 
-if 3.4 compatible protege sql
 <pre>(read-fma-sql)</pre>
-
-if earlier format
-<pre>(read-fma-sql-old-style)</pre>
 
 Run the kidney conversion
 
@@ -80,5 +76,3 @@ To browse the partonomy in lisp,
 <pre>(show-classtree k3)</pre>
 
 Anything at the top level is probably something that needs to be repaired.
-
-
