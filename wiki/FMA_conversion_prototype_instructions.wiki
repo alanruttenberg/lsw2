@@ -1,0 +1,60 @@
+#summary How to run FMA experiments with Kidney
+
+= Introduction =
+
+These instruction explain how to run prototype code to convert aspects of the FMA into OWL
+
+
+= Installation =
+
+Assume are installing into ~/repos/
+
+<pre>
+cd ~/repos
+svn co https://lsw2.googlecode.com/svn/trunk lsw2
+cd lsw2
+svn co http://svn.neurocommons.org/svn/trunk/convert/fma
+</pre>
+
+get a version of the SQL dump of the FMA. Here's one, in protege 3.4 database format
+
+<pre>wget http://dl.dropbox.com/u/4905123/fma_11-20-09_p3.4.zip</pre>
+
+Here's a later version in the earlier sql format (but a later version of fma)
+
+<pre>wget http://dl.dropbox.com/u/4905123/fma_3_12_10.zip</pre>
+
+unzip it to get  fma_3_12_10.sql
+
+<pre>unzip fma_3_12_10.zip</pre>
+
+Start up lsw:
+
+<pre>bin/lsw</pre>
+
+Tell LSW where the sql is:
+
+<pre>(setq *fma-sql-path* "path to fma sql")</pre>
+
+Load the FMA code:
+
+<pre>(asdf::oos 'asdf::load-op 'fma2)</pre>
+
+Read in FMA
+
+if 3.4 compatible protege sql
+<pre>(read-fma-sql)</pre>
+
+if earlier format
+<pre>(read-fma-sql-old-style)</pre>
+
+Run the kidney conversion
+
+<pre>(kidney-experiment)</pre>
+
+Will print some stuff. (setq *log-assertions* t) if you want to see more.
+
+After a few minutes:
+
+
+
