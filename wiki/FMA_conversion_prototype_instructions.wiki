@@ -40,7 +40,7 @@ Load the FMA code:
 
 <pre>(asdf::oos 'asdf::load-op 'fma2)</pre>
 
-Read in FMA
+Read in FMA (use fma_11-20-09_p3.4.sql - there's a bug atm that I need to fix wrt to the newer one)
 
 <pre>(read-fma-sql)</pre>
 
