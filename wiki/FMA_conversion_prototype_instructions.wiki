@@ -20,13 +20,9 @@ get a version of the SQL dump of the FMA. Here's one, in protege 3.4 database fo
 
 <pre>wget http://dl.dropbox.com/u/4905123/fma_11-20-09_p3.4.zip</pre>
 
-Here's a later version in the earlier sql format (but a later version of fma). Both load fine.
+unzip it to get  fma_11-20-09_p3.4.sql
 
-<pre>wget http://dl.dropbox.com/u/4905123/fma_3_12_10.zip</pre>
-
-unzip it to get  fma_3_12_10.sql
-
-<pre>unzip fma_3_12_10.zip</pre>
+<pre>unzip fma_11-20-09_p3.4.zip</pre>
 
 Start up lsw:
 
@@ -40,7 +36,7 @@ Load the FMA code:
 
 <pre>(asdf::oos 'asdf::load-op 'fma2)</pre>
 
-Read in FMA (use fma_11-20-09_p3.4.sql - there's a bug atm that I need to fix wrt to the newer one)
+Read in FMA
 
 <pre>(read-fma-sql)</pre>
 
