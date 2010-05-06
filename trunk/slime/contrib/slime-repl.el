@@ -134,7 +134,7 @@
 
 (defun slime-repl-update-banner ()
   (funcall slime-repl-banner-function)
-  (goto-char (point-max))
+  (slime-move-point (point-max))
   (slime-mark-output-start)
   (slime-mark-input-start)
   (slime-repl-insert-prompt))
@@ -1426,7 +1426,7 @@ expansion will be added to the REPL's history.)"
 (defun slime-redirect-trace-output ()
   "Redirect the trace output to a separate Emacs buffer."
   (interactive)
-  (let ((buffer (get-buffer-create "*SLIME Trace Output*")))
+  (let ((buffer (get-buffer-create (slime-buffer-name :trace))))
     (with-current-buffer buffer
       (let ((marker (copy-marker (buffer-size)))
             (target (incf slime-last-output-target-id)))

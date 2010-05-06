@@ -1,3 +1,45 @@
+2010-05-05  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-dispatch-event): Fix typo in the previous commit.
+
+2010-05-05  Stas Boukarev  <stassats@gmail.com>
+
+	* Make buffer names more consistent.
+	Patch by Leo Liu.
+
+2010-05-05  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-cmucl.lisp (gdb-command): Use gdb's MI.
+
+2010-05-05  Mark Evenson <evenson@panix.com>
+
+	Fix for Cygwin Emacs filename problem.
+
+	* slime.el (slime-init-command): Use slime-to-lisp-filename.
+
+2010-05-05  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (sldb-exit): When stepping, close buffer after a delay.
+	(sldb-close-step-buffer): New function.
+
+2010-05-01  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-restart-sentinel): Don't pop to the inferior
+	buffer, since this command is usually run either from
+	*inferior-lisp* buffer or from REPL, it makes sense to reuse
+	current window instead of messing up window configuration.
+	(slime-move-point): New function, moves point in a buffer and
+	its window.
+
+2010-04-29  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-compile-file): Run check-parens after checking
+	that the buffer is associated with a file.
+
+2010-04-27  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-info): New function, opens the manual.
+
 2010-04-24  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (format-values-for-echo-area): Also print the length of an
