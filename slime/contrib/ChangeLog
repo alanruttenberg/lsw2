@@ -1,3 +1,26 @@
+2010-05-05  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-tramp.el (slime-tramp-to-lisp-filename): Check if slime is
+	connected, because slime-to-lisp-filename is now used for
+	establishing connection.
+
+2010-05-05  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-editing-commands.el: Fix typo.
+
+2010-05-01  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-fuzzy.el(slime-fuzzy-dehighlight-current-completion):
+	instead of creating new overlays, move one overlay around.
+	(slime-mimic-key-bindings): Renamed from mimic-key-bindings.
+	Patch by Leo Liu.
+
+2010-05-01  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-repl.el (slime-repl-update-banner): Use slime-move-point
+	instead of goto-char alone, ensuring that the point is moved even
+	if the window isn't currently selected.
+
 2010-04-18  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-presentations.el
