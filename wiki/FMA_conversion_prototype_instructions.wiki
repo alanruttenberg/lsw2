@@ -46,15 +46,20 @@ Run the kidney conversion
 
 Will print some stuff. `(setq *log-assertions* t)` if you want to see more.
 
-After a few minutes it will have written the following 6 files in the fma directory:
+After a few minutes it will have written the following 6 files, 3 in the owlfiles directory, and 3 in the treeviews directory:
 
 <code>
--rw-r--r--  1 alanr  alanr    776907 May  5 13:26 kidney-partonomy-treeml.xml
+ls -l owlfiles
+
 -rw-r--r--  1 alanr  alanr    108113 May  5 13:25 kidney-partonomy.owl
--rw-r--r--  1 alanr  alanr  21074336 May  5 13:25 kidney-hierarchy-with-part-types-treeml.xml
 -rw-r--r--  1 alanr  alanr   1249887 May  5 13:22 kidney-hierarchy-with-part-types.owl
--rw-r--r--  1 alanr  alanr   1531214 May  5 13:22 kidney-hierarchy-treeml.xml
 -rw-r--r--  1 alanr  alanr   1049349 May  5 13:21 kidney-hierarchy.owl
+
+ls -l treeviews
+
+-rw-r--r--  1 alanr  alanr    776907 May  5 13:26 kidney-partonomy-treeml.xml
+-rw-r--r--  1 alanr  alanr  21074336 May  5 13:25 kidney-hierarchy-with-part-types-treeml.xml
+-rw-r--r--  1 alanr  alanr   1531214 May  5 13:22 kidney-hierarchy-treeml.xml
 </code>
 
 The treeml.xml files are what are behind the web pages such as http://ashby.csail.mit.edu/treeview/kidney-partonomy.html
