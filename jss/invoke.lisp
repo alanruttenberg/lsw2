@@ -709,9 +709,13 @@
 	collect (next vector))))
 
 (eval '(defun hashmap-to-hashtable (hashmap &key (keyfun #'identity) (valfun #'identity) (invert? nil)
+				    table 
 			       &allow-other-keys &rest rest)
   (let ((keyset (#"keySet" hashmap))
-	(table (apply 'make-hash-table (remf :invert? (remf :valfun (remf :keyfun rest))))))
+	(table (or table (apply 'make-hash-table
+				(loop for (key value) on rest by #'cddr
+				   unless (member key '(:invert? :valfun :keyfun :table)) 
+				   collect key and collect value)))))
     (with-constant-signature ((iterator "iterator" t) (hasnext "hasNext") (next "next"))
       (loop with iterator = (iterator keyset)
 	 while (hasNext iterator)
