@@ -31,17 +31,40 @@
     (loop for type in types
 	 for found = (second (assoc type *inferred-axiom-types*))
 	 unless found do (error "don't know inferred axiom type ~a?")
-	 do (#"add" generators (print (new found))))
+	 do (#"add" generators (new found)))
     (unless (v3kb-reasoner source-ont) (instantiate-reasoner source-ont))
     (check-ontology source-ont)
-    (print-db generators)
     (let ((filler (new 'InferredOntologyGenerator (v3kb-reasoner source-ont) generators)))
       (#"fillOntology" filler manager inf-ont)
       inf-ont)))
 
+(defun test-inferred-axioms-1 ()
+  (with-ontology foo (:collecting t)
+      ((asq (declaration (class !a))
+	    (declaration (class !b))
+	    (declaration (class !c))
+	    (equivalent-classes !c (object-union-of !a !b))))
+    (check-ontology foo :classify t :reasoner :factpp)
+    (each-axiom (ontology-with-inferred-axioms foo :types '(:subclasses))
+		(lambda(e) (print (#"toString" e))))))
 
-
-
-
-
+(defun test-inferred-axioms-2 (&optional (reasoner :pellet))
+  (with-ontology foo (:collecting t)
+      ((asq (declaration (class !a))
+	    (declaration (object-property !p1))
+	    (declaration (object-property !p2))
+	    (object-property-range !p1 !a)
+	    (object-property-domain !p1 !a)
+	    (object-property-range !p2 !a)
+	    (object-property-domain !p2 !a)
+	    (declaration (named-individual !a1))
+	    (equivalent-classes !a (object-one-of !a1))
+	    (object-property-assertion !p1 !a1 !a1)
+	    (object-property-assertion !p2 !a1 !a1)
+	    ))
+    (check-ontology foo :classify t :reasoner reasoner)
+    (princ (to-owl-syntax foo :functional))
+    (each-axiom (ontology-with-inferred-axioms foo :types '(:equivalent-object-properties))
+		(lambda(e) (print (#"toString" e))))
+    ))
 
