@@ -708,7 +708,7 @@
      (loop while (hasmore vector)
 	collect (next vector))))
 
-(defun hashmap-to-hashtable (hashmap &key (keyfun #'identity) (valfun #'identity) (invert? nil)
+(eval '(defun hashmap-to-hashtable (hashmap &key (keyfun #'identity) (valfun #'identity) (invert? nil)
 			       &allow-other-keys &rest rest)
   (let ((keyset (#"keySet" hashmap))
 	(table (apply 'make-hash-table (remf :invert? (remf :valfun (remf :keyfun rest))))))
@@ -719,7 +719,7 @@
 	 do (if invert?
 		(setf (gethash (funcall valfun (#"get" hashmap item)) table) (funcall keyfun item))
 		(setf (gethash (funcall keyfun item) table) (funcall valfun (#"get" hashmap item)))))
-    table)))
+    table))))
 	   
 (defun jclass-all-interfaces (class)
   "Return a list of interfaces the class implements"
