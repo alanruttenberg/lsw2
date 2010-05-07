@@ -148,7 +148,7 @@
       (let ((it (new 'SimpleConfiguration (new 'owlapi.reasoner.ConsoleProgressMonitor) )))
 	it)))
 
-(defun instantiate-reasoner (ont reasoner &optional (profile nil))
+(defun instantiate-reasoner (ont  &optional (reasoner *default-reasoner*) (profile nil))
   (unless (v3kb-reasoner ont)
     (let* ((config (ecase reasoner 
 		     (:hermit (hermit-reasoner-config profile ont))
@@ -275,8 +275,10 @@
 			       ))))))
 
 (defun loaded-documents (kb)
-  (mapcar (lambda(e) (list (#"toString" (#"getOntologyDocumentIRI" (v3kb-manager kb) e)) (#"toString" (#"getOntologyIRI" (#"getOntologyID" e))) e))
-	  (set-to-list (#"getImportsClosure" (v3kb-ont kb)))))
+  (let ((manager (if (v3kb-p kb) (v3kb-manager kb) (#"getOWLOntologyManager" kb)))
+	(ont (if (v3kb-p kb) (v3kb-ont kb)  kb)))
+    (mapcar (lambda(e) (list (#"toString" (#"getOntologyDocumentIRI" manager e)) (#"toString" (#"getOntologyIRI" (#"getOntologyID" e))) e))
+	    (set-to-list (#"getImportsClosure" ont)))))
 
 (defun unsatisfiable-classes (kb)
   (loop for c in (set-to-list (#"getEntitiesMinusBottom" (#"getUnsatisfiableClasses" (v3kb-reasoner kb))))
@@ -426,8 +428,29 @@
   (setq path (namestring (translate-logical-pathname path)))
   (to-owl-syntax ont :rdfxml path))
 
-;; this isn't quite right yet - for obi breaks for ro, and IAO. Need to account for versionIRI, at least.
-(defun save-ontology-and-imports-locally (ontology directory &key dont-wget)
+;; e.g.
+
+;; (save-ontology-and-imports-locally "http://purl.obolibrary.org/obo/obi.owl" "/Users/alanr/Desktop/save/")
+
+;; Saves the ontology named at the top level of the directory, and the
+;; rest of the imported ontologies in directories that mirror the url
+;; path - host/dir/dir (ensuring there aren't collisions) Builds a
+;; protege 4.1 friendly catalog-v0001.xml file so that protege knows
+;; where all the files are.
+
+;; Only subtlety is that sometimes the ontology imported doesn't have
+;; the same URI as the one requested. In order to handle this, the
+;; ontology manager is examined and a map from actual loaded ontology
+;; to request ontology is built.  When saving the catalog we also
+;; include an entry for the ontology *named* in the import.
+
+;; Note that this calls out to the shell for wget to do the
+;; fetching. Use :wget-command <path-to-wget> to specify where it
+;; is. Unfortunately as we specify where to save the files, wget won't
+;; do mirroring, so this will need to be replaced by code that does do
+;; mirroring so that we can do a saner update when necessary.
+
+(defun save-ontology-and-imports-locally (ontology directory &key dont-wget (wget-command "/sw/bin/wget"))
   (let ((top-uri (if (stringp ontology) ontology (v3kb-name ontology)))
 	(ontology (setq @ (if (v3kb-p ontology) ontology (load-ontology ontology)))))
     (ensure-directories-exist directory)
@@ -436,7 +459,7 @@
 	 for partial-path = (if (equal ontology-iri top-uri)
 				(#"replaceAll" ontology-iri "^.*[#/]" "")
 				(#"replaceAll" ontology-iri "^.*//" ""))
-	 for fetch-cmd = (format nil "cd ~s ; /sw/bin/wget --mirror --level=1 --output-document ~s   ~s" directory partial-path source)
+	 for fetch-cmd = (format nil "cd ~s ; ~a --output-document ~s   ~s" directory wget-command partial-path source)
 	 do (princ fetch-cmd)
 	   (hashmap-to-hashtable
 			     (get-java-field (#"getOWLOntologyManager" ont) "ontologyIDsByImportsDeclaration" t)
@@ -511,6 +534,23 @@
 	(subclass-of !b !c)))
     foo))
 	       
+;; Call fn on each axiom in the ontology (include-imports-closure -> t to include the imports closure)
+
+(defun each-axiom (ont fn &optional include-imports-closure)
+  (declare (optimize (speed 3) (safety 0)))
+  (let* ((ont (if (v3kb-p ont) (v3kb-ont ont) ont))
+	 (onts (if include-imports-closure
+		   (set-to-list (#"getImportsClosure" ont))
+		   (list ont))))
+    (with-constant-signature ((iterator "iterator" t) (hasnext "hasNext") (next "next"))
+      (loop for one in onts
+	   do
+	   (loop with iterator = (iterator (#"getAxioms" one))
+	      while (hasNext iterator)
+	      for item = (next iterator)
+	      do (funcall fn  item))))))
+    
+
 
 ;; (sparql '(:select (?class ?label) () (?class !rdfs:subClassOf (!oborel:has_participant some !<http://purl.org/obo/owl/PRO#submitted_irf7pirf7p>))
 ;;		   (?class !rdfs:label ?label))

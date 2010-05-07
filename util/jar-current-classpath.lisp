@@ -1,6 +1,6 @@
 (defun make-jar-manifest (main-class)
   (let* ((contents (format nil "Manifest-Version: 1.0!%~%Main-Class: ~a~%" main-class) )
-	 (is (new 'ByteArrayInputStream (#"getBytes" contents "UTF-8"))))
+	 (is (new 'java.io.ByteArrayInputStream (#"getBytes" contents "UTF-8"))))
     (new 'java.util.jar.Manifest is)))
 
 (defun jar-merge (out &key dont-include-jar dont-include-entry in)

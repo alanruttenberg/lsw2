@@ -1,7 +1,10 @@
 (loop for sym in 
      '("DEF-TEST-FIXTURE" "SETUP" "TEARDOWN" "FAILURE" "MAKE-TEST-SUITE" "MAKE-TEST-CASE" "TEST-SUITE" "ADD-TEST"
        "REPORT-RESULT" "RUN-TEST")
-     do (shadowing-import (intern sym 'xp-test)))
+     do
+     (when (find-symbol sym)
+       (unintern (find-symbol sym)))
+     (shadowing-import (intern sym 'xp-test)))
 
 (defmacro simple-test-suite (name description fixture &rest tests)
   `(let ((suite (make-instance 'test-suite :name ,name :description ,description)))

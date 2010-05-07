@@ -64,7 +64,7 @@
 	   (objectpropertyassertion object-property-assertion)
 	   (objectpropertychain object-property-chain)
 	   (objectpropertydomain object-property-domain)
-	   (objectpropertyrange object-propertyrange)
+	   (objectpropertyrange object-property-range)
 	   (objectsomevaluesfrom object-some-values-from)
 	   (objectunionof object-union-of)
 	   (ontology ontology)

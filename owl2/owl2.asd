@@ -87,6 +87,7 @@
 	     (:file "sparql")
 	     (:file "graph")
 	     (:file "weaken")
+	     (:file "inferred-axioms")
 	     (:file "parse-functional-syntax")
 	     (:file "terminal-alternate-symbols"))
 	    :depends-on (matcher basics)
