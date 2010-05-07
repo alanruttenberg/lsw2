@@ -16,8 +16,9 @@
     :components
     ((:module jars 
 	      :serial t
+	      :pathname ""
 	      :components
-	      ((:jar-directory "poi-3-5-FINAL" :pathname "read-ms-docs:")))
+	      ((:jar-directory "poi-3-5-FINAL")))
      (:module files :pathname ""
 	      :depends-on (jars)
 	      :components
