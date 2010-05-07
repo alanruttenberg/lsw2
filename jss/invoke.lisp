@@ -708,6 +708,19 @@
      (loop while (hasmore vector)
 	collect (next vector))))
 
+(defun hashmap-to-hashtable (hashmap &key (keyfun #'identity) (valfun #'identity) (invert? nil)
+			       &allow-other-keys &rest rest)
+  (let ((keyset (#"keySet" hashmap))
+	(table (apply 'make-hash-table (remf :invert? (remf :valfun (remf :keyfun rest))))))
+    (with-constant-signature ((iterator "iterator" t) (hasnext "hasNext") (next "next"))
+      (loop with iterator = (iterator keyset)
+	 while (hasNext iterator)
+	 for item = (next iterator)
+	 do (if invert?
+		(setf (gethash (funcall valfun (#"get" hashmap item)) table) (funcall keyfun item))
+		(setf (gethash (funcall keyfun item) table) (funcall valfun (#"get" hashmap item)))))
+    table)))
+	   
 (defun jclass-all-interfaces (class)
   "Return a list of interfaces the class implements"
   (unless (java-object-p class)
