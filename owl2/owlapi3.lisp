@@ -275,7 +275,7 @@
 			       ))))))
 
 (defun loaded-documents (kb)
-  (mapcar (lambda(e) (#"toString" (#"getOntologyDocumentIRI" (v3kb-manager kb) e)))
+  (mapcar (lambda(e) (list (#"toString" (#"getOntologyDocumentIRI" (v3kb-manager kb) e)) (#"toString" (#"getOntologyIRI" (#"getOntologyID" e))) e))
 	  (set-to-list (#"getImportsClosure" (v3kb-ont kb)))))
 
 (defun unsatisfiable-classes (kb)
@@ -405,7 +405,7 @@
 
 (defun to-jena-model (kb)
   (let ((model (#"createDefaultModel" 'com.hp.hpl.jena.rdf.model.ModelFactory)))
-    (loop for source in (loaded-documents kb)
+    (loop for (source) in (loaded-documents kb)
        do
        (if (or (search "inputstream" source)
 	       (search "owlapi:" source)) ;; assume the only such one is the kb itself
@@ -426,6 +426,43 @@
   (setq path (namestring (translate-logical-pathname path)))
   (to-owl-syntax ont :rdfxml path))
 
+;; this isn't quite right yet - for obi breaks for ro, and IAO. Need to account for versionIRI, at least.
+(defun save-ontology-and-imports-locally (ontology directory &key dont-wget)
+  (let ((top-uri (if (stringp ontology) ontology (v3kb-name ontology)))
+	(ontology (setq @ (if (v3kb-p ontology) ontology (load-ontology ontology)))))
+    (ensure-directories-exist directory)
+    (let ((imported->import (make-hash-table :test 'equal)))
+      (loop for (source ontology-iri ont) in (loaded-documents ontology)
+	 for partial-path = (if (equal ontology-iri top-uri)
+				(#"replaceAll" ontology-iri "^.*[#/]" "")
+				(#"replaceAll" ontology-iri "^.*//" ""))
+	 for fetch-cmd = (format nil "cd ~s ; /sw/bin/wget --mirror --level=1 --output-document ~s   ~s" directory partial-path source)
+	 do (princ fetch-cmd)
+	   (hashmap-to-hashtable
+			     (get-java-field (#"getOWLOntologyManager" ont) "ontologyIDsByImportsDeclaration" t)
+			     :invert? t
+			     :keyfun (lambda(e) (#"toString" (#"getURI" e)))
+			     :valfun (lambda(e) (#"toString" (#"getOntologyIRI" e)))
+			     :table imported->import
+			     :test 'equal)
+	 (terpri)
+	 (ensure-directories-exist (format nil "~a~a" directory partial-path))
+	 (unless dont-wget (run-shell-command fetch-cmd))
+	 (sleep .01))
+      (with-open-file (f (merge-pathnames "catalog-v001.xml" directory) :if-does-not-exist :create :direction :output :if-exists :supersede)
+	(format f "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>~%")
+	(format f "<catalog prefer=\"public\" xmlns=\"urn:oasis:names:tc:entity:xmlns:xml:catalog\">~%")
+	(loop for (nil ontology-iri) in (loaded-documents ontology)
+	   for partial-path = (if (equal ontology-iri top-uri)
+				  (#"replaceAll" ontology-iri "^.*[#/]" "")
+				  (#"replaceAll" ontology-iri "^.*//" ""))
+	   do
+	   (format f "  <uri name=~s uri =~s/>~%" ontology-iri partial-path)
+	   (when (not (equal (gethash ontology-iri imported->import) ontology-iri))
+	     (when (gethash ontology-iri imported->import)
+	       (format f "  <uri name=~s uri =~s/>~%" (gethash ontology-iri imported->import) partial-path))))
+	(format f "</catalog>~%")
+	))))
 
 (defun classtree-depth (kb &aux (maxdepth 0))
   (labels ((each-node (c depth)
