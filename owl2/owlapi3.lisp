@@ -41,7 +41,7 @@
   (cond ((and (stringp thing) (not (consp (pathname-host thing))) (probe-file thing))
 	 (#"create" 'org.semanticweb.owlapi.model.IRI (new 'java.io.file thing)))
 	((stringp thing)
-	 (#"create" 'org.semanticweb.owlapi.model.IRI thing))
+	 (#"create" 'org.semanticweb.owlapi.model.IRI (coerce thing 'simple-base-string))) ; yuck!!
 	((uri-p thing)
 	 (to-iri (uri-full thing)))
 	((and (java-object-p thing)
@@ -68,7 +68,7 @@
       (setq uri source)
       (when (and (not (consp (pathname-host uri))) (probe-file uri))
 	(let ((dir (make-pathname :directory (pathname-directory uri))))
-	  (setq mapper (new 'AutoIRIMapper (new 'java.io.file (namestring dir)) t))
+	  (setq mapper (uri-mapper-for-source source))
 	  ;(setq uri (format nil "file://~a" (truename uri)))
 	  ;(list (length (set-to-list (#"getOntologyIRIs" mapper))) uri)
 	  )))
@@ -427,65 +427,6 @@
 					 "\\..*?$" "")))))
   (setq path (namestring (translate-logical-pathname path)))
   (to-owl-syntax ont :rdfxml path))
-
-;; e.g.
-
-;; (save-ontology-and-imports-locally "http://purl.obolibrary.org/obo/obi.owl" "/Users/alanr/Desktop/save/")
-
-;; Saves the ontology named at the top level of the directory, and the
-;; rest of the imported ontologies in directories that mirror the url
-;; path - host/dir/dir (ensuring there aren't collisions) Builds a
-;; protege 4.1 friendly catalog-v0001.xml file so that protege knows
-;; where all the files are.
-
-;; Only subtlety is that sometimes the ontology imported doesn't have
-;; the same URI as the one requested. In order to handle this, the
-;; ontology manager is examined and a map from actual loaded ontology
-;; to request ontology is built.  When saving the catalog we also
-;; include an entry for the ontology *named* in the import.
-
-;; Note that this calls out to the shell for wget to do the
-;; fetching. Use :wget-command <path-to-wget> to specify where it
-;; is. Unfortunately as we specify where to save the files, wget won't
-;; do mirroring, so this will need to be replaced by code that does do
-;; mirroring so that we can do a saner update when necessary.
-
-(defun save-ontology-and-imports-locally (ontology directory &key dont-wget (wget-command "/sw/bin/wget"))
-  (let ((top-uri (if (stringp ontology) ontology (v3kb-name ontology)))
-	(ontology (setq @ (if (v3kb-p ontology) ontology (load-ontology ontology)))))
-    (ensure-directories-exist directory)
-    (let ((imported->import (make-hash-table :test 'equal)))
-      (loop for (source ontology-iri ont) in (loaded-documents ontology)
-	 for partial-path = (if (equal ontology-iri top-uri)
-				(#"replaceAll" ontology-iri "^.*[#/]" "")
-				(#"replaceAll" ontology-iri "^.*//" ""))
-	 for fetch-cmd = (format nil "cd ~s ; ~a --output-document ~s   ~s" directory wget-command partial-path source)
-	 do (princ fetch-cmd)
-	   (hashmap-to-hashtable
-			     (get-java-field (#"getOWLOntologyManager" ont) "ontologyIDsByImportsDeclaration" t)
-			     :invert? t
-			     :keyfun (lambda(e) (#"toString" (#"getURI" e)))
-			     :valfun (lambda(e) (#"toString" (#"getOntologyIRI" e)))
-			     :table imported->import
-			     :test 'equal)
-	 (terpri)
-	 (ensure-directories-exist (format nil "~a~a" directory partial-path))
-	 (unless dont-wget (run-shell-command fetch-cmd))
-	 (sleep .01))
-      (with-open-file (f (merge-pathnames "catalog-v001.xml" directory) :if-does-not-exist :create :direction :output :if-exists :supersede)
-	(format f "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>~%")
-	(format f "<catalog prefer=\"public\" xmlns=\"urn:oasis:names:tc:entity:xmlns:xml:catalog\">~%")
-	(loop for (nil ontology-iri) in (loaded-documents ontology)
-	   for partial-path = (if (equal ontology-iri top-uri)
-				  (#"replaceAll" ontology-iri "^.*[#/]" "")
-				  (#"replaceAll" ontology-iri "^.*//" ""))
-	   do
-	   (format f "  <uri name=~s uri =~s/>~%" ontology-iri partial-path)
-	   (when (not (equal (gethash ontology-iri imported->import) ontology-iri))
-	     (when (gethash ontology-iri imported->import)
-	       (format f "  <uri name=~s uri =~s/>~%" (gethash ontology-iri imported->import) partial-path))))
-	(format f "</catalog>~%")
-	))))
 
 (defun classtree-depth (kb &aux (maxdepth 0))
   (labels ((each-node (c depth)
