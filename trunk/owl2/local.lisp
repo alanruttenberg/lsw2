@@ -96,3 +96,15 @@
        finally (return mapper))))
 	 
 ; (uri-mapper-from-xml-catalog "/Users/alanr/Desktop/save/catalog-v001.xml")
+
+(defun uri-mapper-for-source (source)
+  (cond ((and (uri-p source) (#"matches" (uri-full source) "^file:"))
+	 (setq source (#"replaceAll" (uri-full source) "^file:/*" "/"))))
+  (when (and (not (consp (pathname-host source)))
+	     (probe-file source))
+    (let ((catalog (merge-pathnames "catalog-v001.xml" source)))
+      (if (probe-file catalog)
+	  (uri-mapper-from-xml-catalog catalog)
+	  (new 'AutoIRIMapper (new 'java.io.file (print (namestring (truename (make-pathname :directory (pathname-directory source)))))) t)))))
+
+
