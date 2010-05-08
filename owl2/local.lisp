@@ -87,12 +87,12 @@
        with dir = (namestring (make-pathname :directory (pathname-directory catalog)))
        with mapper = (new 'OWLOntologyIRIMapperImpl)
        for el in (find-elements-with-tag (xmls::parse f) "uri")
-       for uri = (attribute-named el "uri")
-       for name = (attribute-named el "name")
-       for physical-uri = (if (find #\: uri) uri (format nil "file:~a~a" dir uri))
+       for uri = (coerce (attribute-named el "uri") 'simple-base-string)
+       for name = (coerce (attribute-named el "name") 'simple-base-string)
+       for physical-uri = (if (find #\: uri) uri (format nil "file://~a~a" dir uri))
        when (and uri name)
        do 
-       (#"addMapping" mapper (to-iri name) (to-iri physical-uri))
+       (#"addMapping" mapper (#"create" 'org.semanticweb.owlapi.model.IRI name) (#"create" 'org.semanticweb.owlapi.model.IRI physical-uri))
        finally (return mapper))))
 	 
 ; (uri-mapper-from-xml-catalog "/Users/alanr/Desktop/save/catalog-v001.xml")
@@ -105,6 +105,6 @@
     (let ((catalog (merge-pathnames "catalog-v001.xml" source)))
       (if (probe-file catalog)
 	  (uri-mapper-from-xml-catalog catalog)
-	  (new 'AutoIRIMapper (new 'java.io.file (print (namestring (truename (make-pathname :directory (pathname-directory source)))))) t)))))
+	  (new 'AutoIRIMapper (new 'java.io.file (namestring (truename (make-pathname :directory (pathname-directory source))))) t)))))
 
 
