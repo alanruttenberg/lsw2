@@ -88,6 +88,7 @@
 	     (:file "graph")
 	     (:file "weaken")
 	     (:file "local")
+	     (:file "module")
 	     (:file "inferred-axioms")
 	     (:file "parse-functional-syntax")
 	     (:file "terminal-alternate-symbols"))
