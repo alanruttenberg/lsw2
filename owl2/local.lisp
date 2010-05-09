@@ -56,7 +56,7 @@
 	       (format f "  <uri name=~s uri =~s/>~%" (gethash ontology-iri imported->import) partial-path))))
 	(format f "</catalog>~%")
 	))))
-(defun mapper-from-catalog ()
+
   ;; e.g.
 
 ;; (save-ontology-and-imports-locally "http://purl.obolibrary.org/obo/obi.owl" "/Users/alanr/Desktop/save/")

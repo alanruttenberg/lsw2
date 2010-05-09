@@ -24,6 +24,22 @@
 				   collect found)
 			      body)))))))
 
+(defun owl-declaration-type (declaration-axiom)
+  (let ((class (jobject-class (#"getEntity" declaration-axiom))))
+    (cond ((equal class (load-time-value (find-java-class "uk.ac.manchester.cs.owl.owlapi.OWLAnnotationPropertyImpl")))
+	   :annotation-property)
+	  ((equal class (load-time-value (find-java-class "uk.ac.manchester.cs.owl.owlapi.OWLObjectPropertyImpl")))
+	   :object-property)
+	  ((equal class (load-time-value (find-java-class "uk.ac.manchester.cs.owl.owlapi.OWLDataPropertyImpl")))
+	   :data-property)
+	  ((equal class (load-time-value (find-java-class "uk.ac.manchester.cs.owl.owlapi.OWLClassImpl")))
+	   :class)
+	  ((equal class (load-time-value (find-java-class "uk.ac.manchester.cs.owl.owlapi.OWLNamedIndividualImpl")))
+	   :individual)
+	  ((equal class (load-time-value (find-java-class "uk.ac.manchester.cs.owl.owlapi.OWLDatatypeImpl")))
+	   :datatype)
+	  (t (error "don't know what kind of declaration for ~a" (#"toString" declaration-axiom))))))
+
 (defun remove-axiom (axiom ont)
   (let ((changes (or (v3kb-changes ont) (setf (v3kb-changes ont) (new 'arraylist)))))
     (#"addAll" changes (#"removeAxiom" (v3kb-manager ont) (v3kb-ont ont) axiom))))
@@ -63,3 +79,27 @@
 	(setf (v3kb-changes (or target ont)) nil)))
     (or target ont)))
 
+(defun weaken-remove-data-property-assertions (ont &optional new-ontology-name)
+  (let ((target (and new-ontology-name
+		     (let* ((manager (#"createOWLOntologyManager" 'OWLManager))
+			    (ontology (#"createOntology" manager)))
+		       (make-v3kb :name new-ontology-name
+				  :manager manager
+				  :ont ontology
+				  :datafactory (#"getOWLDataFactory" manager)
+				  :weakened-from ont)))))
+    (unwind-protect
+	 (each-axiom
+	  ont
+	  (lambda(axiom)
+	    (axiom-typecase axiom
+	      (DataPropertyAssertion
+	       (format t ".")
+	       (remove-axiom axiom ont))
+	      (otherwise (print (#"toString" axiom)))
+	      ))
+	  t)
+      (unwind-protect (and (v3kb-changes (or target ont))
+			   (#"applyChanges"  (v3kb-manager (or target ont)) (v3kb-changes (or target ont))))
+	(setf (v3kb-changes (or target ont)) nil)))
+    (or target ont)))
