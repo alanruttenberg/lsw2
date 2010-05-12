@@ -3,7 +3,7 @@
 	 (is (new 'java.io.ByteArrayInputStream (#"getBytes" contents "UTF-8"))))
     (new 'java.util.jar.Manifest is)))
 
-(defun jar-merge (out &key dont-include-jar dont-include-entry in)
+(defun jar-merge (out &key dont-include-jar dont-include-entry in extra)
   (let ((out (new 'JarOutputStream (new 'FileOutputStream (namestring (translate-logical-pathname out)))
 		  (make-jar-manifest "org.armedbear.lisp.Main")))
 	(already (make-hash-table :test 'equal)))
@@ -39,12 +39,19 @@
 		 do (#"write" out buffer 0 n))
 	      (#"closeEntry" out)
 	      (#"close" in-stream))))
-      (#"close" out))))
+      (#"close" out)))
+  (when extra
+    (let ((extra-cmd (format nil "jar uf ~a~{ -C ~a ~a~}" out extra)))
+      (print extra-cmd)
+      (run-shell-command extra)))
+  )
 
-'(jar-merge "/Users/alanr/Desktop/test.jar"
+(jar-merge "/Users/alanr/Desktop/test.jar"
        :dont-include-jar '("owlapi-src")
        :dont-include-entry '("org/armedbear/lisp/system.lisp")
-       :in (append (split-at-char (#"getProperty" 'System "java.class.path") #\:) *added-to-classpath*))
+       :in (append (split-at-char (#"getProperty" 'System "java.class.path") #\:) *added-to-classpath*)
+       :extra '("/Users/alanr/repos/lsw2/trunk/jss/" "org/armedbear/lisp/system.lisp")
+  )
 
 ; jar uf ~/Desktop/lsw.jar -C testlsw lsw -C testlsw org/armedbear/lisp/system.lisp -C testlsw log4j.properties
 
