@@ -124,9 +124,14 @@
 	 (declare (ignorable *default-kb* ))
 	 ,@body))))
 
-;; (defmethod print-object ((obj (jclass "org.semanticweb.HermiT.Reasoner")) stream) 
-;;   (print-unreadable-object (obj stream :identity t)
-;;     (format stream "org.semanticweb.HermiT.Reasoner")))
+(if (#"getBaseLoader" *classpath-manager*)
+    (defmethod print-object ((obj (jclass "org.semanticweb.HermiT.Reasoner" (#"getBaseLoader" *classpath-manager*))) stream) 
+      (print-unreadable-object (obj stream :identity t)
+	(format stream "org.semanticweb.HermiT.Reasoner"))))
+
+(defmethod print-object ((obj (jclass "java.lang.Class")) stream) 
+  (print-unreadable-object (obj stream :identity t)
+    (format stream "java class ~a" (jclass-name obj))))
 
 (defun pellet-reasoner-config ()
   (let ((standard (new 'SimpleConfiguration))

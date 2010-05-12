@@ -455,22 +455,26 @@
 	  (ignore-errors (jclass (maybe-resolve-class-against-imports name))))
     (jclass (maybe-resolve-class-against-imports name))))
 
+(defmethod print-object ((obj (jclass "java.lang.Class")) stream) 
+  (print-unreadable-object (obj stream :identity t)
+    (format stream "java class ~a" (jclass-name obj))))
+
 (defun do-auto-imports ()
   (flet ((import-class-path (cp)
 	   (map nil
 		(lambda(s) 
-		  (setq s (#"toString" s))
+		  (setq s (jcall "toString" s))
 		  (when *load-verbose*
 		    (format t ";Importing ~a~%" s))
 		  (cond 
 		    ((file-directory-p s) )
 		    ((equal (pathname-type s) "jar")
-		     (jar-import (#"toString" s)))))
+		     (jar-import (merge-pathnames (jcall "toString" s) (format nil "~a/" (jstatic "getProperty" "java.lang.System" "user.dir")))))))
 		
-		(#"split" cp (string (#"peekStatic" '|jsint.Invoke| (jclass "java.io.File") "pathSeparatorChar")))
+		(jcall "split" cp (string (jstatic "peekStatic" '|jsint.Invoke| (jclass "java.io.File") "pathSeparatorChar")))
 		)))
-    (import-class-path (#"getClassPath" (#"getRuntimeMXBean" '|java.lang.management.ManagementFactory|)))
-    (import-class-path (#"getBootClassPath" (#"getRuntimeMXBean" '|java.lang.management.ManagementFactory|)))
+    (import-class-path (jcall "getClassPath" (jstatic "getRuntimeMXBean" '|java.lang.management.ManagementFactory|)))
+    (import-class-path (jcall "getBootClassPath" (jstatic "getRuntimeMXBean" '|java.lang.management.ManagementFactory|)))
     ))
 
 (eval-when (:load-toplevel :execute)
@@ -794,6 +798,7 @@
 
 (in-package :asdf)
 
+
 (defclass jar-directory (static-file) ())
 
 (defmethod perform ((operation compile-op) (c jar-directory))
@@ -805,7 +810,8 @@
     (cl-user::add-directory-jars-to-class-path (truename (component-pathname c)) t)))
 
 (defmethod operation-done-p ((operation load-op) (c jar-directory))
-  (not (cl-user::need-to-add-directory-jar? (component-pathname c) t)))
+  (or cl-user::*inhibit-add-to-classpath*
+    (not (cl-user::need-to-add-directory-jar? (component-pathname c) t))))
 
 (defmethod operation-done-p ((operation compile-op) (c jar-directory))
   t)
@@ -816,10 +822,12 @@
   (cl-user::add-to-classpath (component-pathname c)))
 
 (defmethod perform ((operation load-op) (c jar-file))
-  (cl-user::add-to-classpath (component-pathname c)))
+  (or cl-user::*inhibit-add-to-classpath*
+      (cl-user::add-to-classpath (component-pathname c))))
 
 (defmethod operation-done-p ((operation load-op) (c jar-file))
-  (member (namestring (truename (component-pathname c))) cl-user::*added-to-classpath* :test 'equal))
+  (or cl-user::*inhibit-add-to-classpath*
+      (member (namestring (truename (component-pathname c))) cl-user::*added-to-classpath* :test 'equal)))
 
 (defmethod operation-done-p ((operation compile-op) (c jar-file))
   t)

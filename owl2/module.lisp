@@ -50,6 +50,5 @@
 (defun test-make-ndpo-module ()
   ;(save-ontology-and-imports-locally "http://ccdb.ucsd.edu/NDPO/1.0/NDPO.owl" "/Users/alanr/Desktop/save/")
   (setq ndpo (load-ontology "/Users/alanr/Desktop/save/NDPO.owl"))
-  (trimmed-imports-module ndpo !obo:ndpo/dev/module.owl :dest "/Users/alanr/Desktop/ndpo-module.owl"
-			  :include-data-properties nil))
+  (trimmed-imports-module ndpo !obo:ndpo/dev/module.owl :dest "/Users/alanr/Desktop/ndpo-module.owl"))
 

@@ -259,6 +259,9 @@
 		  list))))
 
 (defmethod oinspect-data ((inspector t) (list list))
+  (if (cdr (last list))
+      (setq list (append (butlast list) (list (car (last list)) (cdr (last list)))))
+      list)
   (let ((i -1))
     (cons '("Element")
 	  (mapcar #'(lambda (elt)
