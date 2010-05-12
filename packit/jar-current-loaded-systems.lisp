@@ -81,8 +81,8 @@
 
 (asdf::oos 'asdf::load-op 'ido)
 
-(defun jar-current-loaded-systems (dest topdir)
-  (ensure-directories-exist dest)
+(defun jar-current-loaded-systems (destdir destjar topdir)
+  (ensure-directories-exist destdir)
   (setq topdir (cdr (pathname-directory topdir)))
   (flet ((trim-trailing-slash  (e)
 	   (jcall "replaceFirst"  (namestring (truename e)) "(.*)/" "$1")))
@@ -95,7 +95,7 @@
 		      (trimmed-sourcedir (make-pathname :directory `(:relative ,@(subseq (pathname-directory where-is-source)
 											 (+ (search topdir (pathname-directory where-is-source) :test 'equalp)
 											    (length topdir))))))
-		      (asdf-dest (merge-pathnames (merge-pathnames trimmed-sourcedir dest) source-asdf))
+		      (asdf-dest (merge-pathnames (merge-pathnames trimmed-sourcedir destdir) source-asdf))
 		      (trimmed-binary-dir 
 		       (make-pathname :directory `(:absolute ,@(subseq (pathname-directory where-is-binary)
 								       1
@@ -108,7 +108,7 @@
 		      (cp-binary-cmd (and (probe-file trimmed-binary-dir)
 					  (format nil "rsync -r ~a ~a"
 						  (trim-trailing-slash trimmed-binary-dir)
-						  (namestring dest)))))
+						  (namestring destdir)))))
 		 '(print-db topdir trimmed-sourcedir source-asdf asdf-dest trimmed-binary-dir
 		   cp-asdf-cmd
 		   cp-binary-cmd)
@@ -119,10 +119,12 @@
 		 (print cp-asdf-cmd)
 		 (run-shell-command cp-asdf-cmd)))
 	     asdf::*defined-systems*)
-    (let ((jar-cmd (format nil "cd ~a; jar cf ../jar2go.jar ." (namestring (truename dest)))))
+    (let ((jar-cmd (format nil "cd ~a; jar cf ~a ." destjar (namestring (truename destdir)))))
       (print jar-cmd)
       (run-shell-command jar-cmd)
       )))
+
+;(jar-current-loaded-systems "/Users/alanr/Desktop/jar2go/"  "/Users/alanr/Desktop/ido.jar" "/Users/alanr/repos/")
 
 #|
 (defun copy-current-loaded-systems (dest)
