@@ -18,7 +18,7 @@
 	      :serial t
 	      :pathname ""
 	      :components
-	      ((:jar-directory "poi-3-5-FINAL")))
+	      ((:jar-directory "apache-poi")))
      (:module files :pathname ""
 	      :depends-on (jars)
 	      :components
