@@ -25,11 +25,13 @@
 	(ontology (setq @ (if (v3kb-p ontology) ontology (load-ontology ontology)))))
     (ensure-directories-exist directory)
     (let ((imported->import (make-hash-table :test 'equal)))
-      (loop for (source ontology-iri ont) in (loaded-documents ontology)
+      (loop
+	 with result-code
+	 for (source ontology-iri ont) in (loaded-documents ontology)
 	 for partial-path = (if (equal ontology-iri top-uri)
 				(#"replaceAll" ontology-iri "^.*[#/]" "")
 				(#"replaceAll" ontology-iri "^.*//" ""))
-	 for fetch-cmd = (format nil "cd ~s ; ~a --output-document ~s   ~s" directory wget-command partial-path source)
+	 for fetch-cmd = (format nil "cd ~s ; ~a --output-document ~s   ~s" (namestring directory) wget-command partial-path source)
 	 do (princ fetch-cmd)
 	   (hashmap-to-hashtable
 			     (get-java-field (#"getOWLOntologyManager" ont) "ontologyIDsByImportsDeclaration" t)
@@ -40,7 +42,11 @@
 			     :test 'equal)
 	 (terpri)
 	 (ensure-directories-exist (format nil "~a~a" directory partial-path))
-	 (unless dont-wget (run-shell-command fetch-cmd))
+	 (unless dont-wget
+	   (setq result-code (run-shell-command fetch-cmd))
+	   (when (not (zerop result-code))
+	     (error "Wget returned an error: ~a" result-code)
+	     (exit result-code)))
 	 (sleep .01))
       (with-open-file (f (merge-pathnames "catalog-v001.xml" directory) :if-does-not-exist :create :direction :output :if-exists :supersede)
 	(format f "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>~%")
@@ -56,6 +62,11 @@
 	       (format f "  <uri name=~s uri =~s/>~%" (gethash ontology-iri imported->import) partial-path))))
 	(format f "</catalog>~%")
 	))))
+
+(defun wget-executable ()
+  (let ((it (#"replaceAll" (with-output-to-string (s) (run-shell-command "which wget" :output s))
+		 "(.*?)\\s*$" "$1")))
+    (if (equal it "") nil it)))
 
   ;; e.g.
 
