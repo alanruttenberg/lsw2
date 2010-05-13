@@ -124,7 +124,7 @@
 	(equivalents-seen (make-hash-table :test 'equalp))
 	(labels (and use-labels (rdfs-labels kb)))
 	(treekb (if inferred kb (weaken-to-only-subclasses kb 'treekb))))
-    (instantiate-reasoner treekb :pellet nil)
+    (instantiate-reasoner treekb)
 
     ;; accessors for subclasses and instances of a node. Take care here if we are using inferred or uninferred
     (flet ((satisfiable-children (node)
