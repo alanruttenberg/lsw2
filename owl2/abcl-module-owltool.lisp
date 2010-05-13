@@ -26,16 +26,24 @@ will show the ontology as told - without classification.
 
 Example: -treeview http://purl.obolibrary.org/obo/iao.owl" *usage*)
 
+(push "-check <ontology-uri> [-pellet|-fact++|-hermit] 
 
-(defun usage (&optional force)
+Does a consistency check, reports the result. If consistent classifies the ontology
+and reports whether there are any unsatisfiable classes.
+
+Examples:
+ -check http://purl.obolibrary.org/obo/iao.owl
+ -check ~/obi/ontology/obi.owl" *usage*)
+
+(defun maybe-usage (&optional force)
   (when (or (intersection '("-help" "-h" "--help" "-?") *command-line-argument-list* :test 'equalp)
 	    (not *did-something*)
 	    force)
     (loop for usage in *usage* do
-	 (format t "-h|--help|-?|-help - this message~%~%-no-quit - stay in lisp listener when finished~%~%-verbose - output various debug information~%~%~{~a~%~%~}" *usage*))))
+	 (format t "Note: FaCT++ is not working in this version.~%~%-h|--help|-?|-help - this message~%~%-no-quit - stay in lisp listener when finished~%~%-verbose - output various debug information~%~%~{~a~%~%~}" *usage*))))
 
 (when (< (length *command-line-argument-list*) 3)
-  (usage t)
+  (maybe-usage t)
   (quit))
 
 (when (find "-verbose" *command-line-argument-list* :test 'equal)
@@ -93,32 +101,71 @@ Example: -treeview http://purl.obolibrary.org/obo/iao.owl" *usage*)
       (print "OK")
       )))
 
+
+(let ((factpp (or (member "-factpp" *command-line-argument-list* :test 'equal)
+		  (member "-fact++" *command-line-argument-list* :test 'equal)))
+      (pellet (member "-pellet" *command-line-argument-list* :test 'equal))
+      (hermit (member "-hermit" *command-line-argument-list* :test 'equal)))
+  (when (>  (+ (if hermit 1 0) (if pellet 1 0) (if factpp 1 0)) 1)
+    (error "Only one reasoner: -fact++, -hermit, or -pellet should be specified"))
+  (setq *default-reasoner* (if factpp :factpp (if hermit :hermit (if pellet :pellet *default-reasoner*)))))
+
 (let ((treeview-cmd (position "-treeview" *command-line-argument-list*  :test 'equal)))
   (when treeview-cmd
     (let* ((url (nth (1+ treeview-cmd) *command-line-argument-list*))
-	   (noinfer (member "-no-classify" *command-line-argument-list* :test 'equal))
-	   (factpp (or (member "-factpp" *command-line-argument-list* :test 'equal)
-		       (member "-fact++" *command-line-argument-list* :test 'equal)))
-	   (pellet (member "-pellet" *command-line-argument-list* :test 'equal))
-	   (hermit (member "-hermit" *command-line-argument-list* :test 'equal)))
+	   (noinfer (member "-no-classify" *command-line-argument-list* :test 'equal)))
       (unless url
 	(error "No URL for ontology to view given"))
-      (when (>  (+ (if hermit 1 0) (if pellet 1 0) (if factpp 1 0)) 1)
-	(error "Only one reasoner: -fact++, -hermit, or -pellet should be specified"))
-      (let ((*default-reasoner* (if factpp :factpp (if hermit :hermit (if pellet :pellet *default-reasoner*)))))
-	(setq *did-something* t)
-	(show-classtree url :inferred (not noinfer) 
-			:dont-show
-			(if (or (search "purl.obolibrary.org" url)
-				(search "purl.org/obo/owl" url))
-			    *obi-noise-classes*
-			    nil)
-			:depth 2)
-	(format t "hit return to quit~%")
-	(force-output t)
-	(read-line)))))
+      (setq *did-something* t)
+      (show-classtree url :inferred (not noinfer) 
+		      :dont-show
+		      (if (or (search "purl.obolibrary.org" url)
+			      (search "purl.org/obo/owl" url))
+			  *obi-noise-classes*
+			  nil)
+		      :depth 2)
+      (format t "hit return to quit~%")
+      (force-output t)
+      (read-line))))
 
-(usage)
+(defun check-ontology (ont  &key classify reasoner (log "OFF") profile)
+  (let ((reasoner (or reasoner (v3kb-default-reasoner ont) *default-reasoner*)))
+    (instantiate-reasoner ont reasoner profile)
+    (when (eq reasoner :pellet)
+      (pellet-log-level (jcall "getKB" (v3kb-reasoner ont)) log))
+					;  (if classify (#"prepareReasoner" (v3kb-reasoner ont)))
+    (if classify
+	(ecase reasoner 
+	  (:hermit (jcall "classify" (v3kb-reasoner ont)))
+	  ((:pellet :factpp) (jcall "prepareReasoner" (v3kb-reasoner ont))))) 
+    (prog1
+	(jcall "isConsistent" (v3kb-reasoner ont))
+      (when (eq reasoner :pellet)
+	(pellet-log-level (jcall "getKB" (v3kb-reasoner ont)) "OFF")
+	))))
+
+(let ((check-cmd (position "-check" *command-line-argument-list*  :test 'equal)))
+  (when check-cmd
+    (let* ((url (nth (1+ check-cmd) *command-line-argument-list*)))
+      (unless url
+	(error "No URL for ontology to view given"))
+      (setq *did-something* t)
+      (format t "Loading ontology ~a...~%" url)
+      (let* ((ont (load-ontology url))
+	     (consistent (check-ontology ont)))
+	(if consistent
+	    (progn
+	      (format t "Ontology is consistent.~%")
+	      (check-ontology ont :classify t)
+	      (let ((unsat (unsatisfiable-classes ont)))
+		(if unsat
+		    (format t "There are ~a unsatisfiable classes: ~{~a,~^ ~}~%" unsat)
+		    (format t "All classes are satisfiable~%.")))
+	      (force-output t))
+	    (format t "Ontology is inconsistent.~%")		       
+	    )))))
+
+(maybe-usage)
 
 (unless (find "-no-quit" *command-line-argument-list* :test 'equal)
   (quit))
