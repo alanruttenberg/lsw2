@@ -105,7 +105,7 @@ Example: -treeview http://purl.obolibrary.org/obo/iao.owl" *usage*)
 	(error "No URL for ontology to view given"))
       (when (>  (+ (if hermit 1 0) (if pellet 1 0) (if factpp 1 0)) 1)
 	(error "Only one reasoner: -fact++, -hermit, or -pellet should be specified"))
-      (let ((*default-reasoner* (if factpp :factpp (if hermit :hermit (if pellet :pellet nil)))))
+      (let ((*default-reasoner* (if factpp :factpp (if hermit :hermit (if pellet :pellet *default-reasoner*)))))
 	(setq *did-something* t)
 	(show-classtree url :inferred (not noinfer) 
 			:dont-show
@@ -113,7 +113,10 @@ Example: -treeview http://purl.obolibrary.org/obo/iao.owl" *usage*)
 				(search "purl.org/obo/owl" url))
 			    *obi-noise-classes*
 			    nil)
-			:depth 2)))))
+			:depth 2)
+	(format t "hit return to quit~%")
+	(force-output t)
+	(read-line)))))
 
 (usage)
 
