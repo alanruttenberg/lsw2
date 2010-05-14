@@ -35,12 +35,27 @@ Examples:
  -check http://purl.obolibrary.org/obo/iao.owl
  -check ~/obi/ontology/obi.owl" *usage*)
 
+
+(push "-create-external-derived|-ced <external.owl> -template <template.txt> -dest <output.owl> -ontology-iri <iri of for output.owl>
+
+Implementation of MIREOT as used by OBI. For an example of input file see http://purl.obolibrary.org/obo/obi/external.owl
+
+Example:
+-create-external-derived salo-external.owl -template ~/repos/obi/tools/external-templates.txt -dest salo-external-derived.owl -ontology-iri http://purl.obolibrary.org/obo/salo/external-derived.owl"
+      *usage*)
+
+(setq *usage* (nreverse *usage*))
+
 (defun maybe-usage (&optional force)
   (when (or (intersection '("-help" "-h" "--help" "-?") *command-line-argument-list* :test 'equalp)
 	    (not *did-something*)
 	    force)
     (loop for usage in *usage* do
 	 (format t "Note: FaCT++ is not working in this version.~%~%-h|--help|-?|-help - this message~%~%-no-quit - stay in lisp listener when finished~%~%-verbose - output various debug information~%~%~{~a~%~%~}" *usage*))))
+
+(defun cmdl-named-arg (name)
+  (let ((pos (position name *command-line-argument-list*  :test 'equal)))
+    (when pos (nth (1+ pos) *command-line-argument-list*))))
 
 (when (< (length *command-line-argument-list*) 3)
   (maybe-usage t)
@@ -164,6 +179,27 @@ Examples:
 	      (force-output t))
 	    (format t "Ontology is inconsistent.~%")		       
 	    )))))
+
+(let ((external-cmd (or (cmdl-named-arg "-create-external-derived") (cmdl-named-arg "-ced"))))
+  (when external-cmd
+    (let* ((uri external-cmd))
+      (unless uri
+	(error "No URL for externals file"))
+      (let ((template (cmdl-named-arg "-template"))
+	    (output (cmdl-named-arg "-dest"))
+	    (ont-uri (cmdl-named-arg "-ontology-iri")))
+	(unless (and (probe-file template) output ont-uri)
+	  (maybe-usage t) 
+	  '(quit))
+	(setq *did-something* t)
+	(format t "Loading ontology ~a...~%" uri)
+	(create-external-derived
+	 :kb (load-ontology uri) 
+	 :templates-path (merge-pathname template (current-directory))
+	 :output-path (merge-pathnames output (current-directory))
+	 :ontology-uri ont-uri
+	 :endpoint (cmdl-named-arg "-sparql-endpoint"))))))
+
 
 (maybe-usage)
 
