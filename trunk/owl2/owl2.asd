@@ -91,6 +91,7 @@
 	     (:file "module")
 	     (:file "inferred-axioms")
 	     (:file "parse-functional-syntax")
+	     (:file "create-external-derived")
 	     (:file "terminal-alternate-symbols"))
 	    :depends-on (matcher basics)
 	    ))
