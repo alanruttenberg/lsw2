@@ -80,11 +80,7 @@ Example:
 		       (merge-pathnames path (pathname *loading-jarfile*)))))))))
 
   (asdf::initialize-source-registry
-   `(:source-registry :ignore-inherited-configuration
-		      ,@
-		      (mapcar
-		       (lambda(e) `(:directory ,(make-pathname :directory (pathname-directory e) :device (pathname-device e))))
-		       (directory-in-jar (merge-pathnames "/**/*.asd" (pathname *loading-jarfile*))))))
+   `(:source-registry :ignore-inherited-configuration (:tree ,(pathname *loading-jarfile*))))
   (asdf::oos 'asdf::load-op 'jss)
   (asdf::oos 'asdf::load-op 'patches)
   (asdf::oos 'asdf::load-op 'util)
@@ -192,10 +188,12 @@ Example:
 	  (maybe-usage t) 
 	  '(quit))
 	(setq *did-something* t)
+	(when (not (jcall "matches" uri "^(/(|)(file)|(http)).*"))
+	  (setq uri (namestring (merge-pathnames uri (current-directory)))))
 	(format t "Loading ontology ~a...~%" uri)
 	(create-external-derived
 	 :kb (load-ontology uri) 
-	 :templates-path (merge-pathname template (current-directory))
+	 :templates-path (merge-pathnames template (current-directory))
 	 :output-path (merge-pathnames output (current-directory))
 	 :ontology-uri ont-uri
 	 :endpoint (cmdl-named-arg "-sparql-endpoint"))))))
