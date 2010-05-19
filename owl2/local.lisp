@@ -116,6 +116,6 @@
     (let ((catalog (merge-pathnames "catalog-v001.xml" source)))
       (if (probe-file catalog)
 	  (uri-mapper-from-xml-catalog catalog)
-	  (new 'AutoIRIMapper (new 'java.io.file (namestring (truename (make-pathname :directory (pathname-directory source))))) t)))))
+	  (new 'AutoIRIMapper (new 'java.io.file (namestring (truename (make-pathname :directory (pathname-directory (truename source)))))) t)))))
 
 
