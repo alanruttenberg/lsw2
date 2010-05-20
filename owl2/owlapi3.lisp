@@ -39,7 +39,10 @@
 
 (defun to-iri (thing)
   (cond ((and (stringp thing) (not (consp (pathname-host thing))) (probe-file thing))
-	 (#"create" 'org.semanticweb.owlapi.model.IRI (new 'java.io.file thing)))
+	 (#"create" 'org.semanticweb.owlapi.model.IRI
+		    (new 'java.io.file (namestring (truename
+						    (merge-pathnames 
+						     thing (format nil "~a/" (jstatic "getProperty" "java.lang.System" "user.dir"))))))))
 	((stringp thing)
 	 (#"create" 'org.semanticweb.owlapi.model.IRI (coerce thing 'simple-base-string))) ; yuck!!
 	((uri-p thing)
@@ -53,6 +56,7 @@
 			(find-java-class 'java.io.file)))
 		      :test 'equal))
 	 (#"create" 'org.semanticweb.owlapi.model.IRI thing))
+	((jinstance-of-p thing (find-java-class "org.semanticweb.owlapi.model.IRI")) thing)
 	(t (error "don't know how to coerce ~s to IRI" thing))))
 
 (defun t-owlapi (input name)
@@ -190,10 +194,11 @@
 	(ecase reasoner 
 	  (:hermit (#"classify" (v3kb-reasoner ont)))
 	  ((:pellet :factpp) (#"prepareReasoner" (v3kb-reasoner ont))))) 
-    (print (#"isConsistent" (v3kb-reasoner ont)))
-    (when (eq reasoner :pellet)
-      (pellet-log-level (#"getKB" (v3kb-reasoner ont)) "OFF")
-      )))
+    (prog1
+	(#"isConsistent" (v3kb-reasoner ont))
+      (when (eq reasoner :pellet)
+	(pellet-log-level (#"getKB" (v3kb-reasoner ont)) "OFF")
+	))))
 
 (defun to-class-expression (thing kb)
   (cond ((jclass-superclass-p (find-java-class 'owlentity) (jobject-class thing))
@@ -235,14 +240,16 @@
 (defun equivalents (class kb)
   (class-query class kb (lambda(ce reasoner) (#"getEquivalentClasses" reasoner ce)) nil t))
 
-(defun entity-annotations (uri kb)
+(defun entity-annotations (uri kb &optional prop)
   (loop for ont in (set-to-list (#"getImportsClosure" (v3kb-ont kb)))
      append
      (let ((annots (set-to-list (#"getAnnotations" (#"getOWLNamedIndividual" (v3kb-datafactory kb) (to-iri uri)) ont))))
        (loop for annot in annots
 	  for property = (#"toString" (#"getIRI" (#"getProperty" annot)))
 	  for value = (#"getValue" annot)
-	  collect (list  (make-uri property)
+	  for prop-uri = (make-uri property)
+	  when (or (not prop) (eq prop prop-uri))
+	  collect (list  prop-uri
 			 (if (jclass-superclass-p (find-java-class "OWLLiteral") (jobject-class value))
 			     (cond ((#"isOWLTypedLiteral" value) value)
 				   ((#"isOWLStringLiteral" value) (#"getLiteral" value)))
@@ -282,7 +289,7 @@
 (defun loaded-documents (kb)
   (let ((manager (if (v3kb-p kb) (v3kb-manager kb) (#"getOWLOntologyManager" kb)))
 	(ont (if (v3kb-p kb) (v3kb-ont kb)  kb)))
-    (mapcar (lambda(e) (list (#"toString" (#"getOntologyDocumentIRI" manager e)) (#"toString" (#"getOntologyIRI" (#"getOntologyID" e))) e))
+    (mapcar (lambda(e) (list (#"toString" (#"getOntologyDocumentIRI" manager e)) (#"toString" (or (#"getOntologyIRI" (#"getOntologyID" e)) "")) e))
 	    (set-to-list (#"getImportsClosure" ont)))))
 
 (defun unsatisfiable-classes (kb)
