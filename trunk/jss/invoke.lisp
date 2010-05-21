@@ -456,8 +456,12 @@
     (jclass (maybe-resolve-class-against-imports name))))
 
 (defmethod print-object ((obj (jclass "java.lang.Class")) stream) 
-  (print-unreadable-object (obj stream :identity t)
+  (print-unreadable-object (obj stream :identity nil)
     (format stream "java class ~a" (jclass-name obj))))
+
+(defmethod print-object ((obj (jclass "java.lang.reflect.Method")) stream) 
+  (print-unreadable-object (obj stream :identity nil)
+    (format stream "method ~a" (#"toString" obj))))
 
 (defun do-auto-imports ()
   (flet ((import-class-path (cp)
@@ -556,9 +560,9 @@
   (unless *classpath-manager*
     (when (ignore-errors (jclass "bsh.classpath.ClassManagerImpl"))
       (let* ((urls (jnew-array "java.net.URL" 0))
-	     (manager (new 'bsh.classpath.classmanagerimpl))
-	     (bshclassloader (new 'bshclassloader manager urls)))
-	(#"setClassLoader" 'jsint.import bshclassloader)
+	     (manager (jnew "bsh.classpath.ClassManagerImpl"))
+	     (bshclassloader (jnew "bsh.classpath.BshClassLoader" manager urls)))
+	(#"setClassLoader" '|jsint.Import| bshclassloader)
 	(setq *classpath-manager* manager)))))
 
 (defun ensure-dynamic-classpath ()
@@ -577,7 +581,7 @@
       ;; NOTE: for jar files, specified as a component, the ".jar" is part of the pathname-name :(
       (when (or force (not (member absolute *added-to-classpath* :test 'equalp)))
 	(#"addClassPath" *classpath-manager* (new 'java.net.url (#"replaceAll" (#"replaceAll" (concatenate 'string "file://" absolute) "\\\\" "/") "C:" "")))
-	(#"setClassLoader" 'jsint.import (#"getBaseLoader" *classpath-manager*))
+	(#"setClassLoader" '|jsint.Import| (#"getBaseLoader" *classpath-manager*))
 ;	(format t "path=~a type=~a~%"  absolute (pathname-type absolute))
 	(cond ((equal (pathname-type absolute) "jar")
 	       (jar-import absolute))
