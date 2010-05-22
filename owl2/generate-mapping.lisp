@@ -35,21 +35,22 @@
 		 )))))
 
 (defun annotation-strategy (form)
-  (cond ((member (car form)
-		 '(subobjectpropertyof subdatapropertyof SubClassOf ObjectPropertyDomain DataPropertyDomain ObjectPropertyRange DataPropertyRange InverseObjectProperties InverseDataProperties
-		   FunctionalObjectProperty FunctionalDataProperty InverseFunctionalObjectProperty ReflexiveObjectProperty IrreflexiveObjectProperty SymmetricObjectProperty AsymmetricObjectProperty TransitiveObjectProperty  ClassAssertion ObjectPropertyAssertion DataPropertyAssertion Declaration AnnotationAssertion haskey disjointunion))
-	 :first-triple)
-	((and (member (car form)
-		      '(DisjointClasses DisjointDataProperties DisjointDataProperties DifferentIndividuals))
-	      (= (length (cdr form)) 2))
-	 :first-triple)
-	((member (car form)
-		 '(DisjointClasses DisjointDataProperties DisjointDataProperties DifferentIndividuals Negativedatapropertyassertion Negativeobjectpropertyassertion))
-	 :first-triple-subject)
-	;; be careful not to do nested t triples for these. 
-	((member (car form) '(EquivalentClasses EquivalentObjectProperties EquivalentDataProperties SameIndividual))
-	 :all-triples)
-	(t (error "Oops! Missed some annotation case: ~a~%" form))))
+  (let ((head (car (gethash  (car form) *owl2-vocabulary-forms*))))
+    (cond ((member head
+		   '(subobjectpropertyof subdatapropertyof SubClassOf ObjectPropertyDomain DataPropertyDomain ObjectPropertyRange DataPropertyRange InverseObjectProperties InverseDataProperties
+		     FunctionalObjectProperty FunctionalDataProperty InverseFunctionalObjectProperty ReflexiveObjectProperty IrreflexiveObjectProperty SymmetricObjectProperty AsymmetricObjectProperty TransitiveObjectProperty  ClassAssertion ObjectPropertyAssertion DataPropertyAssertion Declaration AnnotationAssertion haskey disjointunion))
+	   :first-triple)
+	  ((and (member head
+			'(DisjointClasses DisjointDataProperties DisjointDataProperties DifferentIndividuals))
+		(= (length (cdr form)) 2))
+	   :first-triple)
+	  ((member head
+		   '(DisjointClasses DisjointDataProperties DisjointDataProperties DifferentIndividuals Negativedatapropertyassertion Negativeobjectpropertyassertion))
+	   :first-triple-subject)
+	  ;; be careful not to do nested t triples for these. 
+	  ((member head '(EquivalentClasses EquivalentObjectProperties EquivalentDataProperties SameIndividual))
+	   :all-triples)
+	  (t (error "Oops! Missed some annotation case: ~a~%" form)))))
 
 (defun can-and-is-annotated (input)
   (and (consp input)
