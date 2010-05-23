@@ -308,7 +308,7 @@
 			(if (and value (not errorp))
 			    (#"setToolTipText" display value)
 			    (if errorp
-				(#"setToolTipText" display (format nil "Error creating tooltip for ~a" (#"getSourceTuple" item)))))))
+				(#"setToolTipText" display (format nil "Error ~a creating tooltip for ~a" errorp (#"getSourceTuple" item)))))))
 	       (condition () nil)
 	       ))))
        "itemExited"
