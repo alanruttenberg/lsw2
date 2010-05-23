@@ -413,7 +413,10 @@
 (defun new (class-name &rest args)
   (invoke-restargs 'new class-name args))
 
-(defun get-java-field (object field &optional try-harder)
+(defvar *running-in-osgi* (ignore-errors (jclass "org.osgi.framework.BundleActivator")))
+
+
+(defun get-java-field (object field &optional (try-harder *running-in-osgi*))
   (if try-harder
       (let* ((class (if (symbolp object)
 			(setq object (find-java-class object))
@@ -430,9 +433,8 @@
 	  (#"peekStatic" 'invoke class field))
       (#"peek" 'invoke object field))))
 
-
 ;; use #"getSuperclass" and #"getInterfaces" to see whether there are fields in superclasses that we might set
-(defun set-java-field (object field value &optional try-harder)
+(defun set-java-field (object field value &optional (try-harder *running-in-osgi*))
   (if try-harder
       (let* ((class (if (symbolp object)
 			(setq object (find-java-class object))
