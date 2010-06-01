@@ -120,7 +120,7 @@
 				   max-tree-size ;; don't include more then this many siblings in a branch
 				   include-tooltips ;; whether to include tooltips in the saved file
 				   (inferred t)) ;; whether subclasses/instances are inferred or asserted. Latter is faster but not necessarily correct
-  (let ((unsatisfiable (if inferred (equivalents !owl:Nothing kb) nil))
+  (let ((unsatisfiable (if inferred (unsatisfiable-classes kb) nil))
 	(equivalents-seen (make-hash-table :test 'equalp))
 	(labels (and use-labels (rdfs-labels kb)))
 	(treekb (if inferred kb (weaken-to-only-subclasses kb 'treekb))))
@@ -451,7 +451,8 @@
 		   (uris-for-entity-html entity kb)
 		   (if labels (format nil "~{<b><i>~a</i></b>~^<br>~}" labels) "")
 		   (if (equal entity (uri-full !owl:Nothing)) 
-		       "<br>These classes are unsatisfiable!<br>"
+		       (format nil "<br>These classes are unsatisfiable!<br>~{~a~^<br>~}"
+			       (mapcar (lambda(e) (format nil "~a (~a)" (car (rdfs-label e kb)) (uri-full e))) (unsatisfiable-classes kb)))
 		       (if (and comment  (not (equal comment "")))
 			   (format nil "<div style=\"margin-left:5px;margin-top:2px;margin-bottom:2px\">~a</div>" comment)
 			   (if labels  "<br>" "")))
