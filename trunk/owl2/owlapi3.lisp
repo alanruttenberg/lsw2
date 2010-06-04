@@ -109,6 +109,32 @@
 	 ,@body
 	 (reverse as)))))
 
+(defmacro def-metadata (prop ont &rest prop-val)
+  `(setf (getf (get ',ont 'metadata) ',prop)
+	 (append
+	  (loop for (key val) on (getf (get ',ont 'metadata) ',prop) by #'cddr
+	     when (not (getf ',prop-val key))
+	     collect key collect val)
+	  ',prop-val)))
+
+(defmacro def-axiom (number ont axiom &optional doc)
+  `(setf (getf (get ',ont 'axioms) ',number)
+	 `(:number ,,number :documentation ,,doc :axioms ,',axiom)))
+
+(defmacro with-label-vars-from (ont &body body)
+  (let ((ontvar (make-symbol "ONT"))
+	(classes (make-symbol "CLASSES")))
+    `(let* ((,ontvar (load-ontology ,ont))
+	   (,classes (mapcar (lambda(e) 
+			       (list (intern (string-upcase (substitute #\- #\space (second e))))
+				     (first e)))
+			     (sparql '(:select (?class ?label) ()
+				       (?class !rdf:type !owl:Class) 
+				       (?class !rdfs:label ?label))
+				     :kb ,ontvar :use-reasoner :none))))
+       (progv (mapcar 'first ,classes) (mapcar 'second ,classes)
+	 ,@body))))
+
 (defmacro with-ontology (name (&key base ontology-properties about includes rules eval collecting
 				    ontology-iri version-iri) definitions &body body)
   `(let* ((*default-uri-base* (or ,base *default-uri-base* )))
@@ -117,9 +143,12 @@
 	     (append (list* 'ontology
 			    ,@(if (or about ontology-iri) (list (or about ontology-iri)))
 			    ,@(if version-iri (list version-iri))
-			    (or nil ,@ontology-properties))
+			    ,ontology-properties)
 		     ,(cond (eval definitions)
-			    (collecting `(collecting-axioms ,@definitions))
+			    (collecting `(collecting-axioms ,@definitions
+							    (include-out-of-line-metadata ',name #'as)
+								 (include-out-of-line-axioms ',name #'as)
+								 ))
 			    (t (list 'quote definitions)))
 		     )
 	     :name ',name
@@ -128,6 +157,24 @@
 	 (declare (ignorable *default-kb* ))
 	 ,@body))))
 
+(defun include-out-of-line-axioms (name as-fn))
+
+(defun include-out-of-line-metadata (name as-fn )
+  nil)
+;; (let ((definition !obo:IAO_0000115)
+;; 	(alternative-term !obo:IAO_0000118)
+;; 	(example-of-usage !obo:IAO_0000112)
+;; 	(editor-preferred-label !obo:IAO_0000111)
+;; 	(editor-note  !obo:IAO_0000116)
+;; 	(axiom-id !obo:IAO_0010000))
+;;     (loop for (prop pairs) in (get name 'metadata)
+;;        do 
+;;        (loop for (annotprop value) in pairs
+;; 	    (funcall as-fn
+;; 		     `(annotation-assertion ,(prop-uri annotprop) ,(entity-uri prop) ,(value-form value)))
+
+;; 	    ))))
+ 
 (if (#"getBaseLoader" *classpath-manager*)
     (defmethod print-object ((obj (jclass "org.semanticweb.HermiT.Reasoner" (#"getBaseLoader" *classpath-manager*))) stream) 
       (print-unreadable-object (obj stream :identity t)
@@ -147,6 +194,15 @@
 	 (#"valueOf" 'individualNodeSetPolicy "BY_SAME_AS")
 	 )))
 
+(defun factpp-reasoner-config ()
+  (let ((standard (new 'SimpleConfiguration))
+	(progressMonitor (new 'owlapi.reasoner.ConsoleProgressMonitor)))
+    (new 'org.semanticweb.owlapi.reasoner.SimpleConfiguration progressMonitor
+	 (#"getFreshEntityPolicy" standard)
+	 (new 'long "0")
+	 (#"valueOf" 'individualNodeSetPolicy "BY_SAME_AS")
+	 )))
+
 (defun hermit-reasoner-config (&optional profile ont)
   (if profile
       (let ((new (new 'org.semanticweb.HermiT.Configuration))
@@ -162,7 +218,7 @@
     (let* ((config (ecase reasoner 
 		     (:hermit (hermit-reasoner-config profile ont))
 		     ((:pellet :pellet-sparql) (pellet-reasoner-config))
-		     (:factpp (hermit-reasoner-config))))
+		     (:factpp (factpp-reasoner-config))))
 	   (factory (ecase reasoner
 		      (:hermit (new "org.semanticweb.HermiT.Reasoner$ReasonerFactory"))
 		      ((:pellet :pellet-sparql) (new 'com.clarkparsia.pellet.owlapiv3.PelletReasonerFactory))
@@ -293,6 +349,7 @@
 	    (set-to-list (#"getImportsClosure" ont)))))
 
 (defun unsatisfiable-classes (kb)
+  (check-ontology kb)
   (loop for c in (set-to-list (#"getEntitiesMinusBottom" (#"getUnsatisfiableClasses" (v3kb-reasoner kb))))
      collect (make-uri (#"toString" (#"getIRI" c)))))
 
@@ -332,10 +389,13 @@
 				      (new 'simpleshortformprovider))))
 	  (set-java-field any-lang-provider "quoteShortFormsWithSpaces" (make-immediate-object t :boolean))
 	  (let ((lang-specific-provider (new 'owlapi.util.annotationvalueshortformprovider a-props prop->lang ontset any-lang-provider)))
+	    ;; next isn't working yet
 	    (set-java-field lang-specific-provider "quoteShortFormsWithSpaces" (make-immediate-object t :boolean))
 	    (setf (v3kb-short-form-provider kb) 
 		  (new 'owlapi.util.BidirectionalShortFormProviderAdapter (#"getImportsClosure" (v3kb-ont kb))
 		       lang-specific-provider)))))))
+
+
 
 (defun manchester-parser (kb)
   (or (v3kb-manchester-parser kb)
