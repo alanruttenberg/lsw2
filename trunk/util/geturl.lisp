@@ -11,10 +11,12 @@
   (get-url url :post message))
 
 (defun get-url (url &key post (force-refetch  post) (dont-cache post) (persist (not post)) cookiestring nofetch verbose tunnel referer (follow-redirects t) 
-		(ignore-errors nil) head accept (appropriate-response (lambda(res) (and (numberp res) (>= res 200) (< res 400))))
-		&aux headers)
+		(ignore-errors nil) head accept (appropriate-response (lambda(res) (and (numberp res) (>= res 200) (< res 400)))) verb
+		&aux headers)b
   "Get the contents of a page, saving it for this session in *page-cache*, so when debugging we don't keep fetching"
   (sleep 0.0001)			; give time for control-c
+  (if (not (equal verb "GET"))
+      (setq force-refetch t))
   (and head
        (setq force-refetch t dont-cache t persist nil follow-redirects nil))
   (or (and (not force-refetch) (gethash url *page-cache*))
@@ -42,6 +44,7 @@
 		 (when referer
 		   (#"setRequestProperty" connection "Referer" referer))
 		 (#"setRequestProperty" connection "User-Agent" "Mozilla/4.0 (compatible)")
+		 (when verb (#"setRequestMethod" connection verb))
 		 (when post
 		   (#"setRequestMethod" connection "POST")
 		   (when accept
