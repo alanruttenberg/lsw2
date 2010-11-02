@@ -97,13 +97,23 @@
 	  it
 	)))))
 
+(defun load-kb-jena (file)    
+  (let ((url (format nil "file://~a" (namestring (truename file))))
+	(in-model (#"createDefaultModel" 'com.hp.hpl.jena.rdf.model.ModelFactory)))
+    (#"read" in-model
+	     (new 'bufferedinputstream
+		  (#"getInputStream" (#"openConnection" (new 'java.net.url url))))
+	     url)
+    in-model))
+
 (defmacro collecting-axioms (&rest body)
   `(let ((as nil))
      (flet ((as (&rest axioms)
 	      (loop for a in axioms
 		 do (if (consp (car a))
 			(dolist (aa a) (and aa (push aa as)))
-			(and a (push a as))))))
+			(and a (push a as))))
+	      ))
        (macrolet ((asq (&rest axioms)
 		    `(as ',axioms)))
 	 ,@body
@@ -215,6 +225,7 @@
 
 (defun instantiate-reasoner (ont  &optional (reasoner *default-reasoner*) (profile nil))
   (unless (v3kb-reasoner ont)
+    (setf (v3kb-default-reasoner ont) reasoner)
     (let* ((config (ecase reasoner 
 		     (:hermit (hermit-reasoner-config profile ont))
 		     ((:pellet :pellet-sparql) (pellet-reasoner-config))
@@ -233,8 +244,10 @@
 	(setf (v3kb-pellet-jena-model ont) 
 	      (let ((graph (new 'org.mindswap.pellet.jena.PelletReasoner)))
 		(#"createInfModel" 'com.hp.hpl.jena.rdf.model.ModelFactory
-				   (#"bind" graph (#"getKB" reasoner-instance))))))
-      )))
+				   (#"bind" graph (#"getKB" reasoner-instance)))
+		)))
+      t)
+    ))
 
 ;; for later.
 ;;	setPhysicalURIForOntology(OWLOntology ontology, java.net.URI physicalURI) 
@@ -243,21 +256,23 @@
 (defun check-ontology (ont  &key classify reasoner (log "OFF") profile)
   (let ((reasoner (or reasoner (v3kb-default-reasoner ont) *default-reasoner*)))
     (instantiate-reasoner ont reasoner profile)
-    (when (eq reasoner :pellet)
+    (when (or (eq reasoner :pellet) (eq reasoner :pellet-sparql))
       (pellet-log-level (#"getKB" (v3kb-reasoner ont)) log))
 					;  (if classify (#"prepareReasoner" (v3kb-reasoner ont)))
     (if classify
 	(ecase reasoner 
 	  (:hermit (#"classify" (v3kb-reasoner ont)))
-	  ((:pellet :factpp) (#"prepareReasoner" (v3kb-reasoner ont))))) 
+	  ((:pellet :pellet-sparql :factpp) (#"prepareReasoner" (v3kb-reasoner ont))))) 
     (prog1
 	(#"isConsistent" (v3kb-reasoner ont))
-      (when (eq reasoner :pellet)
+      (when (or (eq reasoner :pellet) (eq reasoner :pellet-sparql) )
 	(pellet-log-level (#"getKB" (v3kb-reasoner ont)) "OFF")
 	))))
 
 (defun to-class-expression (thing kb)
-  (cond ((jclass-superclass-p (find-java-class 'owlentity) (jobject-class thing))
+  (cond ((jclass-superclass-p (load-time-value (find-java-class 'owlentity)) (jobject-class thing))
+	 thing)
+	((jclass-superclass-p (load-time-value (find-java-class 'owlclassexpression)) (jobject-class thing))
 	 thing)
 	((stringp thing)
 	 (parse-manchester-expression kb thing))
@@ -565,6 +580,8 @@
     
 
 
-;; (sparql '(:select (?class ?label) () (?class !rdfs:subClassOf (!oborel:has_participant some !<http://purl.org/obo/owl/PRO#submitted_irf7pirf7p>))
-;;		   (?class !rdfs:label ?label))
-;;		 :kb kb :use-reasoner :sparqldl :syntax :terp)
+ '(sparql '(:select (?class ?label) () (?class !rdfs:subClassOf (!oborel:has_participant some !<http://purl.org/obo/owl/PRO#submitted_irf7pirf7p>))
+	   (?class !rdfs:label ?label))
+	 :kb kb :use-reasoner :sparqldl :syntax :terp)
+
+;(find "getOWLObjectSomeValuesFrom" (#"getMethods" (jobject-class (v3kb-datafactory kb))) :key 'jmethod-name :test 'equal)
