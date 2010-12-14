@@ -126,7 +126,7 @@
   (let ((model (apply 't-jena input nil)))
     (let ((sw (new 'StringWriter)))
       (#"write" model sw "RDF/XML")
-      (load-ontology sw name))))
+      (load-ontology sw :name name))))
 
   
 (defun t-rdf (input &rest prefixes)
