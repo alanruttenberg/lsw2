@@ -1,3 +1,7 @@
+;; helen request - add more importing metadata such as
+;; date that it was imported
+;; version number of the ontology from which it came
+
 (defparameter *external-derived-rdf-prefixes*
   '(("xsd" "http://www.w3.org/2001/XMLSchema#")
     ("rdf" "http://www.w3.org/1999/02/22-rdf-syntax-ns#")
@@ -34,11 +38,9 @@
 	      (not (or 
 		    (eql 0 (search "file://" thing))
 		    (eql 0 (search "http://" thing)))))
-	  (concatenate 'string "file://" 
-		       (#"replaceAll" 
-			(#"replace" (namestring (truename thing)) "C:" "")
-			"\\\\" "/"))
-	  thing)))
+	  (let ((merged (namestring (truename (merge-pathnames thing (format nil (jstatic "getProperty" "java.lang.System" "file.separator")
+									     (jstatic "getProperty" "java.lang.System" "user.dir")))))))
+	    (#"toString" (jcall "toURL" (new 'file merged)))))))
 
 (defun external-derived-header (ont-uri)
   (#"replaceFirst"
