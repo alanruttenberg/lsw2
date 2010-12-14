@@ -84,7 +84,8 @@
 		  (get-labels '((?uri !foaf:name ?label)))
 		  (get-labels '((?uri !swan:title ?label))))
 		 for clean-label = (clean-label label t)
-		 when clean-label do (pushnew clean-label (gethash uri table ) :test 'equalp)
+		 when clean-label do
+		   (pushnew clean-label (gethash uri table ) :test 'equalp)
 		 finally (return table))))))
 
 (defvar *temp-directory* (pathname-directory (make-temp-file)))
@@ -335,12 +336,6 @@
 		   (sparql `(:select (?comment) () (,uri !oboinowl:hasDefinition ?def) (?def !rdfs:label ?comment) (:filter (and (equal (lang ?comment) ,*classtree-preferred-language*) (not (equal ?comment ""))))) :use-reasoner *annotation-query-reasoner* :kb kb :flatten t))
 	      (sparql `(:select (?comment) () (,uri !oboinowl:hasDefinition ?def) (?def !rdfs:label ?comment) (:filter (not (equal ?comment "")))) :use-reasoner *annotation-query-reasoner* :kb kb :flatten t)
 	      )
-	     (or
-	      (and *classtree-preferred-language*
-		   (sparql `(:select (?comment) () (,uri !rdfs:comment ?comment) (:filter (and (equal (lang ?comment) ,*classtree-preferred-language*)
-											       (not (equal ?comment "")))))
-			   :kb kb :use-reasoner *annotation-query-reasoner* :flatten t))
-	      (sparql `(:select (?comment) () (,uri !rdfs:comment ?comment) (:filter (not (equal ?comment "")))) :kb kb :use-reasoner *annotation-query-reasoner* :flatten t))
 	     (or 
 	      (and *classtree-preferred-language*
 		   (sparql `(:select (?comment) () (:union ((,uri !obi:OBI_0000291 ?comment))
@@ -350,6 +345,12 @@
 			   :kb kb :use-reasoner *annotation-query-reasoner* :flatten t))
 	      (sparql `(:select (?comment) () (:union ((,uri !obi:OBI_0000291 ?comment))
 							   ((,uri !obi:IAO_0000115 ?comment))) (:filter (not (equal ?comment "")))) :kb kb :use-reasoner *annotation-query-reasoner* :flatten t))
+	     (or
+	      (and *classtree-preferred-language*
+		   (sparql `(:select (?comment) () (,uri !rdfs:comment ?comment) (:filter (and (equal (lang ?comment) ,*classtree-preferred-language*)
+											       (not (equal ?comment "")))))
+			   :kb kb :use-reasoner *annotation-query-reasoner* :flatten t))
+	      (sparql `(:select (?comment) () (,uri !rdfs:comment ?comment) (:filter (not (equal ?comment "")))) :kb kb :use-reasoner *annotation-query-reasoner* :flatten t))
 	     ))))
 
 (defun tree-tooltip (kb entity)
