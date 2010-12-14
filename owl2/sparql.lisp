@@ -86,7 +86,8 @@
 			  (unless (v3kb-pellet-jena-model kb) (instantiate-reasoner kb :pellet-sparql nil))
 			  (new 'PelletQueryExecution jquery (v3kb-pellet-jena-model kb)))
 			 ((or (eq use-reasoner :none) (eq use-reasoner nil)) 
-			  (#"create" 'QueryExecutionFactory jquery (jena-model kb)))
+			  (#"create" 'QueryExecutionFactory jquery
+				     (if (java-object-p kb) kb (jena-model kb))))
 			 ((or (eq use-reasoner :jena))
 			  (unless (v3kb-pellet-jena-model kb) (instantiate-reasoner kb :pellet-sparql nil))
 			  (#"create" 'QueryExecutionFactory jquery (v3kb-pellet-jena-model kb)))
