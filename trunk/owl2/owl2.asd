@@ -47,7 +47,7 @@
   (let ((arch (#"getProperty" 'system "os.arch"))
 	(os (#"getProperty" 'system "os.name")))
     (namestring (merge-pathnames
-		 (make-pathname :directory `(:relative "lib" "factpp-native-1.4.0" ,(factpp-native-dir arch os))
+		 (make-pathname :directory `(:relative "lib" "factpp-native-1.5.0" ,(factpp-native-dir arch os))
 				:name (factpp-library-name arch os)
 				:type "jnilib")
 		 *load-pathname*))))
@@ -57,19 +57,20 @@
   :author "Alan Ruttenberg"
   :license "BSD"
   :components
-  ((:module lib
+  ((:module lib 
 	    :components
 	    ((:jar-file "org.semanticweb.HermiT.jar")
 	     (:jar-file "owlapi-bin.jar")
-	     (:jar-file "factplusplus-1.4.0.jar")
+	     (:jar-file "factplusplus-1.5.0.jar")
 	     (:jar-directory "pellet")
 	     (:jar-directory "prefuse")
 	     ))
    (:module "basics"
 	    :pathname ""
  	    :components
- 	    ((:file "owlapi3")
-	     (:file "debug"))
+	    ((:file "owlapi3")
+	     (:file "debug")
+	     )
  	    :depends-on (lib))
    (:module matcher
 	    :pathname ""

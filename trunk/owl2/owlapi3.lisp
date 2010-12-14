@@ -66,6 +66,8 @@
       (load-ontology sw name))))
 
 (defun load-ontology (source &key name reasoner)
+  (set-java-field 'OWLRDFConsumer "includeDublinCoreEvenThoughNotInSpec" nil)
+  (set-java-field 'ManchesterOWLSyntaxEditorParser "includeDublinCoreEvenThoughNotInSpec" nil)
   (let ((mapper nil)
 	(uri nil))
     (when (or (stringp source) (uri-p source))
@@ -262,7 +264,11 @@
     (if classify
 	(ecase reasoner 
 	  (:hermit (#"classify" (v3kb-reasoner ont)))
-	  ((:pellet :pellet-sparql :factpp) (#"prepareReasoner" (v3kb-reasoner ont))))) 
+	  ((:pellet :pellet-sparql :factpp) (#"precomputeInferences" 
+					     (v3kb-reasoner ont)
+					     (jnew-array-from-array
+					      (find-java-class 'org.semanticweb.owlapi.reasoner.InferenceType)
+					      (make-array 1 :initial-contents (list (get-java-field 'inferencetype "CLASS_HIERARCHY")))))))) 
     (prog1
 	(#"isConsistent" (v3kb-reasoner ont))
       (when (or (eq reasoner :pellet) (eq reasoner :pellet-sparql) )
