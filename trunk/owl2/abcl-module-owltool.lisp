@@ -44,49 +44,44 @@ Example:
 -create-external-derived salo-external.owl -template ~/repos/obi/tools/external-templates.txt -dest salo-external-derived.owl -ontology-iri http://purl.obolibrary.org/obo/salo/external-derived.owl"
       *usage*)
 
+(push "-trimmed-imports-module <ontology.owl>  -dest <output.owl> [-nested|-top|-bottom]
+
+Apply the syntactic locality modularity algoritms with the signature
+being all terms in ontology.owl. The resultant output.owl will contain
+the module as well as annotations for all terms that are in any of the
+imported ontologies. 
+
+Add -nested or -top or -bottom to select the type of module. -nested is default.
+
+Example:
+-trimmed-imports-module http://purl.obolibrary.org/obo/obi.owl -dest ~/Desktop/obi-module.owl"
+      *usage*)
+
 (setq *usage* (nreverse *usage*))
 
 (defun maybe-usage (&optional force)
   (when (or (intersection '("-help" "-h" "--help" "-?") *command-line-argument-list* :test 'equalp)
 	    (not *did-something*)
 	    force)
-    (loop for usage in *usage* do
-	 (format t "Note: FaCT++ is not working in this version.~%~%-h|--help|-?|-help - this message~%~%-no-quit - stay in lisp listener when finished~%~%-verbose - output various debug information~%~%~{~a~%~%~}" *usage*))))
-
-(defun cmdl-named-arg (name)
-  (let ((pos (position name *command-line-argument-list*  :test 'equal)))
-    (when pos (nth (1+ pos) *command-line-argument-list*))))
+    (format t "Note: FaCT++ is not working in this version.~%~%-h|--help|-?|-help - this message~%~%-no-quit - stay in lisp listener when finished~%~%-verbose - output various debug information~%~%~{~a~%~%~}" *usage*)))
 
 (when (< (length *command-line-argument-list*) 3)
   (maybe-usage t)
   (quit))
 
-(when (find "-verbose" *command-line-argument-list* :test 'equal)
-  (setq *load-verbose* t)
-  (setq *compile-verbose* t)
-  (setq asdf::*asdf-verbose* t)
-  (print *loading-jarfile*)
-  (print *load-pathname*))
+;; (when (find "-verbose" *command-line-argument-list* :test 'equal)
+;;   (setq *load-verbose* t)
+;;   (setq *compile-verbose* t)
+;;   (setq asdf::*asdf-verbose* t)
+;;   (print *loading-jarfile*)
+;;   (print *load-pathname*))
 
 
 (defmethod asdf::operation-done-p ((operation asdf::compile-op) (c t))
   (or cl-user::*inhibit-add-to-classpath*
    (call-next-method)))
 
-(let ((asdf::*output-translations* 
-       `(((t ,(lambda(path wha) 
-		     (let* ((dir (pathname-directory path))
-			    (new (append '(:absolute) (list "bin") (cdr dir))))
-		       (merge-pathnames path (pathname *loading-jarfile*)))))))))
-
-  (asdf::initialize-source-registry
-   `(:source-registry :ignore-inherited-configuration (:tree ,(pathname *loading-jarfile*))))
-  (asdf::oos 'asdf::load-op 'jss)
-  (asdf::oos 'asdf::load-op 'patches)
-  (asdf::oos 'asdf::load-op 'util)
-  (asdf::oos 'asdf::load-op 'owl2)
-  )
-
+(module-load-systems '(jss patches util owl2))
 
 (defun current-directory ()
   (format nil "~a/" (jstatic "getProperty" "java.lang.System" "user.dir")))
@@ -185,8 +180,7 @@ Example:
 	    (output (cmdl-named-arg "-dest"))
 	    (ont-uri (cmdl-named-arg "-ontology-iri")))
 	(unless (and (probe-file template) output ont-uri)
-	  (maybe-usage t) 
-	  '(quit))
+	  (maybe-usage t))
 	(setq *did-something* t)
 	(when (not (jcall "matches" uri "^(/(|)(file)|(http)).*"))
 	  (setq uri (namestring (merge-pathnames uri (current-directory)))))
@@ -198,6 +192,20 @@ Example:
 	 :ontology-uri ont-uri
 	 :endpoint (cmdl-named-arg "-sparql-endpoint"))))))
 
+(let ((cmd (cmdl-named-arg "-trimmed-imports-module")))
+  (when cmd
+    (let ((output (cmdl-named-arg "-dest"))
+	  (type (cmdl-named-arg "-module-type"))
+	  (uri cmd))
+      (when (member type '(nil "nested" "top" "bottom"))
+	(setq type (cdr (assoc type '((nil . "STAR") ("nested" . "STAR") ("top" . "TOP") ("bottom" . "BOTTOM")))))
+	(when (not (jcall "matches" uri "^(/(|)(file)|(http)).*"))
+	  (setq uri (namestring (merge-pathnames uri (current-directory)))))
+	(format t "Loading ontology ~a...~%" uri)
+	(setq *did-something* t)
+	(trimmed-imports-module (load-ontology uri) :dest output)
+	(format t "Wrote ontology ~a...~%" uri)
+	))))
 
 (maybe-usage)
 
