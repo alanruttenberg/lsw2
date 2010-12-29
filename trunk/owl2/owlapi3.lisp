@@ -66,8 +66,8 @@
       (load-ontology sw name))))
 
 (defun load-ontology (source &key name reasoner)
-  (set-java-field 'OWLRDFConsumer "includeDublinCoreEvenThoughNotInSpec" nil)
-  (set-java-field 'ManchesterOWLSyntaxEditorParser "includeDublinCoreEvenThoughNotInSpec" nil)
+;  (set-java-field 'OWLRDFConsumer "includeDublinCoreEvenThoughNotInSpec" nil)
+;  (set-java-field 'ManchesterOWLSyntaxEditorParser "includeDublinCoreEvenThoughNotInSpec" nil)
   (let ((mapper nil)
 	(uri nil))
     (when (or (stringp source) (uri-p source))
@@ -276,9 +276,9 @@
 	))))
 
 (defun to-class-expression (thing kb)
-  (cond ((jclass-superclass-p (load-time-value (find-java-class 'owlentity)) (jobject-class thing))
+  (cond ((jclass-superclass-p (load-time-value (find-java-class 'org.semanticweb.owlapi.model.owlentity)) (jobject-class thing))
 	 thing)
-	((jclass-superclass-p (load-time-value (find-java-class 'owlclassexpression)) (jobject-class thing))
+	((jclass-superclass-p (load-time-value (find-java-class 'org.semanticweb.owlapi.model.OWLEntity.owlclassexpression)) (jobject-class thing))
 	 thing)
 	((stringp thing)
 	 (parse-manchester-expression kb thing))
@@ -317,6 +317,9 @@
 (defun equivalents (class kb)
   (class-query class kb (lambda(ce reasoner) (#"getEquivalentClasses" reasoner ce)) nil t))
 
+(defun annotation-properties (kb)
+  (mapcar 'make-uri (mapcar #"toString" (mapcar #"getIRI"  (set-to-list (#"getAnnotationPropertiesInSignature" (v3kb-ont o)))))))
+
 (defun entity-annotations (uri kb &optional prop)
   (loop for ont in (set-to-list (#"getImportsClosure" (v3kb-ont kb)))
      append
@@ -328,8 +331,8 @@
 	  when (or (not prop) (eq prop prop-uri))
 	  collect (list  prop-uri
 			 (if (jclass-superclass-p (find-java-class "OWLLiteral") (jobject-class value))
-			     (cond ((#"isOWLTypedLiteral" value) value)
-				   ((#"isOWLStringLiteral" value) (#"getLiteral" value)))
+			     (cond ((#"isRDFPlainLiteral" value) (#"getLiteral" value))
+				     (t value))
 			     value
 			     ))))))
 
@@ -341,8 +344,8 @@
 	  for value = (#"getValue" annot)
 	  when value do (return-from entity-label
 		       (if (jclass-superclass-p (find-java-class "OWLLiteral") (jobject-class value))
-			   (cond ((#"isOWLTypedLiteral" value) value)
-				 ((#"isOWLStringLiteral" value) (#"getLiteral" value)))
+			   (cond ((#"isRDFPlainLiteral" value) (#"getLiteral" value))
+				     (t value))
 			   value
 			   ))))))
 
@@ -358,8 +361,8 @@
 	    for value = (#"getValue" annot)
 	    collect (list  (make-uri property)
 			   (if (jclass-superclass-p (find-java-class "OWLLiteral") (jobject-class value))
-			       (cond ((#"isOWLTypedLiteral" value) value)
-				     ((#"isOWLStringLiteral" value) (#"getLiteral" value)))
+			       (cond ((#"isRDFPlainLiteral" value) (#"getLiteral" value))
+				     (t value))
 			       value;(make-uri (#"toString" value))
 			       ))))))
 
@@ -466,7 +469,9 @@
 	    (t (error "don't know how to write to ~a" dest)))
       (ecase syntax
 	((:turtle)
-	 (#"render" (new (second (assoc syntax *owlapi-syntax-renderers*)) ont manager writer)))
+	 (let ((format (new 'org.semanticweb.owlapi.io.RDFXMLOntologyFormat)))
+	   (#"setAddMissingTypes" format nil)
+	   (#"render" (new (second (assoc syntax *owlapi-syntax-renderers*)) ont manager writer format))))
 	((:rdfxml)
 	 (let ((format (new 'org.semanticweb.owlapi.io.RDFXMLOntologyFormat)))
 	   (#"setAddMissingTypes" format nil)
