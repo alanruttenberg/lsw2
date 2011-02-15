@@ -6,9 +6,9 @@ The triples are asserted as object property assertions in OWL. The function read
  (setf ont (loadOnt (readRecords "dummy-records.txt" "http://www.purl.org/newOntology")))
  
  dummy-records.txt:
-hasWife	Bob	Sally
-hasBrother	Bill	Tim
-hasSister	Sally	Megan
+hasWife	Bob	Sally <cr>
+hasBrother	Bill	Tim <cr>
+hasSister	Sally	Megan <cr>
  
  To output the results in owl:
 (to-owl-syntax foo :rdfxml)
