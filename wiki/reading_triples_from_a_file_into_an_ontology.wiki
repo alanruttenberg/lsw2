@@ -1,0 +1,41 @@
+The function loadOnt (below) takes two arguments, a file name string and a string of what you want to uri to be, and returns an ontology.
+The file must include tab delimited "triples" (e.g. loves bob susan) separated by newlines.
+The triples are asserted as object property assertions in OWL. The function readRecords does the necessary parsing.
+ 
+ example usage:
+ (setf ont (loadOnt (readRecords "dummy-records.txt" "http://www.purl.org/newOntology")))
+ 
+ dummy-records.txt:
+hasWife	Bob	Sally
+hasBrother	Bill	Tim
+hasSister	Sally	Megan
+ 
+ To output the results in owl:
+(to-owl-syntax foo :rdfxml)
+
+ <rdf:Description rdf:about=\"http://www.purl.org/newOntologyBill\">
+        <www:newOntologyhasBrother rdf:resource=\"http://www.purl.org/newOntologyTim\"/>
+    </rdf:Description>
+    <rdf:Description rdf:about=\"http://www.purl.org/newOntologyBob\">
+        <www:newOntologyhasWife rdf:resource=\"http://www.purl.org/newOntologySally\"/>
+    </rdf:Description>
+    <rdf:Description rdf:about=\"http://www.purl.org/newOntologySally\">
+        <www:newOntologyhasSister rdf:resource=\"http://www.purl.org/newOntologyMegan\"/>
+    </rdf:Description>
+
+
+(defun loadOnt (records)
+  (with-ontology foo (:collecting t) ((as records)) foo))
+ 
+(defun readRecords(filename uri-string)
+  (setf records nil)
+  (with-open-file (f filename)
+     (loop for line = (read-line f nil :eof)
+        until (eq line :eof)
+        do
+	 (let ((match (split-at-regex line "\\t")))
+	   (let ((predicate (first match)) (subject (second match)) (object (third match)))
+		    (push `(object-property-assertion (make-uri ,(concatenate 'string uri-string predicate))
+					    (make-uri ,(concatenate 'string uri-string subject))
+					    (make-uri ,(concatenate 'string uri-string object))) records)))
+  finally (return records))))
