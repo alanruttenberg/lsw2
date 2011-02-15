@@ -3,7 +3,7 @@ The file must include tab delimited "triples" (e.g. loves bob susan) separated b
 The triples are asserted as object property assertions in OWL. The function readRecords does the necessary parsing.
  
  example usage:
- (setf ont (loadOnt (readRecords "dummy-records.txt" "http://www.purl.org/newOntology")))
+ (setf ont (loadOnt (readRecords "dummy-records.txt" "http://www.purl.org/newOntology/")))
  
  dummy-records.txt:
 hasWife	Bob	Sally <cr>
@@ -13,14 +13,14 @@ hasSister	Sally	Megan <cr>
  To output the results in owl:
 (to-owl-syntax foo :rdfxml)
 
- <rdf:Description rdf:about=\"http://www.purl.org/newOntologyBill\">
-        <www:newOntologyhasBrother rdf:resource=\"http://www.purl.org/newOntologyTim\"/>
+ <rdf:Description rdf:about=\"http://www.purl.org/newOntology/Bill\">
+        <www:newOntologyhasBrother rdf:resource=\"http://www.purl.org/newOntology/Tim\"/>
     </rdf:Description>
-    <rdf:Description rdf:about=\"http://www.purl.org/newOntologyBob\">
-        <www:newOntologyhasWife rdf:resource=\"http://www.purl.org/newOntologySally\"/>
+    <rdf:Description rdf:about=\"http://www.purl.org/newOntology/Bob\">
+        <www:newOntologyhasWife rdf:resource=\"http://www.purl.org/newOntology/Sally\"/>
     </rdf:Description>
-    <rdf:Description rdf:about=\"http://www.purl.org/newOntologySally\">
-        <www:newOntologyhasSister rdf:resource=\"http://www.purl.org/newOntologyMegan\"/>
+    <rdf:Description rdf:about=\"http://www.purl.org/newOntology/Sally\">
+        <www:newOntology/hasSister rdf:resource=\"http://www.purl.org/newOntology/Megan\"/>
     </rdf:Description>
 
 
