@@ -14,10 +14,10 @@ hasSister	Sally	Megan <cr>
 (to-owl-syntax foo :rdfxml)
 
  <rdf:Description rdf:about=\"http://www.purl.org/newOntology/Bill\">
-        <www:newOntologyhasBrother rdf:resource=\"http://www.purl.org/newOntology/Tim\"/>
+        <www:newOntology/hasBrother rdf:resource=\"http://www.purl.org/newOntology/Tim\"/>
     </rdf:Description>
     <rdf:Description rdf:about=\"http://www.purl.org/newOntology/Bob\">
-        <www:newOntologyhasWife rdf:resource=\"http://www.purl.org/newOntology/Sally\"/>
+        <www:newOntology/hasWife rdf:resource=\"http://www.purl.org/newOntology/Sally\"/>
     </rdf:Description>
     <rdf:Description rdf:about=\"http://www.purl.org/newOntology/Sally\">
         <www:newOntology/hasSister rdf:resource=\"http://www.purl.org/newOntology/Megan\"/>
