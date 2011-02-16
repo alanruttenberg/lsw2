@@ -9,4 +9,5 @@ How do I run a sparql query on an ontology that is created?
 	-query all the subclasses of mortal:
 (sparql '(:select (?a) () (?a !rdfs:subClassOf !ex:mortal)) :kb ont :use-reasoner :sparqldl)
 
+output:
 ((!ex:human) (!owl:Nothing) (!ex:mortal))
