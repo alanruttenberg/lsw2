@@ -1,5 +1,4 @@
-#summary One-sentence summary of this page.
-
+#summary Links to important ontologies and editing tools
 = Introduction =
 
 This page contains links to important ontologies and tools for editing them.
