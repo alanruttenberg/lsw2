@@ -181,6 +181,7 @@
 	       (t (error "subject: ~a" s))))
 	(property (cond ((stringp property)
 			 (#"getProperty" model property))
+			((java-object-p s) s)
 			((uri-p property)
 			 (#"getProperty" model (uri-full property)))
 			(t (error "property: ~a" s))))
