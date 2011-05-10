@@ -40,4 +40,5 @@ Alternative syntaxes like this:
  Windows users can run the obo2owl as:
 	
  	bin\obolib-obo2owl.bat -o test_resources\caro.owl test_resources\caro.obo  
+
  	bin\obolib-owl2obo -o test_resources\cell.obo test_resources\cell.owl
