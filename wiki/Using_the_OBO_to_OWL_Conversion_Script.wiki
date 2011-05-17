@@ -2,11 +2,9 @@
 
 = Introduction =
 
-TO use this script, SVN software is required, and can be obtained here
+To use this script, SVN software is required, and can be obtained here
 
-http://tortoisesvn.net/downloads.html
-
-
+Windows Users: http://tortoisesvn.net/downloads.html
 = Details =
 
 GETTING THE CODE
