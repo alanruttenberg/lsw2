@@ -11,32 +11,14 @@ GETTING THE CODE
 
 For now there are no releases; get the code via svn:
 
-  svn checkout http://oboformat.googlecode.com/svn/trunk/ oboformat-read-only
+  svn checkout http://oboformat.googlecode.com/svn/trunk/
 
 RUNNING THE CONVERTER ON THE COMMAND LINE:
 
-You may find it helpful to add the bin dir to your path:
+From the command line, navigate to the home directory where the download was set. From there, type in bin\obolib-gui.bat
 
-  export PATH="$PATH:$HOME/oboformat-read-only/bin"
+This will bring up a GUI with options for adding/removing files, as well as the directory to export to and the filename for the converted file.
 
-Convert a file like this:
+Select the file you want to convert by clicking on "ADD", and navigate to the location and select. 
 
-  obolib-obo2owl cell.obo [--to owlxml|manchester] -o FILE-PATH
-
-You have to specify the file path as a URL; e.g
-
-  obolib-obo2owl cell.obo -o file:///Users/me/cell.owl
-
-You may find it convenient to do this:
-
-  obolib-obo2owl cell.obo -o file://`pwd`/cell.owl
-
-Alternative syntaxes like this:
-
-  obolib-obo2owl cell.obo --to manchester -o file://`pwd`/cell.owl
-  
- Windows users can run the obo2owl as:
-	
- 	bin\obolib-obo2owl.bat -o test_resources\caro.owl test_resources\caro.obo  
-
- 	bin\obolib-owl2obo -o test_resources\cell.obo test_resources\cell.owl
+Next choose the folder to export to in the folder line, and type the filename in the filename line. Select whether you are converting from OBO to OWL, or OWL to OBO. Click "Run Conversion" to convert the file.
