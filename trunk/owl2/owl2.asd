@@ -39,17 +39,18 @@
 		  *factpp-natives*)))
 
 (defun factpp-library-name (arch os)
-  (pathname-name (fourth (find-if (lambda(e) (and (member arch (second e) :test 'equal)
+  (fourth (find-if (lambda(e) (and (member arch (second e) :test 'equal)
 						  (member os (first e) :test 'equal)))
-				  *factpp-natives*))))
+				  *factpp-natives*)))
 			   
 (defparameter cl-user::*factpp-jni-path*
   (let ((arch (#"getProperty" 'system "os.arch"))
 	(os (#"getProperty" 'system "os.name")))
     (namestring (merge-pathnames
 		 (make-pathname :directory `(:relative "lib" "factpp-native-1.5.0" ,(factpp-native-dir arch os))
-				:name (factpp-library-name arch os)
-				:type "jnilib")
+				:name (pathname-name (factpp-library-name arch os))
+				:type (pathname-type (factpp-library-name arch os))
+				)
 		 *load-pathname*))))
 
 (defsystem :owl2
