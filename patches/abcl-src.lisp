@@ -18,7 +18,7 @@
 						  :name :wild
 						  :type :wild))))))
 	  (format t "~&Then call (fix-abcl-src-pointers). You can do this in your .abclrc file.~%")
-	  (format t "~&Source code info available at http://sourceforge.net/cvs/?group_id=55057~%")))))v
+	  (format t "~&Source code info available at http://sourceforge.net/cvs/?group_id=55057~%")))))
 
 (defun fix-abcl-src-pointers () 
   (do-all-symbols (sym) 
