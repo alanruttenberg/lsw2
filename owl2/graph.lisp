@@ -46,9 +46,11 @@
 (defun clean-label (label &optional (ignore-if-xml nil))
   (let ((cleaned 
 	 (and label
+	      (#"replaceAll"
 	      (#"replaceAll" 
 	       (#"replaceAll"
-		(#"replaceAll" (#"replaceFirst" (#0"replaceFirst" label "^\\s+" "") "\\s+$" "")  "<" "&lt;")
+		(#"replaceAll" (#"replaceFirst" (#0"replaceFirst" label "^\\s+" "") "\\s+$" "") "&" "&amp;")
+		"<" "&lt;")
 		">" "&gt;") "\"" "&quot;"))))
     (when cleaned
       (if (and (> (length cleaned) 35) (char= (char cleaned 0) #\&))
@@ -130,7 +132,7 @@
     ;; accessors for subclasses and instances of a node. Take care here if we are using inferred or uninferred
     (flet ((satisfiable-children (node)
 	     (set-difference (children node treekb) unsatisfiable :test 'eq))
-	   (direct-instances (node)
+	   (direct-instances-1 (node)
 	     (direct-instances node treekb))
 	   (maybe-tooltip (kb node)
 	     (if include-tooltips
@@ -163,20 +165,20 @@
 		       (cond
 
 			 ;; no children - subclasses or instances. So we are a leaf.
-			 ((and (null children)  (or (not include-instances) (not (direct-instances node))))
+			 ((and (null children)  (or (not include-instances) (not (direct-instances-1 node))))
 			  (format f "<leaf><attribute name=\"name\" value=\"~a\"/><attribute name=\"entity\" value=\"~a\"/>~a</leaf>~%" 
 				  (node-name kb node)
 				  (uri-full node)
 				  (maybe-tooltip kb node)))
 
 			 ;; No subclassses, but there are instances, so we are a branch.
-			 ((and (null children) include-instances (direct-instances node))
+			 ((and (null children) include-instances (direct-instances-1 node))
 			  (format f "<branch><attribute name=\"name\" value=\"~a\"/><attribute name=\"entity\" value=\"~a\"/>~a~%" 
 				  (node-name kb node)
 				  (uri-full node)
 				  (maybe-tooltip kb node))
 			  
-			  (loop for i in (direct-instances node)
+			  (loop for i in (direct-instances-1 node)
 			     for count from 0
 			     unless (and max-tree-size (> count max-tree-size))
 			     do
@@ -203,7 +205,7 @@
 			     do (subtree child))
 
 			  (when include-instances
-			    (loop for i in (direct-instances node)
+			    (loop for i in (direct-instances-1 node)
 			       for count from 0
 			       unless (and max-tree-size (> count max-tree-size))
 			       do
