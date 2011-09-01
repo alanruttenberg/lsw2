@@ -437,10 +437,11 @@
 ;; Not automatically translated - overridden by manual translation
 (defrdfm haskey
          (:pattern
-          (haskey ?ce (?multiple-?object-property-expression)
-           (?multiple-?data-property-expression))
+          (haskey ?class-expression ((?* ?multiple-?object-property-expression))
+		  ((?* ?multiple-?data-property-expression)))
           :case :subscript-free)
-         (triple (t ?class-expression)
+  (print-db ?class-expression  ?multiple-?object-property-expression ?multiple-?data-property-expression)
+   (triple (t ?class-expression)
                  (make-uri nil "owl:hasKey")
                  (t (system::backq-cons 'seq
                                         (system::backq-append ?multiple-?object-property-expression
