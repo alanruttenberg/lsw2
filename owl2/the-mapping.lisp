@@ -440,7 +440,6 @@
           (haskey ?class-expression ((?* ?multiple-?object-property-expression))
 		  ((?* ?multiple-?data-property-expression)))
           :case :subscript-free)
-  (print-db ?class-expression  ?multiple-?object-property-expression ?multiple-?data-property-expression)
    (triple (t ?class-expression)
                  (make-uri nil "owl:hasKey")
                  (t (system::backq-cons 'seq
