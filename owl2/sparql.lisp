@@ -51,7 +51,7 @@
   (setq count (and (consp query)
 		   (eq (car query) :select)
 		   (getf (third query) :count)
-		   (member use-reasoner '(:jena :none :pellet))))
+		   (member use-reasoner '(:jena :none :pellet :sparqldl))))
   (when (typep kb 'owl-ontology)
     (setq kb (kb kb)))
   (when (listp query) 
@@ -79,19 +79,17 @@
 
 	       ;; Execute the query and obtain results
 	       ;; QueryExecution qe = QueryExecutionFactory.create(query, model);
-	       (qe (cond ((or (eq use-reasoner :sparqldl ))
+	       (qe (cond ((or (member use-reasoner '(:sparqldl :pellet t)))
 			  (unless (v3kb-pellet-jena-model kb) (instantiate-reasoner kb :pellet-sparql nil))
+			  (#"prepare" (v3kb-pellet-jena-model kb))
 			  (#"create" 'SparqlDLExecutionFactory jquery (v3kb-pellet-jena-model kb)))
-			 ((or (eq use-reasoner :pellet ) (eq use-reasoner t))
-			  (unless (v3kb-pellet-jena-model kb) (instantiate-reasoner kb :pellet-sparql nil))
-			  (new 'PelletQueryExecution jquery (v3kb-pellet-jena-model kb)))
 			 ((or (eq use-reasoner :none) (eq use-reasoner nil)) 
 			  (#"create" 'QueryExecutionFactory jquery
 				     (if (java-object-p kb) kb (jena-model kb))))
 			 ((or (eq use-reasoner :jena))
 			  (unless (v3kb-pellet-jena-model kb) (instantiate-reasoner kb :pellet-sparql nil))
 			  (#"create" 'QueryExecutionFactory jquery (v3kb-pellet-jena-model kb)))
-			 ((eq use-reasoner :owl) (error "Not supported in yet")
+			 ((eq use-reasoner :owl) (error "Not supported yet")
 			  (#"create" 'QueryExecutionFactory jquery 
 				     (#"createInfModel" 'modelfactory 
 							(#"getOWLReasoner" 'ReasonerRegistry)
@@ -194,10 +192,10 @@
 		     (with-output-to-string (s) 
 		       (let ((*print-case*  :downcase))
 			 (format s "SELECT ~a~a~{~a~^ ~}~a~a~%WHERE { "
-				 (if (and count (not (member reasoner '(:jena :none :pellet)))) "COUNT(" "")
+				 (if (and count (not (member reasoner '(:jena :none :pellet :sparqldl)))) "COUNT(" "")
 				 (if distinct "DISTINCT " "")
 				 vars 
-				 (if (and count (not (member reasoner '(:jena :none :pellet)))) ")" "")
+				 (if (and count (not (member reasoner '(:jena :none :pellet :sparqldl)))) ")" "")
 				 (if from (format nil "~{ FROM <~a> ~^~%~}" (mapcar 'uri-full (if (atom from) (list from) from))) "")
 				 )
 			 (loop for clause in clauses
