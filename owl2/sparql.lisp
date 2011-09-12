@@ -53,7 +53,7 @@
 		   (getf (third query) :count)
 		   (member use-reasoner '(:jena :none :pellet :sparqldl))))
   (when (typep kb 'owl-ontology)
-    (setq kb (kb kb)))
+    (setq kb (kb kb))) 
   (when (listp query) 
     (setq command (car query))
     (setq query (sparql-stringify query use-reasoner)))
