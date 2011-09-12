@@ -80,7 +80,13 @@
 	       ;; Execute the query and obtain results
 	       ;; QueryExecution qe = QueryExecutionFactory.create(query, model);
 	       (qe (cond ((or (member use-reasoner '(:sparqldl :pellet t)))
-			  (unless (v3kb-pellet-jena-model kb) (instantiate-reasoner kb :pellet-sparql nil))
+			  (unless (v3kb-pellet-jena-model kb)
+			    (instantiate-reasoner kb :pellet-sparql nil)
+			    (unless (v3kb-pellet-jena-model kb)
+			      (setf (v3kb-pellet-jena-model kb) 
+				     (let ((graph (new 'org.mindswap.pellet.jena.PelletReasoner)))
+				       (#"createInfModel" 'com.hp.hpl.jena.rdf.model.ModelFactory
+							  (#"bind" graph (#"getKB" (v3kb-reasoner kb))))))))
 			  (#"prepare" (v3kb-pellet-jena-model kb))
 			  (#"create" 'SparqlDLExecutionFactory jquery (v3kb-pellet-jena-model kb)))
 			 ((or (eq use-reasoner :none) (eq use-reasoner nil)) 
