@@ -1,0 +1,55 @@
+# $Id: Changelog 620 2011-02-25 04:04:47Z rpgoldman $
+
+1.4.1
+    * Fixed bugs in parsing CDATA that could cause crashes in the parser.#
+
+1.4
+    * Thanks to Norman Werner, fixed bug in handling of multi-byte characters.
+
+1.3
+    * Bumped the version to record the presence of the helper functions.
+
+1.2.1, 1.2.2
+    * Miscellaneous bugfixes, not recorded by anyone.
+
+1.2
+    * add compilation guard around *whitespace* (5 million people)
+    * generate-xml serializes numbers and symbols automatically (Robert Goldman)
+
+1.1.1
+    * fix typo in test function guard
+
+1.1
+    * merge Barry Wilkes patches for ws in attributes
+    * merge Barry Wilkes lispworks compatibility patches
+    * merge Gary King's MCL compatibilty patches
+    * merge Clayton Wheeler's memory optimizations
+    * merge Robert Goldman's Allegro fixes
+
+1.0
+    * Parse/emit unprintables as entities.
+    * Parse numeric xml entitites thanks to Damien Diederen.
+    * Optionally indent write-xml output.
+    * Fix namespace resolution bug
+
+0.5
+    * Fix compress-whitespace handling.
+    * Add Damien Diederen's entity-handling patch.
+
+0.4
+    * Made substantial changes to get xmls working in cmucl and clisp.
+    * Reduced consing again somewhat.
+
+0.3
+    * Bugfix from Andrew Philpot.
+    * Consing reduced by about 40%.
+
+0.2
+    * Now skips DTDs.
+    * Roughly seven times faster.
+    * Parses CDATA sections.
+    * Only uses one token of lookahead.
+    * Handles content at the end of the document.
+
+0.1
+    * First release.

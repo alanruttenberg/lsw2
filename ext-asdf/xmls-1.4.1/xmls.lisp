@@ -1,11 +1,20 @@
+;;; $Id: xmls.lisp 609 2011-02-23 21:11:46Z rpgoldman $
 ;;; xmls
 ;;; a simple xml parser for common lisp
 ;;; author: Miles Egan <miles@caddr.com>
 ;;; see COPYING file for license information
 
 (defpackage xmls
-  (:use :cl :cl-user)
-  (:export node-name node-ns node-attrs node-children make-node parse toxml write-xml))
+  (:use :cl) ; :cl-user
+  (:export node-name node-ns node-attrs node-children make-node parse toxml write-xml
+           ;; additional helpers from Robert P. Goldman
+           make-xmlrep xmlrep-add-child!
+           xmlrep-tag xmlrep-tagmatch
+           xmlrep-attribs xmlrep-children
+           xmlrep-find-child-tags xmlrep-find-child-tag
+           xmlrep-attrib-value
+           xmlrep-boolean-attrib-value))
+
 
 (in-package :xmls)
 
@@ -22,7 +31,7 @@
     ("apos;" #\')
     ("quot;" #\")))
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defvar *whitespace* (remove-duplicates 
+  (defvar *whitespace* (remove-duplicates
                         '(#\Newline #\Space #\Tab #\Return #\Linefeed))))
 (defvar *char-escapes*
   (let ((table (make-array 256 :element-type 'string :initial-element "")))
@@ -47,7 +56,7 @@
 ;;;-----------------------------------------------------------------------------
 ;;; CONDITIONS
 ;;;-----------------------------------------------------------------------------
-(define-condition xml-parse-error (error) 
+(define-condition xml-parse-error (error)
   ((line :initarg :line
          :reader error-line)))
 
@@ -56,8 +65,8 @@
 ;;;-----------------------------------------------------------------------------
 (defun make-node (&key name ns attrs child children)
   "Convenience function for creating a new xml node."
-  (list* (if ns (cons name ns) name) 
-         attrs 
+  (list* (if ns (cons name ns) name)
+         attrs
          (if child
              (list child)
              children)))
@@ -78,13 +87,13 @@
 
 (defun node-attrs (elem) (second elem))
 
-(defun (setf node-attrs) (attrs elem) 
+(defun (setf node-attrs) (attrs elem)
   (setf (second elem) attrs))
 
 (defun node-children (elem)
   (cddr elem))
 
-(defun (setf node-children) (children elem) 
+(defun (setf node-children) (children elem)
   (rplacd (cdr elem) children)
   (node-children elem))
 
@@ -99,14 +108,33 @@
             nil
             str))
       str))
-  
+
+;; (defun write-escaped (string stream)
+;;   "Writes string to stream with all character entities escaped."
+;;   #-allegro (coerce string 'simple-base-string)
+;;   (when (eq stream t) (setf stream *standard-output*))
+;;   (loop for char across string
+;;         for esc = (svref *char-escapes* (char-code char))
+;;         do (write-sequence esc stream)))
+
+;;; Alternative definition, lifted from Edi Weitz's hunchentoot, per Norman
+;;; Werner's suggestion. [2010/12/09:rpg]
 (defun write-escaped (string stream)
-  "Writes string to stream with all character entities escaped."
-  (coerce string 'simple-base-string)
-  (when (eq stream t) (setf stream *standard-output*))
-  (loop for char across string
-        for esc = (svref *char-escapes* (char-code char))
-        do (write-sequence esc stream)))
+  (write-string (escape-for-html string) stream))
+
+(defun escape-for-html (string)
+  "Escapes the characters #\\<, #\\>, #\\', #\\\", and #\\& for HTML output."
+  (with-output-to-string (out)
+    (with-input-from-string (in string)
+      (loop for char = (read-char in nil nil)
+            while char
+            do (case char
+                 ((#\<) (write-string "&lt;" out))
+                 ((#\>) (write-string "&gt;" out))
+                 ((#\") (write-string "&quot;" out))
+                 ((#\') (write-string "&#039;" out))
+                 ((#\&) (write-string "&amp;" out))
+                 (otherwise (write-char char out)))))))
 
 (defun make-extendable-string (&optional (size 10))
   "Creates an adjustable string with a fill pointer."
@@ -142,13 +170,13 @@
                   (write-string (first a) s)
                   (write-char #\= s)
                   (write-char #\" s)
-                  (write-escaped (second a) s)
+                  (write-escaped (translate-raw-value (second a)) s)
                   (write-char #\" s))))
      (if (null (node-children e))
          (progn
            (write-string "/>" s)
            (if (> indent 0) (write-char #\Newline s)))
-	 (progn
+         (progn
            (write-char #\> s)
            (if (> indent 0) (write-char #\Newline s))
            (mapcan (lambda (c) (generate-xml c s indent)) (node-children e))
@@ -156,13 +184,13 @@
                (progn
                  (dotimes (i (* 2 (- indent 2)))
                    (write-char #\Space s))))
-	   (format s "</~A>" (node-name e))
+           (format s "</~A>" (node-name e))
            (if (> indent 0) (write-char #\Newline s)))))
     (number
      (generate-xml (translate-raw-value e) s indent))
     (symbol
      (generate-xml (translate-raw-value e) s indent))
-    (string 
+    (string
      (progn
        (if (> indent 0)
            (progn
@@ -185,7 +213,7 @@
   "Resolves the xml entity ENT to a character.  Numeric entities are
 converted using CODE-CHAR, which only works in implementations that
 internally encode strings in US-ASCII, ISO-8859-1 or UCS."
-  (declare (type simple-base-string ent))
+  (declare (type simple-string ent))
   (declare (type vector *entities*))
   (or (and (>= (length ent) 2)
            (char= (char ent 0) #\#)
@@ -218,6 +246,10 @@ character translation."
 (defmacro eat ()
   "Consumes one character from the input stream."
   `(read-char (state-stream s)))
+
+(defmacro puke (char)
+  "The opposite of EAT."
+  `(unread-char ,char (state-stream s)))
 
 (defmacro match (&rest matchers)
   "Attempts to match the next input character with one of the supplied matchers."
@@ -286,7 +318,7 @@ character translation."
   "Match definition macro that provides a common lexical environment for matchers."
   `(defun ,name (c)
     ,@body))
-  
+
 (defmacro defrule (name &rest body)
   "Rule definition macro that provides a common lexical environment for rules."
   `(defun ,name (s)
@@ -326,20 +358,23 @@ character translation."
 (defmatch letter ()
   (and c (alpha-char-p c)))
 
+;; Modified because *whitespace* is not defined at compile
+;; time. [2004/08/31:rpg]
 (defmatch ws-char ()
-  (case c
-    (#.*whitespace* t)
-    (t nil)))
+  (member c *whitespace*))
+;;;  (case c
+;;;    (#.*whitespace* t)
+;;;    (t nil)))
 
 (defmatch namechar ()
-  (or 
+  (or
    (and c (alpha-char-p c))
    (and c (digit-char-p c))
    (case c
      ((#\. #\- #\_ #\:) t))))
 
 (defmatch ncname-char ()
-  (or 
+  (or
    (and c (alpha-char-p c))
    (and c (digit-char-p c))
    (case c
@@ -453,36 +488,107 @@ character translation."
      t)
    (make-element :type 'comment)))
 
+;;; the following is buggy, because it does not properly back up when it gets a
+;;; mismatch.  An example buggy string is: "<name><![CDATA[x]]]></name>"
+;;; [2011/02/21:rpg]
+;; (defrule comment-or-cdata ()
+;;   (and
+;;    (peek #\!)
+;;    (must (or (comment s)
+;;              (and
+;;               (match-seq #\[ #\C #\D #\A #\T #\A #\[)
+;;               (loop with data = (make-extendable-string 50)
+;;                     with state = 0
+;;                     do (case state
+;;                          (0 (cond ((match #\])
+;;                                    (norvig:dbg :cdata "Match #\], go to state 1.")
+;;                                    (incf state))
+;;                                   (t
+;;                                    (push-string (eat) data))))
+;;                          (1 (cond ((match #\])
+;;                                    (norvig:dbg :cdata "Match second #\], go to state 2.")
+;;                                    (incf state))
+;;                                   (t
+;;                                    (norvig:dbg :cdata "Fail to match second #\], go to state 0.")
+;;                                    (setf state 0)
+;;                                    ;; dump the first close-bracket
+;;                                    (push-string #\] data)
+;;                                    ;; just go back to the matching process [2011/02/21:rpg]
+;;                                    ;; (push-string (eat) data)
+;;                                    )))
+;;                          (2 (cond ((match #\>)
+;;                                    (norvig:dbg :cdata "Finish closing of CDATA.")
+;;                                    (incf state))
+;;                                   (t
+;;                                    (norvig:dbg :cdata "Fail to find >, return to state 0.")
+;;                                    (setf state 0)
+;;                                    ;; the FIRST close-bracket doesn't start a match
+;;                                    (push-string #\] data)
+;;                                    ;; start reading again from the second close-bracket, which might
+;;                                    ;; start a match... [2011/02/21:rpg]
+;;                                    (puke #\])
+;;                                    ;; (push-string (eat) data)
+;;                                    ))))
+;;                     until (eql state 3)
+;;                     finally (return (make-element
+;;                                      :type 'cdata
+;;                                      :val (coerce data 'simple-string)))))))))
+
+;;; I was unable to figure out how to rejigger this backtracking lexer because
+;;; of the possible need to do multiple step backup.  Instead, for the CDATA
+;;; matching of ]]> I by hand generated an NFA, and then determinized it (also
+;;; by hand).  Then I did a simpler thing of just pushing ALL the data onto the
+;;; data string, and truncating it when done.
 (defrule comment-or-cdata ()
-  (and
-   (peek #\!)
-   (must (or (comment s)
-             (and
-              (match-seq #\[ #\C #\D #\A #\T #\A #\[)
-              (loop with data = (make-extendable-string 50)
-                    with state = 0
-                    do 
-		   (case state
-                         (0 (if (match #\])
-                                (incf state)
-                                (push-string (eat) data)))
-                         (1 (if (match #\])
-                                (incf state)
-                                (progn 
-                                  (setf state 0)
-                                  (push-string #\] data)
-                                  (push-string (eat) data))))
-                         (2 (if (match #\>)
-                                (incf state)
-                                (progn 
-                                  (setf state 0)
-                                  (push-string #\] data)
-                                  (push-string #\] data)
-                                  (push-string (eat) data)))))
-                    until (eql state 3)
-                    finally (return (make-element 
-                                     :type 'cdata 
-                                     :val (coerce data 'simple-base-string)))))))))
+  (macrolet ((dbg (&rest args)
+               #+xmls-debug
+               `(norvig:dbg ,@args)
+               #-xmls-debug
+               nil))
+    (and
+     (peek #\!)
+     (must (or (comment s)
+               (and
+                (match-seq #\[ #\C #\D #\A #\T #\A #\[)
+                (loop with data = (make-extendable-string 50)
+                      with state = 0
+                      for char = (eat)
+                      do (push-string char data)
+                      do (case state
+                           (0
+                            (case char
+                              (#\]
+                               (dbg :cdata "State 0 Match #\], go to state {0,1} = 4.")
+                               (setf state 4))
+                              (otherwise
+                               (dbg :cdata "State 0 Non-], go to (remain in) state 0."))))
+                           (4 ; {0, 1}
+                            (case char
+                              (#\]
+                               (dbg :cdata "State 4 {0, 1}, match ], go to state {0,1,2} = 5")
+                               (setf state 5))
+                              (otherwise
+                               (dbg :cdata "State 4 {0, 1}, Non-], go to state 0.")
+                               (setf state 0))))
+                           (5 ; {0, 1, 2}
+                            (case char
+                              (#\]
+                               (dbg :cdata "State 5 {0, 1, 2}, match ], stay in state 5."))
+                              (#\>
+                               (dbg :cdata "State 5 {0, 1, 2}, match >, finish match and go to state 3.")
+                               (setf state 3))
+                              (otherwise
+                               (dbg :cdata "State 5 {0, 1, 2}, find neither ] nor >; go to state 0.")
+                               (setf state 0))))
+                           )
+                      until (eql state 3)
+                      finally (return (make-element
+                                       :type 'cdata
+                                       :val (coerce
+                                             ;; rip the ]]> off the end of the data and return it...
+                                             (subseq data 0 (- (fill-pointer data) 3))
+                                             'simple-string))))))))))
+
 
 (declaim (ftype function element))     ; forward decl for content rule
 (defrule content ()
@@ -560,13 +666,13 @@ character translation."
                   do (case (eat)
                        (#\> (decf level))
                        (#\< (incf level)))
-                  until (eql level 0)
+                  until (eq level 0)
                   finally (return t))
             (setf (state-got-doctype s) t)
             (make-element :type 'doctype)))))
 
 (defrule misc ()
-  (or 
+  (or
    (ws s)
    (and (match #\<) (must (or (processing-instruction s)
                               (comment-or-doctype s)
@@ -589,7 +695,9 @@ character translation."
 ;;;-----------------------------------------------------------------------------
 (defun write-xml (e s &key (indent nil))
   "Renders a lisp node tree to an xml stream.  Indents if indent is non-nil."
-  (generate-xml e s (if indent 1 0)))
+  (if (null s)
+      (toxml e :indent indent)
+    (generate-xml e s (if indent 1 0))))
 
 (defun toxml (e &key (indent nil))
   "Renders a lisp node tree to an xml string."
@@ -611,22 +719,44 @@ character translation."
 ;;(trace end-tag comment comment-or-doctype content name xmldecl misc)
 ;;(trace processing-instruction processing-instruction-or-xmldecl element start-tag ws element-val)
 
-#+(or sbcl cmu allegro)
+#+(or sbcl cmu allegro abcl ccl)
 (defun test ()
   ;;(sb-profile:profile "XMLS")
   #+cmu(extensions:gc-off) ;; too noisy
-  (dolist (test (cdr 
-                 #+sbcl sb-ext:*posix-argv* 
-                 #+cmu (subseq extensions:*command-line-strings* 4)
-                 #+allegro (sys:command-line-arguments)))
-    (if *test-verbose*
-        (format t "~A~%" (toxml (parse (open test) :compress-whitespace t) :indent t))
-        (progn
-          (format t "~40A" (concatenate 'string test "... "))
-          (if (parse (open test))
-              (format t "ok~%")
-              (format t "failed!~%")))))
+  (dolist (test
+            #-ccl
+           (cdr
+            #+sbcl sb-ext:*posix-argv*
+            #+abcl extensions:*command-line-argument-list*
+            #+cmu (subseq extensions:*command-line-strings* 4)
+            #+allegro (sys:command-line-arguments))
+           #+ccl
+           ccl:*unprocessed-command-line-arguments*)
+    (handler-bind ((error #'(lambda (c)
+                              (format t "FAILED with error:~%~S~%" c)
+                              (throw 'test-failure nil))))
+      (unless (search "CVS" test)
+        (catch 'test-failure
+          (if *test-verbose*
+              (format t "~A~%" (toxml (parse (open test) :compress-whitespace t) :indent t))
+              (progn
+                (format t "~40A" (concatenate 'string test "... "))
+                (force-output)
+                (if (parse (open test))
+                    (format t "ok~%")
+                    (format t "FAILED!~%"))))))))
+      (handler-bind ((error #'(lambda (c)
+                              (format t "FAILED with error:~%~S~%" c)
+                              (throw 'test-failure nil))))
+        (catch 'test-failure
+          (format t "~40A" "Escaped writing...")
+          (force-output)
+          (with-output-to-string (str)
+          (write-escaped "ÄΩ" str))
+          (format t "ok~%")))
   ;;(sb-profile:report)
-  #+sbcl(sb-ext:quit)
+  #+abcl (extensions:quit)
+  #+ccl (ccl:quit)
+  #+sbcl (sb-ext:quit)
   #+cmu(extensions:quit)
   #+allegro(excl:exit))

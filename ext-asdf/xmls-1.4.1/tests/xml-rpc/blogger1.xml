@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<methodCall>
+  <methodName>blogger.newPost</methodName>
+  <params>
+    <param>
+      <value>
+        <string>C6CE3FFB3174106584CBB250C0B0519BF4E294</string>
+      </value>
+    </param>
+    <param>
+      <value>
+        <string>744145</string>
+      </value>
+    </param>
+    <param>
+      <value>
+        <string>ewilliams</string>
+      </value>
+    </param>
+    <param>
+      <value>
+        <string>secret</string>
+      </value>
+    </param>
+    <param>
+      <value>
+        <string>Today I had a peanut butter and pickle sandwich for lunch. Do you like peanut-butter and pickle sandwiches? I do. They're yummy. Please comment!</string>
+      </value>
+    </param>
+    <param>
+      <value>
+        <boolean>false</boolean>
+      </value>
+    </param>
+  </params>
+</methodCall>
