@@ -111,8 +111,8 @@
 	      else collect (list 'triple (pop rest) (pop rest) (pop rest)))))
     (let ((table (second (find-elements-with-tag
 			  (xmls:parse
-			   (load-time-value (get-url "http://www.w3.org/2007/OWL/wiki/Mapping_to_RDF_Graphs"
-				    :persist nil :force-refetch t)))  "table"))))
+			   (get-url "http://www.w3.org/2007/OWL/wiki/Mapping_to_RDF_Graphs"
+				    :persist nil :force-refetch t))  "table"))))
       (loop for row in (rest (find-elements-with-tag table "tr"))
 	 for flattened-row = (mapcar 'flatten-td (find-elements-with-tag row "td"))
 	 do (setf (second flattened-row) (triplify (second flattened-row)))
