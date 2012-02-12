@@ -146,9 +146,7 @@
 
 (defun make-literal (value type)
   (if *jena-model*
-      (if (equal type !rdf:text)
-	  (apply make-jena-langed-literal (car (all-matches value "(.*)@(.*)" 1 2)))
-	  (make-jena-literal *jena-model* value type))
+      (make-jena-literal *jena-model* value type)
       (format nil "\"~a\"^^~a" value (uri-abbreviated type))))
 
 (defun triple (a b c)
@@ -162,45 +160,6 @@
   t) ; return t so no fail
 
 ;;****************************************************************
-
-(defun fresh-jena-blank (model)
-  (#"createResource" model))
-
-(defun make-jena-literal (model value type)
-  (if (member type (load-time-value (list (uri-full !rdf:text) !rdf:text)) :test 'equal)
-      (apply #"createLiteral" model (car (all-matches value "(.*)@(.*)" 1 2)))
-      (#"createTypedLiteral" model (if (stringp value) value (prin1-to-string value)) (new 'jena.datatypes.basedatatype (if (uri-p type) (uri-full type) type)))))
-
-(defun add-jena-triple (model s property value)
-  (let ((subject 
-	 (cond ((stringp s)
-		(#"createResource" model s))
-	       ((uri-p s)
-		(#"createResource" model (uri-full s)))
-	       ((java-object-p s) s)
-	       (t (error "subject: ~a" s))))
-	(property (cond ((stringp property)
-			 (#"getProperty" model property))
-			((java-object-p s) s)
-			((uri-p property)
-			 (#"getProperty" model (uri-full property)))
-			(t (error "property: ~a" s))))
-	(value (cond ((and (consp value)
-			   (eq (car value) :literal))
-		      (make-jena-literal model (second value) (uri-full (third value)))
-		      )
-		     ((and (stringp value)
-			   (#"matches" value ".*@[a-zA-Z]{2,}[a-zA-Z-]*")
-			   (make-jena-literal model value !rdf:text)))
-		     ((uri-p value)
-		      (#"createResource" model (uri-full value)))
-		     ((integerp value)
-		      (#"createTypedLiteral" model value))
-		     ((floatp value)
-		      (#"createTypedLiteral" model value))
-		     (t value))))
-    (#"addProperty" subject property value)))
-
 
 (defvar *bindings* nil)
 

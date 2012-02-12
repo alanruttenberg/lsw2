@@ -31,8 +31,6 @@
 
 (defvar *register-terp-once* (progn (load-time-value (#"registerFactory" 'ARQTerpParser)) t))
 
-(#"setProperty" 'system "factpp.jni.path" *factpp-jni-path*)
-
 (defun print-v3kb-struct (kb stream depth)
   (print-unreadable-object (kb stream)
     (format stream "OWLAPIv3 KB on ~a" (v3kb-name kb))))
@@ -70,7 +68,8 @@
 ;  (set-java-field 'ManchesterOWLSyntaxEditorParser "includeDublinCoreEvenThoughNotInSpec" nil)
   (let ((mapper nil)
 	(uri nil))
-    (when (or (stringp source) (uri-p source))
+    (setq source (if (java-object-p source) (#"toString" source) source))
+    (when (or (stringp source) (uri-p source) )
       (setq uri source)
       (when (and (not (consp (pathname-host uri))) (probe-file uri))
 	(let ((dir (make-pathname :directory (pathname-directory uri))))
@@ -114,7 +113,8 @@
 	      (loop for a in axioms
 		 do (if (consp (car a))
 			(dolist (aa a) (and aa (push aa as)))
-			(and a (push a as))))
+			(and a
+			     (push a as))))
 	      ))
        (macrolet ((asq (&rest axioms)
 		    `(as ',axioms)))
@@ -200,6 +200,7 @@
   (let ((standard (new 'SimpleConfiguration))
 	(progressMonitor (new 'owlapi.reasoner.ConsoleProgressMonitor)))
     (set-java-field 'PelletOptions "USE_ANNOTATION_SUPPORT" t)
+    (set-java-field 'pelletoptions "TREAT_ALL_VARS_DISTINGUISHED" nil)
     (new 'org.semanticweb.owlapi.reasoner.SimpleConfiguration progressMonitor
 	 (#"getFreshEntityPolicy" standard)
 	 (new 'long (#"toString" (#"getTimeOut" standard)))
@@ -207,6 +208,7 @@
 	 )))
 
 (defun factpp-reasoner-config ()
+  (#"setProperty" 'system "factpp.jni.path" *factpp-jni-path*)
   (let ((standard (new 'SimpleConfiguration))
 	(progressMonitor (new 'owlapi.reasoner.ConsoleProgressMonitor)))
     (new 'org.semanticweb.owlapi.reasoner.SimpleConfiguration progressMonitor
@@ -242,7 +244,7 @@
 		(#"createNonBufferingReasoner" factory (v3kb-ont ont) config)
 		(#"createReasoner" factory (v3kb-ont ont) config))))
       (setf (v3kb-reasoner ont) reasoner-instance)
-      (when (eq reasoner :pellet-sparql)
+      (when (member reasoner '(:pellet :pellet-sparql))
 	(setf (v3kb-pellet-jena-model ont) 
 	      (let ((graph (new 'org.mindswap.pellet.jena.PelletReasoner)))
 		(#"createInfModel" 'com.hp.hpl.jena.rdf.model.ModelFactory
@@ -290,8 +292,6 @@
   (let ((expression (to-class-expression class kb)))
     (let ((nodes (funcall fn expression (v3kb-reasoner kb))))
       (loop for iri in (set-to-list (if flatten (#"getFlattened" nodes) nodes))
-	 ;; if there are anonymous individuals returned, they don't have an IRI.
-	 ;; Pellet and Hermit don't return any, Fact++ does
 	 for string = (and iri (#"toString" (#"getIRI" iri)))
 	 for uri = (and iri (make-uri string))
 	 unless (or (null iri) (and (eq uri !owl:Nothing) (not include-nothing))) collect (make-uri string)))))
@@ -316,6 +316,12 @@
 
 (defun equivalents (class kb)
   (class-query class kb (lambda(ce reasoner) (#"getEquivalentClasses" reasoner ce)) nil t))
+
+(defun same-individuals (individual kb)
+  (loop for e in (set-to-list
+		  (#"getSameIndividuals" (v3kb-reasoner kb)
+		     (#"getOWLNamedIndividual" (v3kb-datafactory kb) (to-iri individual))))
+       collecting (make-uri (#"toString" (#"getIRI" e)))))
 
 (defun annotation-properties (kb)
   (mapcar 'make-uri (mapcar #"toString" (mapcar #"getIRI"  (set-to-list (#"getAnnotationPropertiesInSignature" (v3kb-ont o)))))))
