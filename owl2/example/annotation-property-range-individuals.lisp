@@ -28,25 +28,29 @@
 	     when (jinstance-of-p axiom (find-java-class "org.semanticweb.owlapi.model.OWLAnnotationPropertyRangeAxiom"))
 	     return (when (#"getRange" axiom)
 		      (#"getOWLClass" factory (#"getRange" axiom))))))
+    (print range)
     (when range
-      (loop with iterator = (#"iterator" (#"getReferencingAxioms" range (v3kb-ont ontology)))
+      (loop with axs = (#"getReferencingAxioms" range (v3kb-ont ontology))
+	 with iterator = (#"iterator" (progn (print (#"size" axs)) (print axs)))
 	 while (#"hasNext" iterator)
-	 for axiom = (#"next" iterator)
+	 for axiom = (print-db (#"next" iterator))
 	 when (and (jinstance-of-p axiom (find-java-class "org.semanticweb.owlapi.model.OWLEquivalentClassesAxiom"))
 		   (loop with iterator = (#"iterator" (#"getClassExpressions" axiom))
 		      while (#"hasNext" iterator)
 		      thereis (jinstance-of-p (#"next" iterator) (find-java-class "org.semanticweb.owlapi.model.OWLObjectOneOf"))))
 	 return
-	 (loop with iterator = (#"iterator" (#"getIndividualsInSignature" axiom))
+	 (loop with iterator = (#"iterator" (#"getIndividualsInSignature" (setq @ (print axiom))))
 	    while (#"hasNext" iterator)
-	    for individual = (#"next" iterator)
+	    for individual = (print (#"next" iterator))
 	    collect
 	    (let ((it  (#"next" (#"iterator" 
 				 (#"getAnnotations" individual (v3kb-ont ontology) (#"getOWLAnnotationProperty" factory (to-iri !rdfs:label)))))))
 	      (list (#"getLiteral" (#"getValue" it)) (#"toString" (#"getIRI" individual))))
 	    )))))
 
-# (choices-for-annotaton-property !has-choice *test-ontology* (v3kb-manager *test-ontology*))
-#  -> (("Choice 3" "http://example.com/choice-3")
-#      ("Choice 2" "http://example.com/choice-2")
-#      ("Choice 1" "http://example.com/choice-1"))
+#|
+ (choices-for-annotaton-property !has-choice *test-ontology* (v3kb-manager *test-ontology*))
+  -> (("Choice 3" "http://example.com/choice-3")
+      ("Choice 2" "http://example.com/choice-2")
+      ("Choice 1" "http://example.com/choice-1"))
+|#

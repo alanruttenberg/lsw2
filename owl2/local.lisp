@@ -20,7 +20,7 @@
 ;; do mirroring, so this will need to be replaced by code that does do
 ;; mirroring so that we can do a saner update when necessary.
 
-(defun save-ontology-and-imports-locally (ontology directory &key dont-wget (wget-command "/sw/bin/wget"))
+(defun save-ontology-and-imports-locally (ontology directory &key dont-wget (wget-command (#"replaceFirst" (with-output-to-string (s) (run-shell-command "which wget" :output s)) "\\n" "")))
   (let ((top-uri (if (stringp ontology) ontology (v3kb-name ontology)))
 	(ontology (setq @ (if (v3kb-p ontology) ontology (load-ontology ontology)))))
     (ensure-directories-exist directory)
