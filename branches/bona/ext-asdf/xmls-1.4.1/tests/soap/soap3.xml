@@ -1,0 +1,12 @@
+<SOAP-ENC:Array SOAP-ENC:arrayType="xsd:ur-type[4]">
+   <thing xsi:type="xsd:int">12345</thing>
+   <thing xsi:type="xsd:decimal">6.789</thing>
+   <thing xsi:type="xsd:string">
+      Of Mans First Disobedience, and the Fruit
+      Of that Forbidden Tree, whose mortal tast
+      Brought Death into the World, and all our woe,
+   </thing>
+   <thing xsi:type="xsd:uriReference">
+      http://www.dartmouth.edu/~milton/reading_room/
+   </thing>
+</SOAP-ENC:Array>

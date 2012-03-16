@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# Don't override ABCL_WD if it's already set.
+if [ "x$ABCL_WD" = "x" ] ; then
+  bindir=`dirname $0`
+  ABCL_WD=`(cd "$bindir/.."; pwd)`
+fi
+export ABCL_WD
+perl "$ABCL_WD/bin/abcl"  --load "$ABCL_WD/scripts/lsw-startup.lisp" $* 

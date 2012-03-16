@@ -1,0 +1,188 @@
+<?xml version="1.0"?>
+
+<!-- ================================================= -->
+<!--            Cayenne master build file.             -->
+<!-- Serves as a facade to a set of private buildfiles.-->
+<!-- ================================================= -->
+<project name="cayenne" default="build" basedir=".">
+
+    <!-- ============================================= -->
+    <!-- Loads properties from default locations.      -->
+    <!-- ============================================= -->
+    <property file="build.properties" />
+    <property file="${user.home}/build.properties" />
+    <property file="default.properties" />
+    
+    
+    <!-- ============================================= -->
+    <!-- Derived Properties. These properties are      -->
+    <!-- derived from other properties. You probably   -->
+    <!-- don't want to redefine them.                  -->
+    <!-- ============================================= -->
+    <property name="dist" value="${dist.base}/${project.name}-${project.version}"/>
+
+
+    <!-- ============================================= -->
+    <!-- Prints help message describing build.xml use. -->
+    <!-- ============================================= -->
+    <target name="help">
+        <echo>
+     ******************************************************
+     * TARGETS (also you can use "-projecthelp" ant flag 
+     * to see targets):
+     *  1. release    - creates a full Cayenne distribution.
+     *  2. release-site
+     *                - creates a full Cayenne website distribution.
+     *  3. build      - (default target) builds all subproject JAR files.
+     *  4. compile    - compiles all subprojects source files.
+     *  5. clean      - cleans temporary build and distribution directories
+     *  6. clean-java - cleans all build directories, preserving the docs and such
+     *  7. doc        - builds Cayenne documentation including Javadocs.
+     *  8. api        - builds Javdoc API documentation.
+     *  9. javacc     - runs javacc
+     *  10. test      - runs JUnit tests
+     *  11. help      - prints this message
+     *
+     *
+     * ENVIRONMENT:
+     *  java.home = ${java.home}
+     *  user.home = ${user.home}
+     *  ant.home = ${ant.home}
+     *  build.compiler = ${build.compiler}
+     ******************************************************
+         </echo>
+    </target>
+
+
+    <!-- ============================================= -->
+    <!-- Creates a full release of Cayenne.            -->
+    <!-- ============================================= -->
+    <target name="release">
+		<ant antfile="build-cayenne.xml" target="dist-src"/>
+		<ant antfile="build-modeler.xml" target="dist-src"/>
+		<ant antfile="build-tutorials.xml" target="dist-src"/>
+		<ant antfile="build-doc.xml" target="dist-src"/>
+		
+		<copy todir="${dist}" file="doc/release-notes/RELEASE-NOTES-${project.version}.txt"/>
+		
+		<tar tarfile="${dist.base}/${project.name}-src-${project.version}.tar">
+			<tarfileset dir="${dist.base}">
+				<include name="${project.name}-${project.version}/**"/>
+			</tarfileset>
+		</tar>
+		
+        <gzip src="${dist.base}/${project.name}-src-${project.version}.tar" 
+              zipfile="${dist.base}/${project.name}-src-${project.version}.tar.gz"/>  
+        <delete file="${dist.base}/${project.name}-src-${project.version}.tar"/>
+    </target>
+    
+    
+    
+    <!-- ============================================= -->
+    <!-- Deploys Cayenne web site in a local directory -->
+    <!-- ============================================= -->
+    <target name="release-site" depends="nositedir">
+		<ant antfile="build-cayenne.xml" target="dist-src"/>
+		<ant antfile="build-modeler.xml" target="dist-src"/>
+		<ant antfile="build-tutorials.xml" target="release-site"/>
+		<ant antfile="build-doc.xml" target="release-site"/>
+    </target>
+        
+    <!-- ========================================== -->
+    <!-- Runs Cayenne Unit Tests   -->
+    <!-- ========================================== -->
+    <target name="test">
+    	<!-- Cayenne must be fully built -->
+		<ant antfile="build-cayenne.xml" target="dist-bin"/>
+		<ant antfile="build-tests.xml" target="test"/>
+		
+		<!-- Modeler must be fully compiled, with scripts -->
+		<ant antfile="build-modeler.xml" target="dist-bin"/>
+		<ant antfile="build-tests-modeler.xml" target="test"/>
+    </target>
+    
+    <!-- ========================================== -->
+    <!-- Builds all Cayenne Java subproject JARS.   -->
+    <!-- ========================================== -->
+    <target name="regression-test">
+    	<!-- Cayenne must be fully built -->
+		<ant antfile="build-cayenne.xml" target="dist-bin"/>
+		<ant antfile="build-tests.xml" target="dist-bin"/>
+		<ant antfile="build-regression.xml" target="test"/>
+    </target>
+
+    <!-- ========================================== -->
+    <!-- Builds all Cayenne Java subproject JARS.   -->
+    <!-- ========================================== -->
+    <target name="build">
+		<ant antfile="build-cayenne.xml" target="dist-bin"/>
+		<ant antfile="build-modeler.xml" target="dist-bin"/>
+		<ant antfile="build-tests.xml" target="dist-bin"/>
+		<ant antfile="build-performance.xml" target="dist-bin"/>
+		<ant antfile="build-tutorials.xml" target="dist-bin"/>
+		<ant antfile="build-regression.xml" target="dist-bin"/>
+    </target>
+    
+    <!-- ========================================== -->
+    <!-- Compiles all Cayenne Java subprojects.     -->
+    <!-- ========================================== -->
+    <target name="compile">
+		<ant antfile="build-cayenne.xml" target="compile"/>
+		<ant antfile="build-modeler.xml" target="compile"/>
+		<ant antfile="build-tests.xml" target="compile"/>
+		<ant antfile="build-performance.xml" target="compile"/>
+		<ant antfile="build-tutorials.xml" target="compile"/>
+		<ant antfile="build-regression.xml" target="compile"/>
+    </target>
+
+
+    <!-- ========================================== -->
+    <!-- Cleans distribution files and subprojects. -->
+    <!-- ========================================== -->
+    <target name="clean" depends="clean-java">
+        <delete dir="${dist.base}"/>
+    </target>
+    
+    <target name="clean-java">
+        <delete includeEmptyDirs="true">
+            <!-- Eclipse-friendly - preserve "classes" -->
+        	<fileset dir="${basedir}">
+        		<include name="${build}/**"/>
+        		<exclude name="${build}/classes/**"/>
+        	</fileset>
+        </delete>
+    </target>   
+    
+    <!-- ========================================== -->
+    <!-- Updates any code generated by JavaCC.      -->
+    <!-- ========================================== -->
+    <target name="javacc">
+        <ant antfile="build-cayenne.xml" target="javacc"/>
+    </target>
+
+    <!-- ========================================== -->
+    <!-- Builds Cayenne documenatation.             -->
+    <!-- ========================================== -->
+    <target name="doc">
+        <ant antfile="build-doc.xml" target="doc"/>
+        <ant antfile="build-tutorials.xml" target="doc"/>
+    </target>
+
+
+    <!-- ========================================== -->
+    <!-- Builds API documenatation.                 -->
+    <!-- Depends on "compile-subprojects", since    -->
+    <!-- some of the classes are generated on the   -->
+    <!-- fly.                                       -->
+    <!-- ========================================== -->
+    <target name="api">
+		<ant antfile="build-cayenne.xml" target="api"/>
+		<ant antfile="build-modeler.xml" target="api"/>
+    </target>  
+    
+    <target name="nositedir" unless="site.dir">
+    	<fail>"site.dir" must be defined.</fail>
+    </target>  
+</project>
+
+
