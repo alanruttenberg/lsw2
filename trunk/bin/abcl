@@ -7,8 +7,6 @@ use Getopt::Std;
 
 getopt('rsbj'); # r=ram, s=stack, b=bits, j=java. Environment variables if not command line args.
 
-print ("r=$opt_r,b=$opt_b,s=$opt_s,j=$opt_j\n");
-
 if ($ENV{ABCL_WD})
   { $here = $ENV{ABCL_WD} }
 else

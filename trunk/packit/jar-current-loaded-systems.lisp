@@ -11,77 +11,7 @@
 
 (require 'asdf)
 
-(defun directory-in-jar (pathname)
-  (let* ((device (pathname-device pathname))
-	 (jarfile (namestring (car device)))
-	 (rest-pathname (namestring (make-pathname :directory `(:absolute ,@(cdr (pathname-directory pathname)))
-						   :name (pathname-name pathname)
-						   :type (pathname-type pathname)))))
-    (if (or (position #\* (namestring rest-pathname))
-	    (wild-pathname-p rest-pathname))
-	(let ((jar (jnew  "java.util.zip.ZipFile" jarfile)))
-	  (let ((els (jcall "entries" jar)))
-	    (loop while (jcall "hasMoreElements" els)
-	       for name = (jcall "getName" (jcall "nextElement" els))
-	       when (pathname-match-p (concatenate 'string "/" name) rest-pathname)
-	       collect (make-pathname :device (pathname-device pathname)
-				      :name (pathname-name name)
-				      :type (pathname-type name)
-				      :directory `(:absolute ,@(cdr (pathname-directory name)))))))
-	(let ((truename (probe-file pathname)))
-	  (if truename
-              (list truename)
-              nil)))))
-
-(defun lsw-module-candidates ()
-  (cons "/Users/alanr/Desktop/jar2go.jar"
-  (remove-duplicates
-   (append (split-at-char (#"getProperty" 'System "java.class.path") #\:)
-	   (split-at-char (#"getClassPath" (#"getRuntimeMXBean" '|java.lang.management.ManagementFactory|)) #\:)
-	   (and (boundp '*added-to-classpath*) *added-to-classpath*)) :test 'equal)))
-
-(loop for jar in  (lsw-module-candidates)
-    for (candidate) = (directory-in-jar (format nil "jar:file:~a!/abcl-module-*.lisp" (namestring jar)))
-     do (error "~a ~a" candidate (probe-file candidate)))
-     
-     
-
-(defmethod asdf::operation-done-p ((operation asdf::compile-op) (c t))
-  (or cl-user::*inhibit-add-to-classpath*
-   (call-next-method)))
-
-(defparameter jarfile "jar:file:/Users/alanr/Desktop/jar2go.jar!/")
-
-(setq *default-pathname-defaults* (pathname "/"))
-
-(setq asdf::*defined-systems* (make-hash-table :test 'equal))
-
-(setq cl-user::*inhibit-add-to-classpath* t)
-
-(setq *load-verbose* t)
-
-(setq asdf::*output-translations* 
-      `(((t ,(lambda(path wha) 
-		    (let* ((dir (pathname-directory path))
-			   (new (append '(:absolute) (list "bin") (cdr dir))))
-		      (merge-pathnames path (pathname jarfile))))))))
-
-(asdf::initialize-source-registry
- `(:source-registry :ignore-inherited-configuration
-   ,@
-   (mapcar
-    (lambda(e) `(:directory ,(make-pathname :directory e :device (pathname-device "jar:file:/Users/alanr/Desktop/jar2go.jar!/*/*.asd"))))
-    (mapcar 'pathname-directory (directory-in-jar "jar:file:/Users/alanr/Desktop/jar2go.jar!/**/*.asd")))))
-  (asdf::oos 'asdf::load-op 'jss)
-  (asdf::oos 'asdf::load-op 'util)
-
-(defmethod asdf::operation-done-p ((operation asdf::load-op) (c asdf::jar-file))
-  (or cl-user::*inhibit-add-to-classpath*
-   (call-next-method)))
-
-(asdf::oos 'asdf::load-op 'ido)
-
-(defun jar-current-loaded-systems (destdir destjar topdir)
+(defun jar-current-loaded-systems (destdir destjar topdir module-file)
   (ensure-directories-exist destdir)
   (setq topdir (cdr (pathname-directory topdir)))
   (flet ((trim-trailing-slash  (e)
@@ -119,12 +49,20 @@
 		 (print cp-asdf-cmd)
 		 (run-shell-command cp-asdf-cmd)))
 	     asdf::*defined-systems*)
-    (let ((jar-cmd (format nil "cd ~a; jar cf ~a ." destjar (namestring (truename destdir)))))
+
+	
+    (let ((jar-cmd
+	   (if (probe-file (make-pathname :directory (pathname-directory (pathname destdir)) :name (pathname-name module-file) :type (pathname-type module-file)))
+	       (format nil "cd ~a; jar cf ~a ." (namestring (truename destdir)) destjar)
+	       (format nil "cd ~a; jar cf ~a . -C ~a ~a" (namestring (truename destdir)) destjar
+			   (namestring (truename (make-pathname :directory (pathname-directory module-file))))
+			   (make-pathname :name (pathname-name module-file) :type (pathname-type module-file))
+			   ))))
       (print jar-cmd)
       (run-shell-command jar-cmd)
       )))
 
-;(jar-current-loaded-systems "/Users/alanr/Desktop/jar2go/"  "/Users/alanr/Desktop/ido.jar" "/Users/alanr/repos/")
+;(jar-current-loaded-systems "/Users/alanr/Desktop/jar2go/"  "/Users/alanr/Desktop/owltool.jar" "/Users/alanr/repos/" "/Users/alanr/lsw/owl2/abcl-module-owltool.lisp")
 
 #|
 (defun copy-current-loaded-systems (dest)

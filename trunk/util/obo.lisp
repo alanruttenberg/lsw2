@@ -11,10 +11,11 @@
     (setf (header g) (read-obo-key-values g f))
     (setf (terms g)
 	  (loop for line = (read-line f  nil :eof)
+	       for count from 0
 	     until (eq line :eof)
 	     for part = (caar (all-matches line "^\\[(.*?)\\]\s*" 1))
-	     do (assert (or part (equal line ""))  () "Didn't find a record! '~a'" line)
-	     when part collect  (read-obo-record g part f)
+	     do (assert (or part (equal line ""))  () "Didn't find a record (after ~a)! '~a'" count line)
+	     when part collect  (setq @ (read-obo-record g part f))
 	     ))
     (values)))
 
@@ -28,7 +29,7 @@
 
 (defmethod read-obo-key-values ((g obo) stream)
   (loop for line = (read-line stream)
-     for (tag value) = (car (all-matches line "^(\\S+): (.*?)\\s*(![^\"]+?){0,1}$" 1 2))
+     for (tag value) = (car (all-matches line "^(\\S+):\\s*(.*?)\\s*(![^\"]+?){0,1}$" 1 2))
      until (null tag)
      do (when (equal tag "relationship")
 	  (destructuring-bind (realtag realvalue) (car (all-matches value "^(\\S+) (.*?)(![^\"]+?){0,1}$" 1 2))

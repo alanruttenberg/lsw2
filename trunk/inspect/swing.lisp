@@ -50,9 +50,9 @@
 	  lists)
     array))
 
-(defun list->jvector (list)
+(defun list->jvector (list &optional (type "java.lang.Object"))
   (let* ((wid (length list))
-	 (array (jnew-array "java.lang.Object" wid))
+	 (array (jnew-array type wid))
 	 (i 0))
     (mapc #'(lambda (elt)
 	      (setf (jarray-ref array i) elt)
