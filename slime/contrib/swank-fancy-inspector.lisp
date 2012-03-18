@@ -23,7 +23,7 @@
                                   (symbol-value symbol) :newline nil)
                 ;; unbinding constants might be not a good idea, but
                 ;; implementations usually provide a restart.
-                `(" " (:action "[unbind it]"
+                `(" " (:action "[unbind]"
                                ,(lambda () (makunbound symbol))))
                 '((:newline))))
 	      (t '("It is unbound." (:newline))))
@@ -40,21 +40,20 @@
 			  (:value ,(macro-function symbol)))
 			`("It is a function: " 
 			  (:value ,(symbol-function symbol))))
-		    `(" " (:action "[unbind it]"
+		    `(" " (:action "[unbind]"
 				   ,(lambda () (fmakunbound symbol))))
 		    `((:newline)))
 	    `("It has no function value." (:newline)))
-	(docstring-ispec "Function Documentation" symbol 'function)
+	(docstring-ispec "Function documentation" symbol 'function)
 	(when (compiler-macro-function symbol)
-          
 	    (append
              (label-value-line "It also names the compiler macro"
                                (compiler-macro-function symbol) :newline nil)
-             `(" " (:action "[remove it]"
+             `(" " (:action "[remove]"
                             ,(lambda ()
                                      (setf (compiler-macro-function symbol) nil)))
                    (:newline))))
-	(docstring-ispec "Compiler Macro Documentation" 
+	(docstring-ispec "Compiler macro documentation" 
 			 symbol 'compiler-macro)
 	;;
 	;; Package
@@ -64,10 +63,10 @@
                        (:value ,package ,(package-name package))
                        ,@(if (eq :internal status) 
                              `(" "
-                               (:action "[export it]"
+                               (:action "[export]"
                                         ,(lambda () (export symbol package)))))
                        " "
-                       (:action "[unintern it]"
+                       (:action "[unintern]"
                                 ,(lambda () (unintern symbol package)))
                        (:newline))
             '("It is a non-interned symbol." (:newline)))
@@ -97,7 +96,7 @@
 	      75)
 	   (list label ": " docstring '(:newline)))
 	  (t 
-	   (list label ": " '(:newline) "  " docstring '(:newline))))))
+	   (list label ":" '(:newline) "  " docstring '(:newline))))))
 
 (unless (find-method #'emacs-inspect '() (list (find-class 'function)) nil)
   (defmethod emacs-inspect ((f function))
@@ -413,23 +412,25 @@ See `methods-by-applicability'.")
       (all-slots-for-inspector gf))))
 
 (defmethod emacs-inspect ((method standard-method))
+  `(,@(if (swank-mop:method-generic-function method)
           `("Method defined on the generic function " 
-	    (:value ,(swank-mop:method-generic-function method)
-		    ,(inspector-princ
-		      (swank-mop:generic-function-name
-		       (swank-mop:method-generic-function method))))
-            (:newline)
-	    ,@(docstring-ispec "Documentation" method t)
-            "Lambda List: " (:value ,(swank-mop:method-lambda-list method))
-            (:newline)
-            "Specializers: " (:value ,(swank-mop:method-specializers method)
-                                     ,(inspector-princ (method-specializers-for-inspect method)))
-            (:newline)
-            "Qualifiers: " (:value ,(swank-mop:method-qualifiers method))
-            (:newline)
-            "Method function: " (:value ,(swank-mop:method-function method))
-            (:newline)
-            ,@(all-slots-for-inspector method)))
+            (:value ,(swank-mop:method-generic-function method)
+                    ,(inspector-princ
+                      (swank-mop:generic-function-name
+                       (swank-mop:method-generic-function method)))))
+          '("Method without a generic function"))
+      (:newline)
+      ,@(docstring-ispec "Documentation" method t)
+      "Lambda List: " (:value ,(swank-mop:method-lambda-list method))
+      (:newline)
+      "Specializers: " (:value ,(swank-mop:method-specializers method)
+                               ,(inspector-princ (method-specializers-for-inspect method)))
+      (:newline)
+      "Qualifiers: " (:value ,(swank-mop:method-qualifiers method))
+      (:newline)
+      "Method function: " (:value ,(swank-mop:method-function method))
+      (:newline)
+      ,@(all-slots-for-inspector method)))
 
 (defmethod emacs-inspect ((class standard-class))
           `("Name: " (:value ,(class-name class))
@@ -450,7 +451,9 @@ See `methods-by-applicability'.")
                    (lambda (slot)
                      `(:value ,slot ,(inspector-princ
                                       (swank-mop:slot-definition-name slot)))))
-                  '("#<N/A (class not finalized)>"))
+                  `("#<N/A (class not finalized)> "
+                    (:action "[finalize]"
+                             ,(lambda () (swank-mop:finalize-inheritance class)))))
             (:newline)
             ,@(let ((doc (documentation class t)))
                 (when doc
@@ -819,42 +822,36 @@ SPECIAL-OPERATOR groups."
                 (label-value-line "Digits" (float-digits f))
                 (label-value-line "Precision" (float-precision f)))))))
 
-(defun make-visit-file-thunk (stream)
-  (let ((pathname (pathname stream))
-        (position (file-position stream)))
-    (lambda ()
-      (ed-in-emacs `(,pathname :charpos ,position)))))
+(defun make-pathname-ispec (pathname position)
+  `("Pathname: "
+    (:value ,pathname)
+    (:newline) "  "
+    ,@(when position
+        `((:action "[visit file and show current position]"
+                   ,(lambda () (ed-in-emacs `(,pathname :charpos ,position)))
+                   :refreshp nil)
+          (:newline)))))
+
+(defun make-file-stream-ispec (stream)
+  ;; SBCL's socket stream are file-stream but are not associated to
+  ;; any pathname.
+  (let ((pathname (ignore-errors (pathname stream))))
+    (when pathname
+      (make-pathname-ispec pathname (and (open-stream-p stream)
+                                         (file-position stream))))))
 
 (defmethod emacs-inspect ((stream file-stream))
   (multiple-value-bind (content)
       (call-next-method)
-            (append
-             `("Pathname: "
-               (:value ,(pathname stream))
-               (:newline) "  "
-               ,@(when (open-stream-p stream)
-                   `((:action "[visit file and show current position]"
-                              ,(make-visit-file-thunk stream)
-                              :refreshp nil)
-                     (:newline))))
-             content)))
+    (append (make-file-stream-ispec stream) content)))
 
 (defmethod emacs-inspect ((condition stream-error))
   (multiple-value-bind (content)
       (call-next-method)
     (let ((stream (stream-error-stream condition)))
-      (if (typep stream 'file-stream)
-                  (append
-                   `("Pathname: "
-                     (:value ,(pathname stream))
-                     (:newline) "  "
-                     ,@(when (open-stream-p stream)
-                         `((:action "[visit file and show current position]"
-                                    ,(make-visit-file-thunk stream)
-                                    :refreshp nil)
-                           (:newline))))
-                   content)
-          content))))
+      (append (when (typep stream 'file-stream)
+                (make-file-stream-ispec stream))
+              content))))
 
 (defun common-seperated-spec (list &optional (callback (lambda (v) 
 							 `(:value ,v))))
