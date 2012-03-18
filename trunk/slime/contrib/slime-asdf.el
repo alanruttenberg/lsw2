@@ -1,26 +1,20 @@
-;;; slime-asdf.el -- ASDF support
-;;
-;; Authors: Daniel Barlow       <dan@telent.net>
-;;          Marco Baringer      <mb@bese.it>
-;;          Edi Weitz           <edi@agharta.de>
-;;          Stas Boukarev       <stassats@gmail.com>
-;;          Tobias C Rittweiler <tcr@freebits.de>
-;;          and others 
-;; License: GNU GPL (same license as Emacs)
-;;
-;;; Installation:
-;;
-;; Add something like this to your .emacs: 
-;;
-;;   (add-to-list 'load-path "<directory-of-this-file>")
-;;   (slime-setup '(slime-asdf ... possibly other packages ...))
-;;
 
-;; NOTE: `system-name' is a predefined variable in Emacs.  Try to
-;; avoid it as local variable name.
+(define-slime-contrib slime-asdf
+  "ASDF support."
+  (:authors "Daniel Barlow       <dan@telent.net>"
+            "Marco Baringer      <mb@bese.it>"
+            "Edi Weitz           <edi@agharta.de>"
+            "Stas Boukarev       <stassats@gmail.com>"
+            "Tobias C Rittweiler <tcr@freebits.de>")
+  (:license "GPL")
+  (:slime-dependencies slime-repl)
+  (:swank-dependencies swank-asdf)
+  (:on-load
+   (add-to-list 'slime-edit-uses-xrefs :depends-on t)
+   (define-key slime-who-map [?d] 'slime-who-depends-on)))
 
-(require 'slime-repl)
-(slime-require :swank-asdf)
+;;; NOTE: `system-name' is a predefined variable in Emacs.  Try to
+;;; avoid it as local variable name.
 
 ;;; Utilities
 
@@ -72,6 +66,20 @@ in the directory of the current buffer."
 (defun slime-who-depends-on-rpc (system)
   (slime-eval `(swank:who-depends-on ,system)))
 
+(defcustom slime-asdf-collect-notes t
+  "Collect and display notes produced by the compiler.
+
+See also `slime-highlight-compiler-notes' and `slime-compilation-finished-hook'.")
+
+(defun slime-asdf-operation-finished-function (system)
+  (if slime-asdf-collect-notes
+      #'slime-compilation-finished
+      (lexical-let ((system system))
+        (lambda (result)
+          (let (slime-highlight-compiler-notes
+                slime-compilation-finished-hook)
+            (slime-compilation-finished result))))))
+
 (defun slime-oos (system operation &rest keyword-args)
   "Operate On System."
   (slime-save-some-lisp-buffers)
@@ -81,7 +89,7 @@ in the directory of the current buffer."
            system)
   (slime-repl-shortcut-eval-async
    `(swank:operate-on-system-for-emacs ,system ',operation ,@keyword-args)
-   #'slime-compilation-finished))
+   (slime-asdf-operation-finished-function system)))
 
 
 ;;; Interactive functions
@@ -214,7 +222,7 @@ depending on it."
   (message "Performing ASDF LOAD-OP on system %S" system)
   (slime-repl-shortcut-eval-async
    `(swank:reload-system ,system)
-   #'slime-compilation-finished))
+   (slime-asdf-operation-finished-function system)))
 
 (defun slime-who-depends-on (system-name)
   (interactive (list (slime-read-system-name)))
@@ -288,16 +296,5 @@ depending on it."
 (defslime-repl-shortcut slime-repl-reload-system ("reload-system")
   (:handler 'slime-reload-system)
   (:one-liner "Recompile and load an ASDF system."))
-
-
-;;; Initialization
-
-(defun slime-asdf-init ()
-  (slime-require :swank-asdf)
-  (add-to-list 'slime-edit-uses-xrefs :depends-on t)
-  (define-key slime-who-map [?d] 'slime-who-depends-on))
-
-(defun slime-asdf-unload ()
-  (remove-hook 'slime-connected-hook 'slime-asdf-on-connect))
 
 (provide 'slime-asdf)
