@@ -1,7 +1,13 @@
 #!/usr/bin/perl
 
+use Getopt::Std;
+
 # Either use ABCL_WD, or figure out where with are using $0. Latter works 
 # on both on cygwin and os x
+
+getopt('rsbj'); # r=ram, s=stack, b=bits, j=java. Environment variables if not command line args.
+
+print ("r=$opt_r,b=$opt_b,s=$opt_s,j=$opt_j\n");
 
 if ($ENV{ABCL_WD})
   { $here = $ENV{ABCL_WD} }
@@ -15,25 +21,29 @@ else
     $here .= "/..";
   }
 
-if ($ENV{ABCL_BITS}) 
+if ($opt_b)
+  { $bits = "-d$opt_b"; }
+elsif ($ENV{ABCL_BITS}) 
   { $bits = "-d$ENV{ABCL_BITS}" }
 else
-  { $bits = "-d32";
-  }
+  { $bits = "-d32"; }
 
-if ($ENV{ABCL_RAM}) 
+if ($opt_r)
+  { $ram = "-Xmx$opt_r\m"; }
+elsif ($ENV{ABCL_RAM}) 
   { $ram = "-Xmx$ENV{ABCL_RAM}m" }
 else
-  { $ram = "-Xmx1024m";
-  }
+  { $ram = "-Xmx1024m"; }
 
-if ($ENV{ABCL_STACK}) 
+if ($opt_s)
+  { $stack = "-Xss$opt_s\m";}
+elsif ($ENV{ABCL_STACK}) 
   { $stack = "-Xss$ENV{ABCL_STACK}m" }
 else
-  { $stack = "-Xss24m";
-  }
+  { $stack = "-Xss24m";}
+
   
-$java = $ENV{ABCL_JAVA} || "java";
+$java = $opt_j || $ENV{ABCL_JAVA} || "java";
 @version = `$java -version 2>&1`;
 $sep = "================================================================";
 
@@ -45,6 +55,8 @@ if (!(@version[0] =~ /version/) )
 elsif (!(@version[0] =~ /"1.[56]/) ) 
   { complainWrongVersion(); exit() }
 @libs = grep(/.jar$/,split /\n/,`find "$here/lib" -follow`);
+
+# $ENV{DYLD_LIBRARY_PATH}="$here/lib";
 
 # flushed: map {s/$here\///} @libs;
 
@@ -60,11 +72,13 @@ if ($ENV{ABCL_PROFILE_SHARK})
 if (`uname` =~ /Darwin/)
  { @dock = ("-Xdock:icon=$here/images/lswicon.icns","-Xdock:name=Armed Bear Common Lisp")}
 
-@args  = ($ram,$stack,$bits,@profileargs,"-cp", $libjar, @dock);
+#@args  = ($ram,$stack,$bits,@profileargs,"-cp", $libjar, @dock);
+@args  = ($ram,$stack,$bits,@profileargs,"-Xbootclasspath/a:$libjar",@dock);
 
 if (!($ENV{OS} =~ /windows/i)) { @args = ("-server",@args);}
 print "$java @args org.armedbear.lisp.Main --load $here/scripts/system-registry.lisp @ARGV\n";
-exec("$java",@args,"org.armedbear.lisp.Main","--load","$here/scripts/system-registry.lisp",@ARGV);
+#exec("$java",@args,"org.armedbear.lisp.Main","-Djava.library.path=\"$here/lib\"", "--load","$here/scripts/system-registry.lisp",@ARGV);
+exec("$java",@args,"org.armedbear.lisp.Main", "--load","$here/scripts/system-registry.lisp",@ARGV);
 
 sub complainCantTellVersion ()
 { print("I'm trying to tell which version of java you are running, but \"$java -version\" prints\n$sep\n");
