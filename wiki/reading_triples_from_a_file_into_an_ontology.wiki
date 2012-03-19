@@ -11,8 +11,9 @@ hasBrother	Bill	Tim <cr>
 hasSister	Sally	Megan <cr>
  
  To output the results in owl:
-(to-owl-syntax foo :rdfxml)
 
+{{{(to-owl-syntax foo :rdfxml)}}}
+{{{
  <rdf:Description rdf:about=\"http://www.purl.org/newOntology/Bill\">
         <www:newOntology/hasBrother rdf:resource=\"http://www.purl.org/newOntology/Tim\"/>
     </rdf:Description>
@@ -22,8 +23,8 @@ hasSister	Sally	Megan <cr>
     <rdf:Description rdf:about=\"http://www.purl.org/newOntology/Sally\">
         <www:newOntology/hasSister rdf:resource=\"http://www.purl.org/newOntology/Megan\"/>
     </rdf:Description>
-
-
+}}}
+{{{
 (defun loadOnt (records)
   (with-ontology foo (:collecting t) ((as records)) foo))
  
@@ -39,3 +40,4 @@ hasSister	Sally	Megan <cr>
 					    (make-uri ,(concatenate 'string uri-string subject))
 					    (make-uri ,(concatenate 'string uri-string object))) records)))
   finally (return records))))
+}}}
