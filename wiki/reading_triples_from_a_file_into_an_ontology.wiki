@@ -1,4 +1,6 @@
-The function loadOnt (below) takes two arguments, a file name string and a string of what you want to uri to be, and returns an ontology.
+The function loadOnt (below) takes as its argument a list of {{{object-property-assertion}}}s and returns an ontology.
+The function readRecords takes two arguments, a file name string and a string of what you want to uri to be, and returns a list of {{{objet-property-assertion}}}s.
+
 The file must include tab delimited "triples" (e.g. loves bob susan) separated by newlines.
 The triples are asserted as object property assertions in OWL. The function readRecords does the necessary parsing.
  
