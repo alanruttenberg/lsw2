@@ -113,7 +113,7 @@ sub complainWrongVersion ()
 
 You can always find out where Emacs thinks is your home directory's location by typing C-x d ~/ <RET>. This should present the list of files in the home directory, and show its full name on the first line. Likewise, to visit your init file, type C-x C-f ~/.emacs <RET>. 
 
-;;; begin ;;;
+{{{;;; begin ;;;
 
 (show-paren-mode 1)
 (setq show-paren-delay 0)
@@ -162,7 +162,7 @@ You can always find out where Emacs thinks is your home directory's location by 
              )
            (if (boundp 'slime-connected-hook) slime-connected-hook nil)))
 
-;;; end ;;;
+;;; end ;;;}}}
 
 
 7)start emacs, then start slime: M-x slime ('M' is the meta key, which is ESC)
