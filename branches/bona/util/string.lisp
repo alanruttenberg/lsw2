@@ -3,13 +3,13 @@
 #+abcl
 (defun split-at-regex (string regex)
   (declare (optimize (speed 3) (safety 0)))
-  (with-constant-signature ((tostring "toString"))
+  (jss::with-constant-signature ((tostring "toString"))
     (loop for v across (#"split" string regex) collect (tostring v))))
 
 #+abcl
 (defun split-at-pattern (string pattern)
   (declare (optimize (speed 3) (safety 0)))
-  (with-constant-signature ((tostring "toString"))
+  (jss::with-constant-signature ((tostring "toString"))
     (loop for v across (#"split" pattern string) collect (tostring v))))
 
 (defparameter *regex-chars-needing-escape* 
@@ -23,7 +23,7 @@
   (let ((regex (string char)))
     (when (simple-string-search regex *regex-chars-needing-escape*)
       (setq regex (system::concatenate-to-string (list "\\" regex))))
-    (with-constant-signature ((tostring "toString"))
+    (jss::with-constant-signature ((tostring "toString"))
       (loop for v across (#"split" string regex) collect (tostring v)))))
 
 #+abcl
@@ -82,7 +82,7 @@
 			   (#"compile" 'java.util.regex.pattern regex)
 			   regex)
 		       string)))
-	 (with-constant-signature ((mfind "find") (mgroup "group"))
+	 (jss::with-constant-signature ((mfind "find") (mgroup "group"))
 	   (loop while (mfind matcher) 
 	      collect (loop for g in which collect
 			   (mgroup matcher g)))))))

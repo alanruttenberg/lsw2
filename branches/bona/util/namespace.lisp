@@ -108,14 +108,14 @@
 (defparameter *absowl-qnameable-pattern* nil)
 
 (defun maybe-abbreviate-namespace (s &optional for-external-parsing)
-  (declare (optimize (speed 3) (safety 0)))
+;  (declare (optimize (speed 3) (safety 0)))
   (unless *use-qnames* (return-from maybe-abbreviate-namespace s))
   (unless *absowl-qnameable-pattern* 
     (setq *absowl-qnameable-pattern*  (#"compile" 'util.regex.pattern "^[a-zA-Z_][a-zA-Z_0-9]*$")))
   (unless *qnameable-pattern-according-to-spec*
     (setq *qnameable-pattern-according-to-spec*
 	   (#"compile" 'util.regex.pattern "^[a-zA-Z_][a-zA-Z_.0-9-]*$")))
-  (with-constant-signature ((matches "matches") 
+  (jss::with-constant-signature ((matches "matches") 
 			    (matcher "matcher" t)
 			    (substring "substring" t)
 			    (concat "concat"))
@@ -129,7 +129,8 @@
 			   (#"compile" 'util.regex.pattern (format nil "~a.*" prefix))))
 	    when (matches (matcher url-pattern s))
 	    do (return-from maybe-abbreviate-namespace 
-		 (let ((name-part (substring s (length prefix))))
+		 (let ((name-part (#"substring" s (length prefix))))
+;;;		 (let ((name-part (substring s (length prefix))))
 		   (cond ((and (eq for-external-parsing :absowl)
 			       (matches (matcher *absowl-qnameable-pattern* name-part)))
 			  (values (concat replacement name-part) replacement))
@@ -149,7 +150,7 @@
 
 (defun maybe-unabbreviate-namespace (s)
   (declare (optimize (speed 3) (safety 0)))
-  (with-constant-signature ((matches "matches") 
+  (jss::with-constant-signature ((matches "matches") 
 			    (matcher "matcher" t)
 			    (substring "substring" t)
 			    (concat "concat"))
