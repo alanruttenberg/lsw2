@@ -49,12 +49,12 @@
 	      (member (#"getClass" thing)
 		      (load-time-value
 		       (list
-			(jss::find-java-class 'java.net.uri)
-			(jss::find-java-class 'java.net.url)
-			(jss::find-java-class 'java.io.file)))
+			(find-java-class 'java.net.uri)
+			(find-java-class 'java.net.url)
+			(find-java-class 'java.io.file)))
 		      :test 'equal))
 	 (#"create" 'org.semanticweb.owlapi.model.IRI thing))
-	((jinstance-of-p thing (jss::find-java-class "org.semanticweb.owlapi.model.IRI")) thing)
+	((jinstance-of-p thing (find-java-class "org.semanticweb.owlapi.model.IRI")) thing)
 	(t (error "don't know how to coerce ~s to IRI" thing))))
 
 (defun t-owlapi (input name)
@@ -190,10 +190,10 @@
 
 
 
-;;; COMMENTED OUT 26 March 2012 because *classpath-manager* is out?(if (#"getBaseLoader" jss::*classpath-manager*)
-;;; COMMENTED OUT 26 March 2012 because *classpath-manager* is out?    (defmethod print-object ((obj (jclass "org.semanticweb.HermiT.Reasoner" (#"getBaseLoader" jss::*classpath-manager*))) stream) 
-;;; COMMENTED OUT 26 March 2012 because *classpath-manager* is out?      (print-unreadable-object (obj stream :identity t)
-;;; COMMENTED OUT 26 March 2012 because *classpath-manager* is out?	(format stream "org.semanticweb.HermiT.Reasoner"))))
+;;; *classpath-manager* is unbound(if (#"getBaseLoader" *classpath-manager*)
+;;; *classpath-manager* is unbound    (defmethod print-object ((obj (jclass "org.semanticweb.HermiT.Reasoner" (#"getBaseLoader" *classpath-manager*))) stream) 
+;;; *classpath-manager* is unbound      (print-unreadable-object (obj stream :identity t)
+;;; *classpath-manager* is unbound	(format stream "org.semanticweb.HermiT.Reasoner"))))
 
 (defmethod print-object ((obj (jclass "java.lang.Class")) stream) 
   (print-unreadable-object (obj stream :identity t)
@@ -272,7 +272,7 @@
 	  ((:pellet :pellet-sparql :factpp) (#"precomputeInferences" 
 					     (v3kb-reasoner ont)
 					     (jnew-array-from-array
-					      (jss::find-java-class 'org.semanticweb.owlapi.reasoner.InferenceType)
+					      (find-java-class 'org.semanticweb.owlapi.reasoner.InferenceType)
 					      (make-array 1 :initial-contents (list (get-java-field 'inferencetype "CLASS_HIERARCHY")))))))) 
     (prog1
 	(#"isConsistent" (v3kb-reasoner ont))
@@ -281,9 +281,9 @@
 	))))
 
 (defun to-class-expression (thing kb)
-  (cond ((jclass-superclass-p (load-time-value (jss::find-java-class 'org.semanticweb.owlapi.model.owlentity)) (jobject-class thing))
+  (cond ((jclass-superclass-p (load-time-value (find-java-class 'org.semanticweb.owlapi.model.owlentity)) (jobject-class thing))
 	 thing)
-	((jclass-superclass-p (load-time-value (jss::find-java-class 'org.semanticweb.owlapi.model.OWLEntity.owlclassexpression)) (jobject-class thing))
+	((jclass-superclass-p (load-time-value (find-java-class 'org.semanticweb.owlapi.model.OWLEntity.owlclassexpression)) (jobject-class thing))
 	 thing)
 	((stringp thing)
 	 (parse-manchester-expression kb thing))
@@ -339,7 +339,7 @@
 	  for prop-uri = (make-uri property)
 	  when (or (not prop) (eq prop prop-uri))
 	  collect (list  prop-uri
-			 (if (jclass-superclass-p (jss::find-java-class "OWLLiteral") (jobject-class value))
+			 (if (jclass-superclass-p (find-java-class "OWLLiteral") (jobject-class value))
 			     (cond ((#"isRDFPlainLiteral" value) (#"getLiteral" value))
 				     (t value))
 			     value
@@ -352,7 +352,7 @@
        (loop for annot in annots
 	  for value = (#"getValue" annot)
 	  when value do (return-from entity-label
-		       (if (jclass-superclass-p (jss::find-java-class "OWLLiteral") (jobject-class value))
+		       (if (jclass-superclass-p (find-java-class "OWLLiteral") (jobject-class value))
 			   (cond ((#"isRDFPlainLiteral" value) (#"getLiteral" value))
 				     (t value))
 			   value
@@ -369,7 +369,7 @@
 	    for property = (#"toString" (#"getIRI" (#"getProperty" annot)))
 	    for value = (#"getValue" annot)
 	    collect (list  (make-uri property)
-			   (if (jclass-superclass-p (jss::find-java-class "OWLLiteral") (jobject-class value))
+			   (if (jclass-superclass-p (find-java-class "OWLLiteral") (jobject-class value))
 			       (cond ((#"isRDFPlainLiteral" value) (#"getLiteral" value))
 				     (t value))
 			       value;(make-uri (#"toString" value))
@@ -471,7 +471,7 @@
     (let ((writer nil))
       (cond ((null dest) (setq writer (new 'stringwriter)))
 	    ((and (java-object-p dest) 
-		  (jclass-superclass-p (jss::find-java-class 'io.writer ) (jobject-class dest)))
+		  (jclass-superclass-p (find-java-class 'io.writer ) (jobject-class dest)))
 	     (setq writer dest))
 	    ((and (stringp dest)
 		  (setq writer (new 'filewriter (new 'file dest)))))
@@ -590,7 +590,7 @@
 	 (onts (if include-imports-closure
 		   (set-to-list (#"getImportsClosure" ont))
 		   (list ont))))
-    (jss::with-constant-signature ((iterator "iterator" t) (hasnext "hasNext") (next "next"))
+    (with-constant-signature ((iterator "iterator" t) (hasnext "hasNext") (next "next"))
       (loop for one in onts
 	   do
 	   (loop with iterator = (iterator (#"getAxioms" one))
