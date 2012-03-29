@@ -1,11 +1,4 @@
-;; ADDED 19 March 2012
 (require 'asdf)
-
-;;;(require :asdf-jar)
-;;;;;(require :asdf-install)
-;;;;;(require :abcl-asdf)
-
-
 
 (in-package :cl-user)
 
@@ -47,9 +40,7 @@
 (require :abcl-contrib)
 (require :jss)
 (jss::ensure-compatibility)
-;(require :asdf-jar)
 
 (let ((*suppress-compiler-warnings* (not *load-verbose*)))
-;  (asdf::oos 'asdf::load-op 'jss :verbose *load-verbose*)
   (asdf::oos 'asdf::load-op 'patches :verbose *load-verbose*))
 
