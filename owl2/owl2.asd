@@ -60,9 +60,9 @@
   :components
   ((:module lib 
 	    :components
-	    ((:jar-file "org.semanticweb.HermiT.jar")
-	     (:jar-file "owlapi-bin.jar")
-	     (:jar-file "factplusplus-1.5.0.jar")
+	    ((:jar-file "org.semanticweb.HermiT")
+	     (:jar-file "owlapi-bin")
+	     (:jar-file "factplusplus-1.5.0")
 	     (:jar-directory "pellet")
 	     (:jar-directory "prefuse")
 	     ))
