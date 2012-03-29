@@ -17,7 +17,7 @@
 	    :components ((:file "string") (:file "encapsulate"))) 
    (:module utils :pathname ""
 	    :components
-	    ((:jar-file "md5.jar")
+	    ((:jar-file "md5")
 	     (:file "config")
 	     (:file "tests")
 	     (:file "namespace")
