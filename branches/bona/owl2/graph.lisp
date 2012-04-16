@@ -291,7 +291,7 @@
     (jarray-set fields "tooltip"  0)
     (let ((wrapped (new 'tooltipcontrol fields))
 	  (interfaces (jclass-all-interfaces 'tooltipcontrol)))
-      (jdelegating-interface-implementation  
+      (jss::jdelegating-interface-implementation  
        (car interfaces)
        wrapped
 ;;        "getToolTipLocation"
