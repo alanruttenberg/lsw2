@@ -10,6 +10,7 @@
    (:file "abcl-src")
    (:file "ensure-directories-exist")
    (:file "jinterface-safe-implementation")
+   (:file "abcl-jss-fix")
   ))
 
 ;;;; eof
