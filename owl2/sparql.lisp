@@ -45,7 +45,7 @@
 (defvar *endpoint-abbreviations* nil)
 ;; http://www-128.ibm.com/developerworks/xml/library/j-sparql/
 
-(defun sparql (query &rest all &key (kb *default-kb*) (use-reasoner *default-reasoner*) (flatten nil) (trace nil) (trace-show-query trace) endpoint-options geturl-options (values t) (endpoint nil) (chunk-size nil) (syntax :sparql) &aux (command :query) count)
+(defun sparql (query &rest all &key (kb (and (boundp '*default-kb*) *default-kb*)) (use-reasoner *default-reasoner*) (flatten nil) (trace nil) (trace-show-query trace) endpoint-options geturl-options (values t) (endpoint nil) (chunk-size nil) (syntax :sparql) &allow-other-keys t &aux (command :query) count)
   (when chunk-size (return-from sparql (apply 'sparql-by-chunk query all)))
   (setq use-reasoner (or endpoint use-reasoner))
   (setq count (and (consp query)
