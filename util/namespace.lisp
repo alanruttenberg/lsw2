@@ -74,6 +74,8 @@
     ("http://www.geneontology.org/formats/oboInOwl#" "oboinowl:")
     ("http://www.obofoundry.org/ro/ro.owl#" "oborel:")
     ("http://purl.org/obo/owl/PATO#PATO_" "pato:")
+    ("http://purl.org/obo/owl/CL#CL_" "cl:")
+    ("http://purl.obolibrary.org/obo/PRO_" "pro:")
     ("http://purl.org/obo/owl/UO#UO_" "unit:")
     ("http://purl.org/obo/owl/SO#SO_" "so:")
     ("http://purl.org/obo/owl/CL#CL_" "cell:")
