@@ -1,6 +1,6 @@
 #!/bin/sh
 
-perl `dirname $0`/../abcl --load scripts/browse.lisp --eval "(browse \"$1\" $2)"
+perl `dirname $0`/../abcl $* --load scripts/browse.lisp --eval "(browse \"$1\" $2)"
 
 
 
