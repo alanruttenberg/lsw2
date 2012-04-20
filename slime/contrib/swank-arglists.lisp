@@ -30,10 +30,6 @@
                (and (zerop i) (null list)))))
     (sequence (= (length seq) n))))
 
-(declaim (inline ensure-list))
-(defun ensure-list (thing)
-  (if (listp thing) thing (list thing)))
-
 (declaim (inline memq))
 (defun memq (item list)
   (member item list :test #'eq))
@@ -55,25 +51,10 @@ Otherwise NIL is returned."
       (special-operator-p symbol)
       (member symbol '(declare declaim))))
 
-(defun valid-operator-name-p (string)
-  "Is STRING the name of a function, macro, or special-operator?"
-  (let ((symbol (parse-symbol string)))
-    (valid-operator-symbol-p symbol)))
-
-(defun valid-function-name-p (form)
-  (and (match form
-         ((#'symbolp _)         t)
-         (('setf (#'symbolp _)) t)
-         (_                     nil))
+(defun function-exists-p (form)
+  (and (valid-function-name-p form)
        (fboundp form)
        t))
-
-(defun interesting-variable-p (symbol)
-  (and symbol
-       (symbolp symbol)
-       (boundp symbol)
-       (not (memq symbol '(cl:t cl:nil)))
-       (not (keywordp symbol))))
 
 (defmacro multiple-value-or (&rest forms)
   (if (null forms)
@@ -523,8 +504,9 @@ Return an OPTIONAL-ARG structure."
     for arg = (if (consp arglist)
                   (pop arglist)
                   (progn
-                    (setf mode '&rest)
-                    arglist))
+                    (prog1 arglist
+                      (setf mode '&rest
+                            arglist nil))))
     do (cond
          ((eql mode '&unknown-junk)
           ;; don't leave this mode -- we don't know how the arglist
@@ -571,7 +553,7 @@ Return an OPTIONAL-ARG structure."
                (push arg (arglist.known-junk result)))
             (&any
                (push arg (arglist.any-args result))))))
-    until (atom arglist)
+        until (null arglist)
     finally (nreversef (arglist.required-args result))
     finally (nreversef (arglist.optional-args result))
     finally (nreversef (arglist.keyword-args result))
@@ -966,6 +948,7 @@ If the arglist is not available, return :NOT-AVAILABLE."))
       :not-available
       (arglist-dispatch (car form) (cdr form))))
 
+(export 'arglist-dispatch)
 (defgeneric arglist-dispatch (operator arguments)
   ;; Default method
   (:method (operator arguments)
@@ -982,7 +965,7 @@ If the arglist is not available, return :NOT-AVAILABLE."))
 
 (defmethod arglist-dispatch ((operator (eql 'defmethod)) arguments)
   (match (cons operator arguments)
-    (('defmethod (#'valid-function-name-p gf-name) . rest)
+    (('defmethod (#'function-exists-p gf-name) . rest)
      (let ((gf (fdefinition gf-name)))
        (when (typep gf 'generic-function)
          (with-available-arglist (arglist) (decode-arglist (arglist gf))
@@ -998,7 +981,7 @@ If the arglist is not available, return :NOT-AVAILABLE."))
 
 (defmethod arglist-dispatch ((operator (eql 'define-compiler-macro)) arguments)
   (match (cons operator arguments)
-    (('define-compiler-macro (#'valid-function-name-p gf-name) . _)
+    (('define-compiler-macro (#'function-exists-p gf-name) . _)
      (let ((gf (fdefinition gf-name)))
        (with-available-arglist (arglist) (decode-arglist (arglist gf))
          (return-from arglist-dispatch
@@ -1114,7 +1097,7 @@ wrapped in ===> X <===."
     (with-buffer-syntax ()
       (multiple-value-bind (form arglist obj-at-cursor form-path)
           (find-subform-with-arglist (parse-raw-form raw-form))
-        (cond ((interesting-variable-p obj-at-cursor)
+        (cond ((boundp-and-interesting obj-at-cursor)
                (print-variable-to-string obj-at-cursor))
               (t
                (with-available-arglist (arglist) arglist
@@ -1126,14 +1109,23 @@ wrapped in ===> X <===."
                                                         form
                                                         arglist)))))))))
 
+(defun boundp-and-interesting (symbol)
+  (and symbol
+       (symbolp symbol)
+       (boundp symbol)
+       (not (memq symbol '(cl:t cl:nil)))
+       (not (keywordp symbol))))
+
 (defun print-variable-to-string (symbol)
   "Return a short description of VARIABLE-NAME, or NIL."
   (let ((*print-pretty* t) (*print-level* 4)
         (*print-length* 10) (*print-lines* 1)
-        (*print-readably* nil))
+        (*print-readably* nil)
+        (value (symbol-value symbol)))
     (call/truncated-output-to-string
      75 (lambda (s)
-          (format s "~A => ~S" symbol (symbol-value symbol))))))
+          (without-printing-errors (:object value :stream s)
+            (format s "~A ~A~S" symbol *echo-area-prefix* value))))))
 
 
 (defslimefun complete-form (raw-form)

@@ -434,7 +434,7 @@ If POLICY is supplied, and non-NIL, it may be used by certain
 implementations to compile with optimization qualities of its
 value.
 
-Should return T on successfull compilation, NIL otherwise.
+Should return T on successful compilation, NIL otherwise.
 ")
 
 (definterface swank-compile-file (input-file output-file load-p 
@@ -603,6 +603,15 @@ The result is either a symbol, a list, or NIL if no function name is available."
   (declare (ignore function))
   nil)
 
+(definterface valid-function-name-p (form)
+  "Is FORM syntactically valid to name a function?
+   If true, FBOUNDP should not signal a type-error for FORM."
+  (flet ((length=2 (list)
+           (and (not (null (cdr list))) (null (cddr list)))))
+    (or (symbolp form)
+        (and (consp form) (length=2 form)
+             (eq (first form) 'setf) (symbolp (second form))))))
+
 (definterface macroexpand-all (form)
    "Recursively expand all macros in FORM.
 Return the resulting form.")
@@ -613,7 +622,9 @@ If FORM is a function call for which a compiler-macro has been
 defined, invoke the expander function using *macroexpand-hook* and
 return the results and T.  Otherwise, return the original form and
 NIL."
-  (let ((fun (and (consp form) (compiler-macro-function (car form)))))
+  (let ((fun (and (consp form) 
+                  (valid-function-name-p (car form))
+                  (compiler-macro-function (car form)))))
     (if fun
 	(let ((result (funcall *macroexpand-hook* fun form env)))
           (values result (not (eq result form))))
@@ -1046,7 +1057,6 @@ output of CL:DESCRIBE."
 (defun label-value-line (label value &key (newline t))
   "Create a control list which prints \"LABEL: VALUE\" in the inspector.
 If NEWLINE is non-NIL a `(:newline)' is added to the result."
-  
   (list* (princ-to-string label) ": " `(:value ,value)
          (if newline '((:newline)) nil)))
 
@@ -1301,5 +1311,17 @@ SPEC can be:
   "Save a heap image to the file FILENAME.
 RESTART-FUNCTION, if non-nil, should be called when the image is loaded.")
 
+(definterface background-save-image (filename &key restart-function
+                                              completion-function)
+  "Request saving a heap image to the file FILENAME.
+RESTART-FUNCTION, if non-nil, should be called when the image is loaded.
+COMPLETION-FUNCTION, if non-nil, should be called after saving the image.")
 
-  
+;;; Codepoint length
+
+(definterface codepoint-length (string)
+  "Return the number of codepoints in STRING.
+With some Lisps, like cmucl, LENGTH returns the number of UTF-16 code
+units, but other Lisps return the number of codepoints. The slime
+protocol wants string lengths in terms of codepoints."
+  (length string))

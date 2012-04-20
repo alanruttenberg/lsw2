@@ -442,7 +442,7 @@
         (blocks '())
         (variables '()))
     (setf frame (si::decode-ihs-env (second frame)))
-    (dolist (record frame)
+    (dolist (record (remove-if-not #'consp frame))
       (let* ((record0 (car record))
 	     (record1 (cdr record)))
 	(cond ((or (symbolp record0) (stringp record0))
@@ -498,7 +498,8 @@
 
 ;;;; Definitions
 
-(defvar +TAGS+ (namestring (translate-logical-pathname #P"SYS:TAGS")))
+(defvar +TAGS+ (namestring
+                (merge-pathnames "TAGS" (translate-logical-pathname "SYS:"))))
 
 (defun make-file-location (file file-position)
   ;; File positions in CL start at 0, but Emacs' buffer positions
