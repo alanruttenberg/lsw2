@@ -12,25 +12,10 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require :collect) ;just so that it doesn't spoil the flying letters
-  (require :pprint))
-
-;;; The introduction of SYS::*INVOKE-DEBUGGER-HOOK* obliterates the
-;;; need for redefining BREAK. The following should thus be removed at
-;;; some point in the future.
-#-#.(swank-backend:with-symbol '*invoke-debugger-hook* 'sys)
-(defun sys::break (&optional (format-control "BREAK called") 
-                   &rest format-arguments)
-  (let ((sys::*saved-backtrace* 
-         #+#.(swank-backend:with-symbol 'backtrace 'sys) 
-         (sys:backtrace)
-         #-#.(swank-backend:with-symbol 'backtrace 'sys)
-         (ext:backtrace-as-list)))
-    (with-simple-restart (continue "Return from BREAK.")
-      (invoke-debugger
-       (sys::%make-condition 'simple-condition
-                             (list :format-control format-control
-                                   :format-arguments format-arguments))))
-    nil))
+  (require :pprint)
+  (assert (>= (read-from-string (subseq (lisp-implementation-version) 0 4))
+              0.22)
+          () "This file needs ABCL version 0.22 or newer"))
 
 (defimplementation make-output-stream (write-string)
   (ext:make-slime-output-stream write-string))
@@ -144,11 +129,7 @@
 
 
 (defimplementation preferred-communication-style ()
-#+#.(cl:if (cl:find-package :threads) '(:and) '(:or))
-  :spawn
-#-#.(cl:if (cl:find-package :threads) '(:and) '(:or))
-  nil
-)
+  :spawn)
 
 (defimplementation create-socket (host port)
   (ext:make-server-socket port))
@@ -266,7 +247,6 @@
                   (doc 'class)))
       result)))
 
-
 (defimplementation describe-definition (symbol namespace)
   (ecase namespace
     (:variable 
@@ -285,29 +265,27 @@
     (:class
      (describe (find-class symbol)))))
 
-
+
 ;;;; Debugger
 
-;;; Copied from swank-sbcl.lisp.
+;; Copied from swank-sbcl.lisp.
+;;
+;; Notice that *INVOKE-DEBUGGER-HOOK* is tried before *DEBUGGER-HOOK*,
+;; so we have to make sure that the latter gets run when it was
+;; established locally by a user (i.e. changed meanwhile.)
 (defun make-invoke-debugger-hook (hook)
-  #'(lambda (condition old-hook)
-      ;; Notice that *INVOKE-DEBUGGER-HOOK* is tried before
-      ;; *DEBUGGER-HOOK*, so we have to make sure that the latter gets
-      ;; run when it was established locally by a user (i.e. changed
-      ;; meanwhile.)
-      (if *debugger-hook*
-          (funcall *debugger-hook* condition old-hook)
-          (funcall hook condition old-hook))))
+  (lambda (condition old-hook)
+    (if *debugger-hook*
+        (funcall *debugger-hook* condition old-hook)
+        (funcall hook condition old-hook))))
 
 (defimplementation call-with-debugger-hook (hook fun)
   (let ((*debugger-hook* hook)
-        #+#.(swank-backend:with-symbol '*invoke-debugger-hook* 'sys)
         (sys::*invoke-debugger-hook* (make-invoke-debugger-hook hook)))
     (funcall fun)))
 
 (defimplementation install-debugger-globally (function)
   (setq *debugger-hook* function)
-  #+#.(swank-backend:with-symbol '*invoke-debugger-hook* 'sys)
   (setq sys::*invoke-debugger-hook* (make-invoke-debugger-hook function)))
 
 (defvar *sldb-topframe*)
@@ -315,25 +293,14 @@
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (let* ((magic-token (intern "SWANK-DEBUGGER-HOOK" 'swank))
          (*sldb-topframe* 
-          #+#.(swank-backend:with-symbol 'backtrace 'sys)
           (second (member magic-token (sys:backtrace)
-                          :key #'(lambda (frame) 
-                                   (first (sys:frame-to-list frame)))))
-          #-#.(swank-backend:with-symbol 'backtrace 'sys)
-          (second (member magic-token (ext:backtrace-as-list)
-                          :key #'(lambda (frame) 
-                                   (first frame))))
-          ))    
+                          :key (lambda (frame) 
+                                 (first (sys:frame-to-list frame)))))))
     (funcall debugger-loop-fn)))
 
 (defun backtrace (start end)
   "A backtrace without initial SWANK frames."
-  (let ((backtrace 
-         #+#.(swank-backend:with-symbol 'backtrace 'sys)
-         (sys:backtrace)
-         #-#.(swank-backend:with-symbol 'backtrace 'sys)
-         (ext:backtrace-as-list)
-         ))
+  (let ((backtrace (sys:backtrace)))
     (subseq (or (member *sldb-topframe* backtrace) backtrace)
             start end)))
 
@@ -345,12 +312,8 @@
     (backtrace start end)))
 
 (defimplementation print-frame (frame stream)
-  (write-string
-   #+#.(swank-backend:with-symbol 'backtrace 'sys)
-   (sys:frame-to-string frame)
-   #-#.(swank-backend:with-symbol 'backtrace 'sys)
-   (string-trim '(#\space #\newline) (prin1-to-string frame))
-   stream))
+  (write-string (sys:frame-to-string frame)
+                stream))
 
 (defimplementation frame-locals (index)
   `(,(list :name "??" :id 0 :value "??")))
@@ -360,8 +323,9 @@
   (disassemble (debugger:frame-function (nth-frame index))))
 
 (defimplementation frame-source-location (index)
-  (list :error (format nil "Cannot find source for frame: ~A"
-                       (nth-frame index))))
+  (let ((frame (nth-frame index)))
+    (or (source-location (nth-frame index))
+        `(:error ,(format nil "No source for frame: ~a" frame)))))
 
 #+nil
 (defimplementation eval-in-frame (form frame-number)
@@ -472,22 +436,118 @@
 
 (defimplementation find-definitions (symbol)
   (fspec-definition-locations symbol))
-
 |#
 
-(defun source-location (symbol)
+(defgeneric source-location (object))
+
+(defmethod source-location ((symbol symbol))
   (when (pathnamep (ext:source-pathname symbol))
     (let ((pos (ext:source-file-position symbol)))
-      `(((,symbol)
-         (:location
-           (:file ,(namestring (ext:source-pathname symbol)))
-           ,(if pos
-                (list :position (1+ pos))
-                (list :function-name (string symbol)))
-           (:align t)))))))
+      `(:location
+        (:file ,(namestring (ext:source-pathname symbol)))
+        ,(if pos
+             (list :position (1+ pos))
+             (list :function-name (string symbol)))
+        (:align t)))))
+
+(defmethod source-location ((frame sys::java-stack-frame))
+  (destructuring-bind (&key class method file line) (sys:frame-to-list frame)
+    (declare (ignore method))
+    (let ((file (or (find-file-in-path file *source-path*)
+                    (let ((f (format nil "~{~a/~}~a"
+                                     (butlast (split-string class "\\."))
+                                     file)))
+                      (find-file-in-path f *source-path*)))))
+      (and file 
+           `(:location ,file (:line ,line) ())))))
+
+(defmethod source-location ((frame sys::lisp-stack-frame))
+  (destructuring-bind (operator &rest args) (sys:frame-to-list frame)
+    (declare (ignore args))
+    (etypecase operator
+      (function (source-location operator))
+      (list nil)
+      (symbol (source-location operator)))))
+
+(defmethod source-location ((fun function))
+  (let ((name (function-name fun)))
+    (and name (source-location name))))
+
+(defun system-property (name)
+  (java:jstatic "getProperty" "java.lang.System" name))
+
+(defun pathname-parent (pathname)
+  (make-pathname :directory (butlast (pathname-directory pathname))))
+
+(defun pathname-absolute-p (pathname)
+  (eq (car (pathname-directory pathname)) ':absolute))
+
+(defun split-string (string regexp)
+  (coerce 
+   (java:jcall (java:jmethod "java.lang.String" "split" "java.lang.String")
+               string regexp)
+   'list))
+
+(defun path-separator ()
+  (java:jfield "java.io.File" "pathSeparator"))
+
+(defun search-path-property (prop-name)
+  (let ((string (system-property prop-name)))
+    (and string
+         (remove nil 
+                 (mapcar #'truename
+                         (split-string string (path-separator)))))))
+
+(defun jdk-source-path ()
+  (let* ((jre-home (truename (system-property "java.home")))
+         (src-zip (merge-pathnames "src.zip" (pathname-parent jre-home)))
+         (truename (probe-file src-zip)))
+    (and truename (list truename))))
+
+(defun class-path ()
+  (append (search-path-property "java.class.path")
+          (search-path-property "sun.boot.class.path")))
+
+(defvar *source-path*
+  (append (search-path-property "user.dir")
+          (jdk-source-path)
+          ;;(list (truename "/scratch/abcl/src"))
+          )
+  "List of directories to search for source files.")
+
+(defun zipfile-contains-p (zipfile-name entry-name)
+  (let ((zipfile (java:jnew (java:jconstructor "java.util.zip.ZipFile" 
+                                               "java.lang.String")
+                            zipfile-name)))
+    (java:jcall
+     (java:jmethod "java.util.zip.ZipFile" "getEntry" "java.lang.String")
+     zipfile entry-name)))
+
+;; (find-file-in-path "java/lang/String.java" *source-path*)
+;; (find-file-in-path "Lisp.java" *source-path*)
+
+;; Try fo find FILENAME in PATH.  If found, return a file spec as
+;; needed by Emacs.  We also look in zip files.
+(defun find-file-in-path (filename path)
+  (labels ((try (dir)
+             (cond ((not (pathname-type dir))
+                    (let ((f (probe-file (merge-pathnames filename dir))))
+                      (and f `(:file ,(namestring f)))))
+                   ((equal (pathname-type dir) "zip")
+                    (try-zip dir))
+                   (t (error "strange path element: ~s" path))))
+           (try-zip (zip)
+             (let* ((zipfile-name (namestring (truename zip))))
+               (and (zipfile-contains-p zipfile-name filename)
+                    `(:dir ,zipfile-name  ,filename)))))
+    (cond ((pathname-absolute-p filename) (probe-file filename))
+          (t
+           (loop for dir in path
+                 if (try dir) return it)))))
 
 (defimplementation find-definitions (symbol)
-  (source-location symbol))
+  (let ((srcloc (source-location symbol)))
+    (and srcloc `((,symbol ,srcloc)))))
 
 #| 
 Uncomment this if you have patched xref.lisp, as in 
@@ -577,85 +637,83 @@ part of *sysdep-pathnames* in swank.loader.lisp.
   
 ;;;; Multithreading
 
-#+#.(cl:if (cl:find-package :threads) '(:and) '(:or))
-(progn
-  (defimplementation spawn (fn &key name)
-    (threads:make-thread (lambda () (funcall fn)) :name name))
+(defimplementation spawn (fn &key name)
+  (threads:make-thread (lambda () (funcall fn)) :name name))
 
-  (defvar *thread-plists* (make-hash-table) ; should be a weak table
-    "A hashtable mapping threads to a plist.")
+(defvar *thread-plists* (make-hash-table) ; should be a weak table
+  "A hashtable mapping threads to a plist.")
 
-  (defvar *thread-id-counter* 0)
+(defvar *thread-id-counter* 0)
 
-  (defimplementation thread-id (thread)
-    (threads:synchronized-on *thread-plists*
-      (or (getf (gethash thread *thread-plists*) 'id)
-          (setf (getf (gethash thread *thread-plists*) 'id)
+(defimplementation thread-id (thread)
+  (threads:synchronized-on *thread-plists*
+    (or (getf (gethash thread *thread-plists*) 'id)
+        (setf (getf (gethash thread *thread-plists*) 'id)
               (incf *thread-id-counter*)))))
 
-  (defimplementation find-thread (id)
-    (find id (all-threads) 
+(defimplementation find-thread (id)
+  (find id (all-threads) 
         :key (lambda (thread)
-                (getf (gethash thread *thread-plists*) 'id))))
+               (getf (gethash thread *thread-plists*) 'id))))
 
-  (defimplementation thread-name (thread)
-    (threads:thread-name thread))
+(defimplementation thread-name (thread)
+  (threads:thread-name thread))
 
-  (defimplementation thread-status (thread)
-    (format nil "Thread is ~:[dead~;alive~]" (threads:thread-alive-p thread)))
+(defimplementation thread-status (thread)
+  (format nil "Thread is ~:[dead~;alive~]" (threads:thread-alive-p thread)))
 
-  (defimplementation make-lock (&key name)
-    (declare (ignore name))
-    (threads:make-thread-lock))
+(defimplementation make-lock (&key name)
+  (declare (ignore name))
+  (threads:make-thread-lock))
 
-  (defimplementation call-with-lock-held (lock function)
-    (threads:with-thread-lock (lock) (funcall function)))
+(defimplementation call-with-lock-held (lock function)
+  (threads:with-thread-lock (lock) (funcall function)))
 
-  (defimplementation current-thread ()
-    (threads:current-thread))
+(defimplementation current-thread ()
+  (threads:current-thread))
 
-  (defimplementation all-threads ()
-    (copy-list (threads:mapcar-threads #'identity)))
+(defimplementation all-threads ()
+  (copy-list (threads:mapcar-threads #'identity)))
 
-  (defimplementation thread-alive-p (thread)
-    (member thread (all-threads)))
+(defimplementation thread-alive-p (thread)
+  (member thread (all-threads)))
 
-  (defimplementation interrupt-thread (thread fn)
-    (threads:interrupt-thread thread fn)) 
+(defimplementation interrupt-thread (thread fn)
+  (threads:interrupt-thread thread fn)) 
 
-  (defimplementation kill-thread (thread)
-    (threads:destroy-thread thread))
+(defimplementation kill-thread (thread)
+  (threads:destroy-thread thread))
 
-  (defstruct mailbox 
-    (queue '()))
+(defstruct mailbox 
+  (queue '()))
 
-  (defun mailbox (thread)
-    "Return THREAD's mailbox."
-    (threads:synchronized-on *thread-plists*
-      (or (getf (gethash thread *thread-plists*) 'mailbox)
-          (setf (getf (gethash thread *thread-plists*) 'mailbox)
-                (make-mailbox)))))
+(defun mailbox (thread)
+  "Return THREAD's mailbox."
+  (threads:synchronized-on *thread-plists*
+    (or (getf (gethash thread *thread-plists*) 'mailbox)
+        (setf (getf (gethash thread *thread-plists*) 'mailbox)
+              (make-mailbox)))))
 
-  (defimplementation send (thread message)
-    (let ((mbox (mailbox thread)))
-      (threads:synchronized-on mbox
-        (setf (mailbox-queue mbox) 
-              (nconc (mailbox-queue mbox) (list message)))
-        (threads:object-notify-all mbox))))
+(defimplementation send (thread message)
+  (let ((mbox (mailbox thread)))
+    (threads:synchronized-on mbox
+      (setf (mailbox-queue mbox) 
+            (nconc (mailbox-queue mbox) (list message)))
+      (threads:object-notify-all mbox))))
 
-  (defimplementation receive-if (test &optional timeout)
-    (let* ((mbox (mailbox (current-thread))))
-      (assert (or (not timeout) (eq timeout t)))
-      (loop
-       (check-slime-interrupts)
-       (threads:synchronized-on mbox
-         (let* ((q (mailbox-queue mbox))
-                (tail (member-if test q)))
-           (when tail 
-             (setf (mailbox-queue mbox) (nconc (ldiff q tail) (cdr tail)))
-               (return (car tail)))
+(defimplementation receive-if (test &optional timeout)
+  (let* ((mbox (mailbox (current-thread))))
+    (assert (or (not timeout) (eq timeout t)))
+    (loop
+     (check-slime-interrupts)
+     (threads:synchronized-on mbox
+       (let* ((q (mailbox-queue mbox))
+              (tail (member-if test q)))
+         (when tail 
+           (setf (mailbox-queue mbox) (nconc (ldiff q tail) (cdr tail)))
+           (return (car tail)))
          (when (eq timeout t) (return (values nil t)))
-         (threads:object-wait mbox 0.3)))))))
+         (threads:object-wait mbox 0.3))))))
 
 (defimplementation quit-lisp ()
   (ext:exit))

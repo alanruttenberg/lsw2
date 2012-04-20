@@ -1,10 +1,24 @@
-;; slime-snapshot.el --- Save&restore memory images without disconnecting
 
-(defun slime-snapshot (filename)
+(define-slime-contrib slime-snapshot
+  "Save&restore memory images without disconnecting"
+  (:authors "Helmut Eller <heller@common-lisp.net>")
+  (:license "Unknown")
+  (:swank-dependencies swank-snapshot))
+
+(defun slime-snapshot (filename &optional background)
   "Save a memory image to the file FILENAME."
-  (interactive (list (read-file-name "Image file: ")))
-  (slime-eval-with-transcript 
-   `(swank-snapshot:save-snapshot ,(expand-file-name filename))))
+  (interactive (list (read-file-name "Image file: ")
+		     current-prefix-arg))
+  (let ((file (expand-file-name filename)))
+    (when (and (file-exists-p file)
+	       (not (yes-or-no-p (format "File exists %s.  Overwrite it? " 
+					 filename))))
+      (signal 'quit nil))
+    (slime-eval-with-transcript
+     `(,(if background
+	    'swank-snapshot:background-save-snapshot
+	  'swank-snapshot:save-snapshot)
+       ,file))))
 
 (defun slime-restore (filename)
   "Restore a memory image stored in file FILENAME."
@@ -15,5 +29,4 @@
 			       nil t nil)
 		  (slime-connection)))
 
-(defun slime-snapshot-init ()
-  (slime-require :swank-snapshot))
+(provide 'slime-snapshot)
