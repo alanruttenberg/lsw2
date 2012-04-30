@@ -105,67 +105,81 @@ Which can then be used as !material-entity
 (defun full-uri-string (uri)
   (uri-full uri))
 
-(defun read-uri (stream char)
+(defun read-uri (stream char) 
   (declare (ignore char))
-  (when (eql char #\<) (unread-char #\< stream))
-  (let ((peek (peek-char nil stream nil :eof)))
-    (when (eql peek #\?) (return-from read-uri `(make-swrl-variable-uri ',(read stream))))
-    (let ((string
-	   (cond ((eql peek #\")
-		  (read stream))
-		 ((eql peek #\')
-		  (loop for char = (peek-char nil stream nil :eof)
-		     while (not (or (eq char :eof)
-				    (eql char #\@)))
-		     for the-char-first-part = (read-char stream)
-		     collect the-char-first-part into first-chars
-		     finally (progn
-			       (if (not (eql (read-char stream) #\@))
-				 (error "Unterminated URI by name missing source")
-				 (return
-				   (loop for char = (peek-char nil stream nil :eof)
-				      while (not (or (eq char :eof)
-						     (system::whitespacep char)
-						     (char= char #\))))
-				      collect (read-char stream) into second-chars
-				      finally (return  (coerce (append first-chars (list #\@) second-chars) 'string))))))))
-		 ((eql peek #\<)
-		  (read-char stream)
-		  (return-from read-uri
-		    `(make-uri 
-		      ,(coerce 
+  ;; kludge to get around issue with function names starting with "!" in slime/swank-match.lisp
+  (if (or (and (boundp '*compile-file-pathname*) 
+	       (search "swank-match" (namestring *compile-file-pathname*) :test #'char-equal))
+	  (and (boundp '*load-pathname*) 
+	       (search "swank-match" (namestring *load-pathname*) :test #'char-equal)))
+      (progn 
+	(unread-char #\! stream)
+	(let ((*readtable* *saved-readtable*))
+	  (read stream)))
+      (progn
+	(when (eql char #\<) (unread-char #\< stream))
+	(let ((peek (peek-char nil stream nil :eof)))
+	  (when (eql peek #\?) (return-from read-uri `(make-swrl-variable-uri ',(read stream))))
+	  (let ((string
+		 (cond ((eql peek #\")
+			(read stream))
+		       ((eql peek #\')
 			(loop for char = (peek-char nil stream nil :eof)
 			   while (not (or (eq char :eof)
-					  (eql char #\>)))
-			   collect (read-char stream)
-			   finally (when (not (eql (read-char stream) #\>)) 
-				     (error "Unterminated URI: Missing >"))) 
-			'string))))
-		 (t
-		  (coerce 
-		   (loop for char = (peek-char nil stream nil :eof)
-		      while (not (or (eq char :eof)
-				     (system::whitespacep char)
-				     (char= char #\))))
-		      collect (read-char stream))
-		   'string))
-		 )))
-      (if (find #\' string)
-	  (let ((matched (car (all-matches string "'(.*?)'@([A-Za-z0-9-]+){0,1}(\\((.*)\\)){0,1}" 1 2 4))))
-	    (if matched
-		(destructuring-bind (label source original) matched
-		  `(make-uri-from-label-source 
-		    ,(intern (string-upcase source) 'keyword) ,label ,original))
-		(error "Malformed label uri string: ~a" string))) 
-	  (if (find #\: string)
-	      `(make-uri nil ,string)
-	      `(get-uri-alias-or-make-uri-base-relative ,string))))))
+					  (eql char #\@)))
+			   for the-char-first-part = (read-char stream)
+			   collect the-char-first-part into first-chars
+			   finally (progn
+				     (if (not (eql (read-char stream) #\@))
+					 (error "Unterminated URI by name missing source")
+					 (return
+					   (loop for char = (peek-char nil stream nil :eof)
+					      while (not (or (eq char :eof)
+							     (system::whitespacep char)
+							     (char= char #\))))
+					      collect (read-char stream) into second-chars
+					      finally (return  (coerce (append first-chars (list #\@) second-chars) 'string))))))))
+		       ((eql peek #\<)
+			(read-char stream)
+			(return-from read-uri
+			  `(make-uri 
+			    ,(coerce 
+			      (loop for char = (peek-char nil stream nil :eof)
+				 while (not (or (eq char :eof)
+						(eql char #\>)))
+				 collect (read-char stream)
+				 finally (when (not (eql (read-char stream) #\>)) 
+					   (error "Unterminated URI: Missing >"))) 
+			      'string))))
+		       (t
+			(coerce 
+			 (loop for char = (peek-char nil stream nil :eof)
+			    while (not (or (eq char :eof)
+					   (system::whitespacep char)
+					   (char= char #\))))
+			    collect (read-char stream))
+			 'string))
+		       )))
+	    (if (find #\' string)
+		(let ((matched (car (all-matches string "'(.*?)'@([A-Za-z0-9-]+){0,1}(\\((.*)\\)){0,1}" 1 2 4))))
+		  (if matched
+		      (destructuring-bind (label source original) matched
+			`(make-uri-from-label-source 
+			  ,(intern (string-upcase source) 'keyword) ,label ,original))
+		      (error "Malformed label uri string: ~a" string))) 
+		(if (find #\: string)
+		    `(make-uri nil ,string)
+		    `(get-uri-alias-or-make-uri-base-relative ,string))))))))
 
 (defun make-swrl-variable-uri (var)
   (if (and (consp var) (eq (car var ) 'quote)) (setq var (second var)))
   (make-uri (format nil "urn:swrl#~a" (subseq (string-downcase (string var)) 1))))
 
+;; *saved-readtable* used in read-uri when we run into a !
+(eval-when (:load-toplevel :execute :compile-toplevel)  
+  (defparameter *saved-readtable* (copy-readtable nil)))
 (set-macro-character #\! 'read-uri t)
+
 
 (defun get-uri-alias (string)
   (gethash string *interned-uris*))
