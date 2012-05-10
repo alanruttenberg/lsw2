@@ -430,8 +430,8 @@
 	(values (#"get" jfield object) jfield))
     (if (symbolp object)
 	(let ((class (find-java-class object)))
-	  (#"peekStatic" 'invoke class field))
-      (#"peek" 'invoke object field))))
+	  (#"peekStatic" 'jsint.invoke class field))
+      (#"peek" 'jsint.invoke object field))))
 
 ;; use #"getSuperclass" and #"getInterfaces" to see whether there are fields in superclasses that we might set
 (defun set-java-field (object field value &optional (try-harder *running-in-osgi*))
@@ -448,8 +448,8 @@
 	(values (#"set" jfield object value) jfield))
     (if (symbolp object)
 	(let ((class (find-java-class object)))
-	  (#"pokeStatic" 'invoke class field value))
-      (#"poke" 'invoke object field value))))
+	  (#"pokeStatic" 'jsint.invoke class field value))
+      (#"poke" 'jsint.invoke object field value))))
 
 (defun find-java-class (name)
   (if *classpath-manager*
