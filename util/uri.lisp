@@ -109,9 +109,9 @@ Which can then be used as !material-entity
   (declare (ignore char))
   ;; kludge to get around issue with function names starting with "!" in slime/swank-match.lisp
   (if (or (and (boundp '*compile-file-pathname*) 
-	       (search "swank-match" (namestring *compile-file-pathname*) :test #'char-equal))
+	       (search "swank-match" (when *compile-file-pathname* (namestring *compile-file-pathname*)) :test #'char-equal))
 	  (and (boundp '*load-pathname*) 
-	       (search "swank-match" (namestring *load-pathname*) :test #'char-equal)))
+	       (search "swank-match" (when *load-pathname* (namestring *load-pathname*)) :test #'char-equal)))
       (progn 
 	(unread-char #\! stream)
 	(let ((*readtable* *saved-readtable*))
