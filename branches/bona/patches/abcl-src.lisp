@@ -24,7 +24,7 @@
   (do-all-symbols (sym) 
     (let ((s (get sym 'system::%source)))
       (when (and s (consp s) (pathnamep (car s)) (search '("org" "armedbear") (pathname-directory (car s)) :test 'equal))
-	(let ((new 
+	(let ((new-pname 
 	       (cond ((find #\! (namestring (car s)))
 		      (format nil "abcl-src:~a"
 			      (substitute #\; #\/ 
@@ -37,8 +37,8 @@
 				      (1+ (position "src" (pathname-directory (car s)) :test 'equal)))
 			      (pathname-name (car s))
 			      (pathname-type (car s)))))))
-	  (when new
-	    (setf (car s) (translate-logical-pathname new)))
+	  (when new-pname
+	    (setf (car s) (translate-logical-pathname new-pname)))
 	  )))))
 
 '(when (gethash "ABCL-SRC" SYSTEM:*LOGICAL-PATHNAME-TRANSLATIONS*)
