@@ -471,7 +471,7 @@
 		  (jclass-superclass-p (find-java-class 'io.writer ) (jobject-class dest)))
 	     (setq writer dest))
 	    ((and (stringp dest)
-		  (setq writer (new 'filewriter (new 'file dest)))))
+		  (setq writer (new 'java.io.filewriter (new 'file dest)))))
 	    (t (error "don't know how to write to ~a" dest)))
       (ecase syntax
 	((:turtle)
