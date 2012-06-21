@@ -38,7 +38,7 @@ Which can then be used as !material-entity
 (defmacro let-uri (bindings &body body)
   `(let ((*local-uri-aliases* (append (list ,@(loop for (name form) in bindings
 						 collect `(cons ,name ,form)))  *local-uri-aliases*)))
-     (list ,@body)))
+     ,@body))
 
 (defun make-uri-base-relative (string &optional (base *default-uri-base*))
   (let ((lastchar (char base (1- (length base)))))

@@ -149,7 +149,7 @@
 
 (defmacro with-ontology (name (&key base ontology-properties about includes rules eval collecting
 				    ontology-iri version-iri) definitions &body body)
-  `(let* ((*default-uri-base* (or ,base *default-uri-base* )))
+  `(let* ((*default-uri-base* (or ,(cond ((stringp base) base) ((uri-p base) (uri-full base)))  *default-uri-base* )))
      (let ((,name 
 	    (load-ontology
 	     (append (list* 'ontology
