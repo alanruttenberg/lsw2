@@ -194,7 +194,7 @@
 		     do (emit-sparql-clause clause s))
 	       (format s " }"))))
 	  ((eq (car form) :select)
-	   (destructuring-bind (vars (&key limit distinct from count offset) &rest clauses) (cdr form)
+	   (destructuring-bind (vars (&key limit distinct from count offset order-by) &rest clauses) (cdr form)
 		     (with-output-to-string (s) 
 		       (let ((*print-case*  :downcase))
 			 (format s "SELECT ~a~a~{~a~^ ~}~a~a~%WHERE { "
@@ -206,7 +206,8 @@
 				 )
 			 (loop for clause in clauses
 			       do (emit-sparql-clause clause s))
-			 (format s "} ~a~a"
+			 (format s "} ~a~a~a"
+				 (if order-by (format nil "~%ORDER BY ~{~a~^ ~} " order-by) "")
 				 (if limit (format nil "LIMIT ~a " limit) "")
 				 (if offset (format nil "OFFSET ~a " offset) "")
 				 )))))
