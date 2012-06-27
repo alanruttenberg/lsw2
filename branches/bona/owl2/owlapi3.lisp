@@ -149,7 +149,7 @@
 
 (defmacro with-ontology (name (&key base ontology-properties about includes rules eval collecting
 				    ontology-iri version-iri) definitions &body body)
-  `(let* ((*default-uri-base* (or ,base *default-uri-base* )))
+  `(let* ((*default-uri-base* (or ,(cond ((stringp base) base) ((uri-p base) (uri-full base)))  *default-uri-base* )))
      (let ((,name 
 	    (load-ontology
 	     (append (list* 'ontology
@@ -474,7 +474,7 @@
 		  (jclass-superclass-p (find-java-class 'io.writer ) (jobject-class dest)))
 	     (setq writer dest))
 	    ((and (stringp dest)
-		  (setq writer (new 'filewriter (new 'file dest)))))
+		  (setq writer (new 'outputstreamwriter (new 'fileoutputstream dest) "UTF-8"))))
 	    (t (error "don't know how to write to ~a" dest)))
       (ecase syntax
 	((:turtle)
