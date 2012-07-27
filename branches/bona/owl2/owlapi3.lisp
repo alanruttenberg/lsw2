@@ -147,27 +147,29 @@
        (progv (mapcar 'first ,classes) (mapcar 'second ,classes)
 	 ,@body))))
 
-(defmacro with-ontology (name (&key base ontology-properties about includes rules eval collecting
+(defmacro with-ontology (name (&key base ontology-properties about includes rules eval collecting also-return-axioms
 				    ontology-iri version-iri) definitions &body body)
-  `(let* ((*default-uri-base* (or ,(cond ((stringp base) base) ((uri-p base) (uri-full base)))  *default-uri-base* )))
-     (let ((,name 
-	    (load-ontology
-	     (append (list* 'ontology
-			    ,@(if (or about ontology-iri) (list (or about ontology-iri)))
-			    ,@(if version-iri (list version-iri))
-			    ,ontology-properties)
-		     ,(cond (eval definitions)
-			    (collecting `(collecting-axioms ,@definitions
-							    (include-out-of-line-metadata ',name #'as)
-								 (include-out-of-line-axioms ',name #'as)
-								 ))
-			    (t (list 'quote definitions)))
-		     )
-	     :name ',name
-	     )))
-       (let ((*default-kb* ,name))
-	 (declare (ignorable *default-kb* ))
-	 ,@body))))
+  (let ((axioms-var (make-symbol "AXIOMS")))
+    `(let* ((*default-uri-base* (or ,(cond ((stringp base) base) ((uri-p base) (uri-full base)))  *default-uri-base* ))
+	    (,axioms-var nil))
+       (let ((,name 
+	      (load-ontology
+	       (append (list* 'ontology
+			      ,@(if (or about ontology-iri) (list (or about ontology-iri)))
+			      ,@(if version-iri (list version-iri))
+			      ,ontology-properties)
+		       ,(cond (eval definitions)
+			      (collecting `(setq ,axioms-var (collecting-axioms ,@definitions
+										(include-out-of-line-metadata ',name #'as)
+										(include-out-of-line-axioms ',name #'as)
+										)))
+			      (t (list 'quote definitions)))
+		       )
+	       :name ',name
+	       )))
+	 (let ((*default-kb* ,name))
+	   (declare (ignorable *default-kb* ))
+	   (values (progn ,@body) (and ,also-return-axioms ,axioms-var)))))))
 
 (defun include-out-of-line-axioms (name as-fn))
 
@@ -202,8 +204,8 @@
 (defun pellet-reasoner-config ()
   (let ((standard (new 'SimpleConfiguration))
 	(progressMonitor (new 'owlapi.reasoner.ConsoleProgressMonitor)))
-    (set-java-field 'PelletOptions "USE_ANNOTATION_SUPPORT" t)
-    (set-java-field 'pelletoptions "TREAT_ALL_VARS_DISTINGUISHED" nil)
+    (jss::set-java-field 'PelletOptions "USE_ANNOTATION_SUPPORT" +true+)
+    (jss::set-java-field 'pelletoptions "TREAT_ALL_VARS_DISTINGUISHED" +false+)
     (new 'org.semanticweb.owlapi.reasoner.SimpleConfiguration progressMonitor
 	 (#"getFreshEntityPolicy" standard)
 	 (new 'long (#"toString" (#"getTimeOut" standard)))
@@ -224,7 +226,7 @@
   (if profile
       (let ((new (new 'org.semanticweb.HermiT.Configuration))
 	    (monitor (new 'org.semanticweb.HermiT.monitor.CountingMonitor)))
-	(set-java-field new "monitor" monitor)
+	(jss::set-java-field new "monitor" monitor)
 	(setf (v3kb-hermit-monitor ont) monitor)
 	new)
       (let ((it (new 'SimpleConfiguration (new 'owlapi.reasoner.ConsoleProgressMonitor) )))
@@ -294,7 +296,7 @@
   (instantiate-reasoner kb (or (v3kb-default-reasoner kb) *default-reasoner*) nil)
   (let ((expression (to-class-expression class kb)))
     (let ((nodes (funcall fn expression (v3kb-reasoner kb))))
-      (loop for iri in (set-to-list (if flatten (#"getFlattened" nodes) nodes))
+      (loop for iri in (jss::set-to-list (if flatten (#"getFlattened" nodes) nodes))
 	 for string = (and iri (#"toString" (#"getIRI" iri)))
 	 for uri = (and iri (make-uri string))
 	 unless (or (null iri) (and (eq uri !owl:Nothing) (not include-nothing))) collect (make-uri string)))))
@@ -321,7 +323,7 @@
   (class-query class kb (lambda(ce reasoner) (#"getEquivalentClasses" reasoner ce)) nil t))
 
 (defun same-individuals (individual kb)
-  (loop for e in (set-to-list
+  (loop for e in (jss::set-to-list
 		  (#"getSameIndividuals" (v3kb-reasoner kb)
 		     (#"getOWLNamedIndividual" (v3kb-datafactory kb) (to-iri individual))))
        collecting (make-uri (#"toString" (#"getIRI" e)))))
@@ -420,10 +422,10 @@
 	  (#"put" prop->lang-none (get-entity prop :annotation-property kb) langs-none))
 	(let ((any-lang-provider (new 'owlapi.util.annotationvalueshortformprovider a-props prop->lang-none ontset
 				      (new 'simpleshortformprovider))))
-	  (set-java-field any-lang-provider "quoteShortFormsWithSpaces" (make-immediate-object t :boolean))
+	  (jss::set-java-field any-lang-provider "quoteShortFormsWithSpaces" +true+)
 	  (let ((lang-specific-provider (new 'owlapi.util.annotationvalueshortformprovider a-props prop->lang ontset any-lang-provider)))
 	    ;; next isn't working yet
-	    (set-java-field lang-specific-provider "quoteShortFormsWithSpaces" (make-immediate-object t :boolean))
+	    (jss::set-java-field lang-specific-provider "quoteShortFormsWithSpaces" +true+)
 	    (setf (v3kb-short-form-provider kb) 
 		  (new 'owlapi.util.BidirectionalShortFormProviderAdapter (#"getImportsClosure" (v3kb-ont kb))
 		       lang-specific-provider)))))))
