@@ -161,11 +161,12 @@
 (defun replace-all (string regex function &rest which)
   (let ((matcher (#"matcher" (if (java-object-p regex) regex (#"compile" 'java.util.regex.pattern regex)) string))
 	(sb (new 'stringbuffer)))
+    (with-constant-signature ((append "appendReplacement")) ; workaround abcl bug
     (loop while (#"find" matcher) 
 	 do
-	 (#"appendReplacement" matcher sb (apply function  
+	 (append matcher sb (apply function  
 					   (loop for g in which collect
-						(#"group" matcher g)))))
+						(#"group" matcher g))))))
     (#"appendTail" matcher sb)
     (#"toString" sb)))
 

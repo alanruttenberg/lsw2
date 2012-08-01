@@ -14,7 +14,9 @@
   :components
   ((:module macros
 	    :pathname ""
-	    :components ((:file "string") (:file "encapsulate"))) 
+	    :components ((:file "string")
+			 ;(:file "encapsulate")
+			 )) 
    (:module utils :pathname ""
 	    :components
 	    ((:jar-file "md5")
@@ -28,7 +30,7 @@
 	     (:file "xmls-helpers")
 	     (:file "server")
 	     (:file "mediawiki-bot")
-	     (:file "backtrace-trim")
+;	     (:file "backtrace-trim")
 	     (:file "obo"))
 	    :depends-on
 	    (macros)))
