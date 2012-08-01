@@ -169,7 +169,7 @@
 	       )))
 	 (let ((*default-kb* ,name))
 	   (declare (ignorable *default-kb* ))
-	   (values (progn ,@body) (and ,also-return-axioms ,axioms-var)))))))
+	   (values-list (append (multiple-value-list (progn ,@body)) (and ,also-return-axioms (list ,axioms-var)))))))))
 
 (defun include-out-of-line-axioms (name as-fn))
 
@@ -282,6 +282,15 @@
 	(pellet-log-level (#"getKB" (v3kb-reasoner ont)) "OFF")
 	))))
 
+	 
+;; (set-to-list (#"getViolations" (setq a2 (#"checkOntology" (setq a1 (new 'owl2dlprofile)) (v3kb-ont f)))))
+
+;;   (with-ontology f (:collecting t) 
+;; 	     ((asq (declaration (class !a)) (declaration (object-property !p)) (declaration (object-property !q))(subclassof  !a (object-has-self !p)) (transitiveobjectproperty !q)(disjointobjectproperties (annotation !rdfs:label "foo") !p !q)))
+;; 	   (#"isAnnotated" (#"getAxiom" (print (car (set-to-list (#"getViolations" (setq a2 (#"checkOntology" (setq a1 (new 'owl2dlprofile)) (v3kb-ont f)))))))))
+;; 	   ;(check-ontology f :classify t)
+;; 	   )
+
 (defun to-class-expression (thing kb)
   (cond ((jclass-superclass-p (load-time-value (find-java-class 'org.semanticweb.owlapi.model.owlentity)) (jobject-class thing))
 	 thing)
@@ -387,6 +396,12 @@
   (check-ontology kb)
   (loop for c in (set-to-list (#"getEntitiesMinusBottom" (#"getUnsatisfiableClasses" (v3kb-reasoner kb))))
      collect (make-uri (#"toString" (#"getIRI" c)))))
+
+(defun unsatisfiable-properties (kb)
+  (check-ontology kb)
+  (loop for p in (remove-if #"isAnonymous" (set-to-list (#"getEquivalentObjectProperties" (v3kb-reasoner b) (#"getOWLObjectProperty" (v3kb-datafactory b) (to-iri !owl:bottomObjectProperty)))))
+     for uri = (make-uri (#"toString" (#"getIRI" p)))
+     unless (eq uri !owl:bottomObjectProperty) collect uri))
 
 (defun test-reasoners ()
   (let (o)
