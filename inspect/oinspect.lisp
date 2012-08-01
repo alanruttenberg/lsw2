@@ -229,7 +229,7 @@
 (defmethod tostring ((inspector t) (v t)) 
   (princ-to-string v))
 
-(defparameter %%java-null (load-time-value (make-immediate-object nil :ref)))
+(defparameter %%java-null (load-time-value +null+))
 
 (defun %java-null (v) 
   (equal v %%java-null))

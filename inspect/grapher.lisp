@@ -89,7 +89,7 @@
 			 (find-java-class "prefuse.controls.Control")
 			 "isEnabled"
 			 #'(lambda (&rest whatever)
-			     (make-immediate-object t :boolean) )
+			     +true+ )
 			 "itemClicked"
 			 #'(lambda (node-item mouse-event)
 			     (let ((node (#"getSourceTuple" node-item)))
