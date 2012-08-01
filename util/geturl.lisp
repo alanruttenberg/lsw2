@@ -119,6 +119,8 @@
 	(concatenate 'string protocol "://" tunnel path))
       url))
 
+
+
 (defun unpack-headers (response headers)
   (append
    (if response
@@ -134,8 +136,25 @@
 			 (loop for i below (#"size" value)
 			    collect (#"get" value i)))
 	   ))))
+
+;; FIXME - workaround for http://lists.common-lisp.net/pipermail/armedbear-devel/2012-July/002477.html
+(defun unpack-headers (response headers)
+  (append
+   (if response
+       (list (list "response-code" response))
+       nil)
+   (and headers
+        (with-constant-signature ((size "size") (get "get"))
+        (loop
+           for key in (set-to-list (#"keySet" headers))
+           for value = (#"get" headers key)
+           when value
+           collect (cons key
+                         (loop for i below (size value)
+                            collect (get value i)))
+           )))))
 	
-    
+
 
 #|(defun get-url (url &key force-refetch dont-cache persist)
   "Get the contents of a page, saving it for this session in *page-cache*, so when debugging we don't keep fetching"
