@@ -50,8 +50,10 @@ $sep = "================================================================";
 if ($ENV{OS} =~ /windows/i) {$pathJoin = ";"} else {$pathJoin = ":" }
 if (!(@version[0] =~ /version/) ) 
   { complainCantTellVersion() }
-elsif (!(@version[0] =~ /"1.[56]/) ) 
-  { complainWrongVersion(); exit() }
+elsif (!(@version[0] =~ /"1.[567]/) ) 
+   { complainWrongVersion(); exit() }
+if (@version[0] =~ /"1.7/) { $bits="-d64" } ; 
+
 @libs = grep(/.jar$/,split /\n/,`find "$here/lib" -follow`);
 
 # $ENV{DYLD_LIBRARY_PATH}="$here/lib";
