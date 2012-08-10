@@ -39,3 +39,4 @@ This page describes how to install OWLIM-Lite and configure it for use with the 
 load <file:///Users/jonathanbona/ontology/ohd-ontology/src/ontology/pitt-ub-ohsu-r21/imports/BFO2/bfo2.owl>; 
 load <file:///Users/jonathanbona/ontology/ohd-ontology/src/ontology/pitt-ub-ohsu-r21/ohd.owl>;
 }}}
+    This takes forever.
