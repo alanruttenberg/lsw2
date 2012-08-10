@@ -19,7 +19,7 @@ This page describes how to install OWLIM-Lite and configure it for use with the 
   # Deploy OWLIM's version *openrdf-sesame.war* and *openrdf-workbench.war* by copying them into _$TOMCAT_HOME/webapps_ as described in the [http://owlim.ontotext.com/display/OWLIMv52/OWLIM-Lite+Installation#OWLIM-LiteInstallation-Easyinstall Easy Install] section of the OWLIM Installation Guide
 
 
-= Configuring a Repository =
+= Running and Creating a Repository =
   # Increase the Java VM size for Tomcat:
             export JAVA_OPTS="-server -Xmx2048m"
   # Run Tomcat:
@@ -28,4 +28,8 @@ This page describes how to install OWLIM-Lite and configure it for use with the 
   # Click on "New Repository" in the upper left hand corner
   # Select _OWLIM-Lite_, fill in an ID and Type, and click _Next_
   # On the next page, select any desired options and click _Create_
-  
+
+
+= Using the Repository =
+  # Return to http://localhost:8080/openrdf-workbench to view and select the repository
+  # Note the repository location (e.g., http://localhost:8080/openrdf-sesame/repositories/owlim-lite-test). The SPARQL endpoint for a repository is _$LOCATION_/query (e.g., http://localhost:8080/openrdf-sesame/repositories/owlim-lite-test/query)
