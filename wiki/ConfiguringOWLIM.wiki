@@ -31,5 +31,11 @@ This page describes how to install OWLIM-Lite and configure it for use with the 
 
 
 = Using the Repository =
-  # Return to http://localhost:8080/openrdf-workbench to view and select the repository
-  # Note the repository location (e.g., http://localhost:8080/openrdf-sesame/repositories/owlim-lite-test). The SPARQL endpoint for a repository is _$LOCATION_/query (e.g., http://localhost:8080/openrdf-sesame/repositories/owlim-lite-test/query)
+  * Return to http://localhost:8080/openrdf-workbench to view and select the repository
+  * Note the repository location (e.g., http://localhost:8080/openrdf-sesame/repositories/owlim-lite-test). The SPARQL endpoint for a repository is _$LOCATION_/query (e.g., http://localhost:8080/openrdf-sesame/repositories/owlim-lite-test/query)
+  * Queries can also be run within the openrdf workbench by clicking on "Query" on the left-hand side
+  * Load OWL files using SPARQL Update (also on the LHS), e.g.
+{{{
+load <file:///Users/jonathanbona/ontology/ohd-ontology/src/ontology/pitt-ub-ohsu-r21/imports/BFO2/bfo2.owl>; 
+load <file:///Users/jonathanbona/ontology/ohd-ontology/src/ontology/pitt-ub-ohsu-r21/ohd.owl>;
+}}}
