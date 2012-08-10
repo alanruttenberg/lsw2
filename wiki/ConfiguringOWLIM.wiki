@@ -16,7 +16,7 @@ This page describes how to install OWLIM-Lite and configure it for use with the 
   # Unzip and Configure Tomcat
     * Configuration involves setting a few environment variables, as described in the file 'RUNNING.txt' in the tomcat directory
   # Unzip OWLIM
-  # Deploy OWLIM's version of Sesame as described in the [http://owlim.ontotext.com/display/OWLIMv52/OWLIM-Lite+Installation#OWLIM-LiteInstallation-Easyinstall Easy Install] section of the OWLIM Installation Guide
+  # Deploy OWLIM's version *openrdf-sesame.war* and *openrdf-workbench.war* by copying them into _$TOMCAT_HOME/webapps_ as described in the [http://owlim.ontotext.com/display/OWLIMv52/OWLIM-Lite+Installation#OWLIM-LiteInstallation-Easyinstall Easy Install] section of the OWLIM Installation Guide
 
 
 localhost:8080/openrdf-workbench/
