@@ -9,6 +9,7 @@ This page describes how to install OWLIM-Lite and configure it for use with the 
 = Preliminaries = 
   # Have Java (get it [http://www.oracle.com/technetwork/java/javase/downloads/index.html here])
   # Download [http://tomcat.apache.org/download-70.cgi Apache Tomcat 7] (get the zip immediately under "Core" under "Binary Distributions". There's a copy of a version known to work in OSX/Unix in trunk/owl2/lib/tomcat/
+  # You might need to do: chmod a+x <tomcat>/bin/*
   # Register for and download [http://www.ontotext.com/owlim/owlim-lite-registration OWLIM-Lite]
   # I'll assume you have an environment variable $LSW that points to the trunk of LSW
 = Installation =
@@ -25,7 +26,7 @@ This page describes how to install OWLIM-Lite and configure it for use with the 
   # Increase the Java VM size for Tomcat. Below we set it to 2 gig, but you might have to set it higher depending on your KB
             export CATALINA_OPTS="-server -Xmx2048m" 
   # Run Tomcat:
-             _$CATALINA_HOME/startup.sh_
+             _$CATALINA_HOME/bin/startup.sh_
   # Go to http://localhost:8080/openrdf-workbench/ in a browser
   # Click on "New Repository" in the upper left hand corner
   # Select _OWLIM-Lite_, fill in an ID and Type, and click _Next_
