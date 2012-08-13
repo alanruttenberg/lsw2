@@ -7,14 +7,17 @@ This page describes how to install OWLIM-Lite and configure it for use with the 
 
 
 = Preliminaries = 
-  # Have Java
-  # Download [http://tomcat.apache.org/download-70.cgi Apache Tomcat 7]
+  # Have Java (get it [http://www.oracle.com/technetwork/java/javase/downloads/index.html here])
+  # Download [http://tomcat.apache.org/download-70.cgi Apache Tomcat 7] (get the zip immediately under "Core" under "Binary Distributions".
   # Register for and download [http://www.ontotext.com/owlim/owlim-lite-registration OWLIM-Lite]
 
 = Installation =
 
   # Unzip and Configure Tomcat
-    * Configuration involves setting a few environment variables, as described in the file 'RUNNING.txt' in the tomcat directory
+    * Configuration involves setting a few environment variables, as described in the file '[http://tomcat.apache.org/tomcat-7.0-doc/RUNNING.txt RUNNING.txt]' in the tomcat directory
+ ## export JAVA_HOME=$(/usr/libexec/java_home)
+ 
+
   # Unzip OWLIM
   # Deploy OWLIM's version *openrdf-sesame.war* and *openrdf-workbench.war* by copying them into _$TOMCAT_HOME/webapps_ as described in the [http://owlim.ontotext.com/display/OWLIMv52/OWLIM-Lite+Installation#OWLIM-LiteInstallation-Easyinstall Easy Install] section of the OWLIM Installation Guide
 
