@@ -9,7 +9,7 @@ This page describes how to install OWLIM-Lite and configure it for use with the 
 = Preliminaries = 
   # Have Java (get it [http://www.oracle.com/technetwork/java/javase/downloads/index.html here])
   # Download [http://tomcat.apache.org/download-70.cgi Apache Tomcat 7] (get the zip immediately under "Core" under "Binary Distributions". There's a copy of a version known to work in OSX/Unix in trunk/owl2/lib/tomcat/
-  # You might need to do: chmod a+x <tomcat>/bin/*
+  # You might need to do: chmod a+x tomcat/bin/*
   # Register for and download [http://www.ontotext.com/owlim/owlim-lite-registration OWLIM-Lite]
   # I'll assume you have an environment variable $LSW that points to the trunk of LSW
 = Installation =
