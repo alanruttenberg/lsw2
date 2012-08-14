@@ -250,17 +250,16 @@
 		    (format nil "%~2x" (char-code fixme)) fixme))))
 
 (defun clean-uri (site path &optional (protocol "http" ) (fragment "") (query nil) (nofix nil))
-  (let ((null (load-time-value (make-immediate-object nil :ref))))
-    (if (eq nofix t)
-	(#"toString" (new 'java.net.uri protocol site path (or query null) (or fragment null)))
-	(loop for (pattern replacement) in *uri-workaround-character-fixes*
-	   with uri = (#0"toString" (new 'java.net.uri protocol site path (or query null) (or fragment null)))
-	   for new = 
-	   (#0"replaceAll" (#0"matcher" pattern uri) replacement)
-	   then
-	   (#0"replaceAll" (#0"matcher" pattern new) replacement)
-	   finally (return  (#"toString" new)) )
-	)))
+  (if (eq nofix t)
+      (#"toString" (new 'java.net.uri protocol (or site +null+) path (or query null) (or fragment +null+)))
+      (loop for (pattern replacement) in *uri-workaround-character-fixes*
+	 with uri = (#0"toString" (new 'java.net.uri protocol (or site +null+) path (or query +null+) (or fragment +null+)))
+	 for new = 
+	 (#0"replaceAll" (#0"matcher" pattern uri) replacement)
+	 then
+	 (#0"replaceAll" (#0"matcher" pattern new) replacement)
+	 finally (return  (#"toString" new)) )
+      ))
 
 (defmacro with-cookies-from (site &body body)
   (if (and (consp site) (eq (car site) 'get-url))
