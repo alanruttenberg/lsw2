@@ -11,7 +11,16 @@
 		   (list "textToAnnotate" text))
 		  (when format (list (list "format" format))))))
 
-(defun test-ncbo-annotator ()
-  (let ((sample "This protocol will evaluate patients with systemic lupus erythematosus (SLE) and their relatives"))
-    (xmls::parse (ncbo-annotate sample *bioportal-key* :format "XML"))))
 
+
+(defun test-ncbo-annotator ()
+  (let ((sample "This protocol will evaluate patients with systemic lupus erythematosus (SLE) and their relatives")) 
+   (xmls::parse (ncbo-annotate sample *bioportal-key* :format "XML"))))
+
+
+
+(defun get-ontology-by-ncbi-local-id (id &key (cachedir "./cache"))
+  (let ((fname (format nil "~A/~A.owl" cachedir id)))
+    (unless (probe-file "lsw:ncbo-cache;") (
+    
+;(map 'list (lambda(e) (third (find-element-with-tag e "localOntologyId")))  (find-elements-with-tag r "ontologyUsedBean"))
