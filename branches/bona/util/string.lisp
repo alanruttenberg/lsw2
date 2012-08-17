@@ -23,8 +23,8 @@
   (let ((regex (string char)))
     (when (simple-string-search regex *regex-chars-needing-escape*)
       (setq regex (system::concatenate-to-string (list "\\" regex))))
-    (with-constant-signature ((tostring "toString"))
-      (loop for v across (#"split" string regex) collect (tostring v)))))
+    (with-constant-signature ((split "split") (tostring "toString"))
+      (loop for v across (split string regex) collect (tostring v)))))
 
 #+abcl
 (define-compiler-macro split-at-char

@@ -43,7 +43,7 @@
 	   (functionaldataproperty functional-data-property)
 	   (functionalobjectproperty functional-object-property)
 	   (haskey has-key)
-	   (imports imports)
+	   (imports import imports)
 	   (inversefunctionalobjectproperty inverse-functional-object-property)
 	   (inverseobjectproperties inverse-object-properties)
 	   (irreflexiveobjectproperty irreflexive-object-property)
