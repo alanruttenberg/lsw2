@@ -1,3 +1,3 @@
 #summary Here is a page for testing google calendars
 
-<wiki:gadget url="http://www.cse.buffalo.edu/~jpbona/test.xml" height="250" border="0" />
+<wiki:gadget url="http://www.cse.buffalo.edu/~jpbona/test.xml" height="400" width="600" border="0" />
