@@ -323,7 +323,7 @@
 	       (and display
 		    (if (not errorp)
 			(unless (#"isShiftDown" event)
-			  (#"setToolTipText" display (make-immediate-object nil :ref)))
+			  (#"setToolTipText" display +null+))
 			)))
 	   (condition () nil)
 	   ))
