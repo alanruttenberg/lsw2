@@ -11,6 +11,9 @@
 		   (list "textToAnnotate" text))
 		  (when format (list (list "format" format))))))
 
+(defun ncbo-get-signature (conceptid ontologyid &key (apikey *bioportal-key*) (format "XML"))
+  (get-url (format nil "http://rest.bioontology.org/bioportal/concepts/~a?conceptid=~a&apikey=~a" ontologyid conceptid apikey)))
+
 (defun test-ncbo-annotator ()
   (let ((sample "This protocol will evaluate patients with systemic lupus erythematosus (SLE) and their relatives")) 
    (xmls::parse (ncbo-annotate sample *bioportal-key* :format "XML"))))
