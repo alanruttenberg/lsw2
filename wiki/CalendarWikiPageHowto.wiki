@@ -1,6 +1,6 @@
 #summary Describes how to embed a google calendar in a wiki page
 
-= Introduction =
+= Instructions =
 
   * *In Google Calendar:*
    * Go to Calendar Settings for the calendar
