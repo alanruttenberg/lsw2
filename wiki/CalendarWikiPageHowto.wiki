@@ -37,3 +37,5 @@
 
   * Save or preview the wiki page. The agenda view of the calendar should appear.
 
+= Example wiki page with calendar =
+  * [https://code.google.com/p/lsw2/wiki/CalendarTestPage Calendar Test Page]
