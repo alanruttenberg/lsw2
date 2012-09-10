@@ -191,7 +191,7 @@
 (defun save-url-contents-in-cache (url content)
   (let ((fname (url-cached-file-name url)))
     (ensure-directories-exist fname)
-    (with-open-file (f fname :direction :output :if-does-not-exist :create)
+    (with-open-file (f fname :direction :output :if-does-not-exist :create :external-format :utf-8)
       (format f "~s" url)
       (write-string content f))))
 

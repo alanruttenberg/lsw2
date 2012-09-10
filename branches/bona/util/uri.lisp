@@ -200,9 +200,8 @@ calls, so you can get what you probably wanted: (type-of (car (eval-uri-reader-m
 		    (format nil "%~2x" (char-code fixme)) fixme))))
 
 (defun clean-uri (site path &optional (protocol "http" ) (fragment "") (query nil))
-  (let ((null (load-time-value (make-immediate-object nil :ref))))
-    (clean-string
-     (#0"toString" (new 'java.net.uri protocol site path (or query null) (or fragment null))))))
+  (clean-string
+   (#0"toString" (new 'java.net.uri protocol site path (or query +null+) (or fragment +null+)))))
 
 (defun clean-string (string)
   (loop for (pattern replacement) in *uri-workaround-character-fixes*
