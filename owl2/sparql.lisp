@@ -18,6 +18,7 @@
 		 (apply 'get-url (if (uri-p url) (uri-full url) url)
 			:post (append `(("query" ,query )
 					("format" "application/sparql-results+xml")
+					("Accept" "application/sparql-results+xml")
 					,@(if (eq command :query)
 					      '(("should-sponge" "soft"))))
 				      query-options)
