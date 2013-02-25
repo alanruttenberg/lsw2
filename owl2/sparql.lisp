@@ -13,13 +13,14 @@
 (defvar *sparql-allow-trace* t)
 (defvar *sparql-always-trace* nil)
 
-(defun sparql-endpoint-query (url query &key query-options geturl-options (command :query))
+(defun sparql-endpoint-query (url query &key query-options geturl-options (command :select) format)
   (let* ((parsed (xmls::parse
 		 (apply 'get-url (if (uri-p url) (uri-full url) url)
-			:post (append `(("query" ,query )
+			:post (append `((,(cond ((member command '(:select :describe :ask :construct)) "query")
+						(t "update")) ,query)
 					("format" "application/sparql-results+xml")
-					("Accept" "application/sparql-results+xml")
-					,@(if (eq command :query)
+					,(if (eq command :construct) `("Accept" ,(or format "application/rdf+xml")) '("Accept" "application/sparql-results+xml"))
+					,@(if (eq command :select)
 					      '(("should-sponge" "soft"))))
 				      query-options)
 			(append geturl-options (list :dont-cache t :force-refetch t )))))
@@ -48,7 +49,7 @@
 (defvar *endpoint-abbreviations* nil)
 ;; http://www-128.ibm.com/developerworks/xml/library/j-sparql/
 
-(defun sparql (query &rest all &key (kb (and (boundp '*default-kb*) *default-kb*)) (use-reasoner *default-reasoner*) (flatten nil) (trace nil) (trace-show-query trace) endpoint-options geturl-options (values t) (endpoint nil) (chunk-size nil) (syntax :sparql) &allow-other-keys &aux (command :query) count)
+(defun sparql (query &rest all &key (kb (and (boundp '*default-kb*) *default-kb*)) (use-reasoner *default-reasoner*) (flatten nil) (trace nil) (trace-show-query trace) endpoint-options geturl-options (values t) (endpoint nil) (chunk-size nil) (syntax :sparql) &allow-other-keys &aux (command :select) count)
   (when chunk-size (return-from sparql (apply 'sparql-by-chunk query all)))
   (setq use-reasoner (or endpoint use-reasoner))
   (setq count (and (consp query)
@@ -73,7 +74,7 @@
 	    (loop for one in bindings
 	       do (format t "~{~s~^	~}~%" one))
 	    (terpri t))
-	  (if flatten (loop for b in bindings append b) bindings))
+	  (if flatten (loop for b in bindings append b) (if values bindings (values))))
 	(let* (	;; Query query = QueryFactory.create(queryString);
 	       (jquery (#"create" 'QueryFactory query (if (eq syntax :terp)
 							  (#"getInstance" 'TerpSyntax)
@@ -187,20 +188,25 @@
 	       (loop for clause in (cddr form)
 		     do (emit-sparql-clause clause s))
 	       (format s " }"))))
-	  ((eq (car form) :delete)
-	   (destructuring-bind ((&key from) &rest clauses) (cdr form)
-	     (declare (ignore clauses))
-	     (with-output-to-string (s)
-	       (format s "DELETE ~A { "
-		     (if from (format nil "FROM GRAPH <~A>" (uri-full from)) ""))
-	       (loop for clause in (cddr form)
-		     do (emit-sparql-clause clause s))
-	       (format s " }"))))
-	  ((eq (car form) :select)
+	  ;; ((eq (car form) :delete)
+	  ;;  (destructuring-bind ((&key from) &rest clauses) (cdr form)
+	  ;;    (declare (ignore clauses))
+	  ;;    (with-output-to-string (s)
+	  ;;      (format s "DELETE ~A { "
+	  ;; 	     (if from (format nil "FROM GRAPH <~A>" (uri-full from)) ""))
+	  ;;      (loop for clause in (cddr form)
+	  ;; 	     do (emit-sparql-clause clause s))
+	  ;;      (format s " }"))))
+
+	  ((member (car form) '(:select :delete)) ;; change for sparql 1.1 
 	   (destructuring-bind (vars (&key limit distinct from count offset order-by) &rest clauses) (cdr form)
 		     (with-output-to-string (s) 
 		       (let ((*print-case*  :downcase))
-			 (format s "SELECT ~a~a~{~a~^ ~}~a~a~%WHERE { "
+			 (format s (cond ((eq (car form) :select)
+					  "SELECT ~a~a~{~a~^ ~}~a~a~%WHERE { ")
+					 ((eq (car form) :delete)
+					  "DELETE ~a~a{~{~a~^ ~}}~a~a~%WHERE { ") ;; change for sparql 1.1 - in a delete the bindings position is instead like a construct
+					 (t (error "don't know how to do sparql command ~a" (car form))))
 				 (if (and count (not (member reasoner '(:jena :none :pellet :sparqldl)))) "COUNT(" "")
 				 (if distinct "DISTINCT " "")
 				 vars 
@@ -337,3 +343,11 @@
 
 
 
+;; (sparql-endpoint-query "http://localhost:8080/openrdf-sesame/repositories/reactome43"  
+;; 				"prefix r: <http://purl.obolibrary.org/obo/reactome/record/>
+;; prefix rt: <http://purl.obolibrary.org/obo/reactome/record/>
+;; prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+;; prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+;; prefix xsd: <http://www.w3.org/2001/XMLSchema#>
+;; prefix owl: <http://www.w3.org/2002/07/owl#>
+;; construct {?s ?p ?o} where {?s ?p ?o} limit 100" :command :construct :format "text/turtle")
