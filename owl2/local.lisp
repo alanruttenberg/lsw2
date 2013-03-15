@@ -66,7 +66,8 @@
 (defun wget-executable ()
   (let ((it (#"replaceAll" (with-output-to-string (s) (run-shell-command "which wget" :output s))
 		 "(.*?)\\s*$" "$1")))
-    (if (equal it "") nil it)))
+    (assert (not (equal it "")) (it) "Couldn't find wget")
+    it))
 
   ;; e.g.
 

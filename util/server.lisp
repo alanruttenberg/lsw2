@@ -43,7 +43,7 @@
     (let ((server (#"create"  'com.sun.net.httpserver.HttpServer (new 'InetSocketAddress host port) 2)))
       (setq *active-evil-server*  server)
       (#"createContext" server "/eval" wrapped)
-      (#"setExecutor" server (make-immediate-object nil :ref))
+      (#"setExecutor" server +null+)
       (#"start" server)
       )))
 

@@ -98,13 +98,17 @@
 	  it
 	)))))
 
-(defun load-kb-jena (file)    
+; http://jena.apache.org/documentation/javadoc/jena/com/hp/hpl/jena/rdf/model/Model.html
+; Predefined values for lang are "RDF/XML", "N-TRIPLE", "TURTLE" (or "TTL") and "N3". null represents the default language, "RDF/XML". "RDF/XML-ABBREV" is a synonym for "RDF/XML". 
+
+(defun load-kb-jena (file &key (format "RDF/XML"))    
   (let ((url (format nil "file://~a" (namestring (truename file))))
 	(in-model (#"createDefaultModel" 'com.hp.hpl.jena.rdf.model.ModelFactory)))
+    (setq @ in-model)
     (#"read" in-model
 	     (new 'bufferedinputstream
 		  (#"getInputStream" (#"openConnection" (new 'java.net.url url))))
-	     url)
+	     url format)
     in-model))
 
 (defmacro collecting-axioms (&rest body)
@@ -147,14 +151,14 @@
        (progv (mapcar 'first ,classes) (mapcar 'second ,classes)
 	 ,@body))))
 
-(defmacro with-ontology (name (&key base ontology-properties about includes rules eval collecting also-return-axioms
+(defmacro with-ontology (name (&key base ontology-properties about includes rules eval collecting also-return-axioms only-return-axioms
 				    ontology-iri version-iri) definitions &body body)
   (let ((axioms-var (make-symbol "AXIOMS")))
     `(let* ((*default-uri-base* (or ,(cond ((stringp base) base) ((uri-p base) (uri-full base)))  *default-uri-base* ))
 	    (,axioms-var nil))
        (let ((,name 
-	      (load-ontology
-	       (append (list* 'ontology
+	      (funcall (if ,only-return-axioms 'list 'load-ontology)
+		       (append (list* 'ontology
 			      ,@(if (or about ontology-iri) (list (or about ontology-iri)))
 			      ,@(if version-iri (list version-iri))
 			      ,ontology-properties)

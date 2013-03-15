@@ -61,6 +61,7 @@
 			 (#"setRequestProperty" connection "Content-Type" "application/x-www-form-urlencoded"))
 		       (#"setRequestProperty" connection "Content-Type" "text/xml"))
 		   (let ((out (new 'PrintWriter (#"getOutputStream" connection))))
+		     ;(print post)
 		       (#"print" out post)
 		       (#"close" out)))
 		 (when head

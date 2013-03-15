@@ -162,11 +162,12 @@
   (let ((matcher (#"matcher" (if (java-object-p regex) regex (#"compile" 'java.util.regex.pattern regex)) string))
 	(sb (new 'stringbuffer)))
     (with-constant-signature ((append "appendReplacement")) ; workaround abcl bug
-    (loop while (#"find" matcher) 
+      (loop for found = (#"find" matcher)
+	 while found 
 	 do
 	 (append matcher sb (apply function  
-					   (loop for g in which collect
-						(#"group" matcher g))))))
+				   (loop for g in which collect
+					(#"group" matcher g))))))
     (#"appendTail" matcher sb)
     (#"toString" sb)))
 
