@@ -37,7 +37,7 @@
 	    do (assert (stringp m) (m) "Method names must be strings: ~s" m) and collect m
 	    else
 	    do (assert (or (symbolp m) (functionp m)) (m) "Methods must be function designators: ~s" m))) 
-        (null (make-immediate-object nil :ref)))
+	)
       (let ((safe-method-names-and-defs 
 	      (loop for (name function) on method-names-and-defs by #'cddr
 		collect name collect (safely  function name))))
@@ -51,7 +51,7 @@
 		    (def `(lambda
 			      ,arglist
 			    ,(when arglist '(declare (ignore ignore)))
-			    ,(if void-p '(values) null))))
+			    ,(if void-p '(values) +null+))))
 	       (push (coerce def 'function) safe-method-names-and-defs)
 	       (push method-name safe-method-names-and-defs)
 	       ))
