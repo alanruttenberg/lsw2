@@ -1,0 +1,8 @@
+----------------------------------
+SPARQL-DL API
+Release 1.0
+----------------------------------
+
+Documentation can be found at http://www.derivo.de/en/resources/sparql-dl-api/
+Please report any issues to sparql-dl(at)derivo(dot)de.
+
