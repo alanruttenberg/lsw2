@@ -1,0 +1,36 @@
+(replace "yyyymmdd" by the SNARK version date)
+
+Obtaining SNARK:
+
+  SNARK can be downloaded from the SNARK web page
+  http://www.ai.sri.com/~stickel/snark.html
+
+See INSTALL file for installation instructions
+
+Running SNARK:
+
+  lisp
+  (load "snark-system.lisp")
+  (make-snark-system)
+  :
+
+Examples:
+
+  (overbeek-test) in overbeek-test.lisp
+    some standard theorem-proving examples, some time-consuming
+
+  (steamroller-example) in steamroller-example.lisp
+    illustrates sorts
+
+  (front-last-example) in front-last-example.lisp
+    illustrates program synthesis
+
+  (reverse-example) in reverse-example.lisp
+    illustrates logic programming style usage
+
+A guide to SNARK has been written:
+
+  http://www.ai.sri.com/snark/tutorial/tutorial.html
+
+but has not been updated yet to reflect changes in SNARK,
+especially for temporal and spatial reasoning.
