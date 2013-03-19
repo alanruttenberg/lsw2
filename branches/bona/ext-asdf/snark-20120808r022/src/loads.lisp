@@ -23,6 +23,9 @@
   (dolist (name names)
     (let ((file (make-pathname :name name :defaults *load-truename*)))
       (declare (special *compile-me*))
+      #+snark-asdf
+      (format *debug-io* "should load ~a~%" name)
+      #-snark-asdf
       (load (if (and (boundp '*compile-me*) *compile-me*)
                 (compile-file file)
                 (or (probe-file (compile-file-pathname file)) file))))))
