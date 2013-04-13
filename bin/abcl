@@ -81,8 +81,8 @@ if ((@version[0] =~ /"1.7/) || (@version[1] =~ /"1.7/)) { $bits="-d64" } ;
 
 @libs = grep(/.jar$/,split /\n/,`find "$here/lib" -follow`);
 
-@jar=grep(/abcl.jar/,@libs);
-@libs = grep(!/abcl.jar/,@libs);
+# @jar=grep(/abcl.jar/,@libs);
+# @libs = grep(!/abcl.jar/,@libs);
 
 # $ENV{DYLD_LIBRARY_PATH}="$here/lib";
 
@@ -108,13 +108,16 @@ if (!($ENV{OS} =~ /windows/i)) { @args = ("-server",@args);}
 print "java -version says:\n@version\n";
 print "jar: @jar[0]\n";
 print "args: @args\n";
-print "argv: @ARGV\n";
-print "$java -jar @jar[0] @args --load $here/scripts/system-registry.lisp @ARGV\n";
+print "ARGV: @ARGV\n";
 
-$ENV->{CLASSPATH}=$classpath;
+$ENV{CLASSPATH}=$classpath;
 print "CLASSPATH=$classpath\n";
 
-exec("$java", @args,"-jar",@jar[0],"--load","$here/scripts/system-registry.lisp",@ARGV);
+@command = ("$java",@args,"org.armedbear.lisp.Main","--load","$here/scripts/system-registry.lisp",@ARGV,);
+
+print "@command\n";
+
+exec(@command);
 
 sub complainCantTellVersion ()
 { print("I'm trying to tell which version of java you are running, but \"$java -version\" prints\n$sep\n");
