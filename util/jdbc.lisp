@@ -39,26 +39,32 @@
 ;; Do a sql query to connection. Result is a list of list, with each list one row of fields.
 ;; if with-headers is non-nil, then the values are instead ("fieldname" . value) instead of just value.
 
-(defun sql-query (query connection &optional with-headers)
+(defun sql-query (query connection &key with-headers print)
   (cond ((or (equal "com.microsoft.sqlserver.jdbc.SQLServerConnection" (jclass-name (jobject-class connection)))
 	     (equal "oracle.jdbc.driver.T4CConnection" (jclass-name (jobject-class connection))))
 	 (let (statement results)
 	   (unwind-protect 
 		(progn
 		  (setq statement (#"createStatement" connection))
-		  (setq results (#"executeQuery" statement query))
+		  (setq results (#"executeQuery" statement (if (consp query) (apply 'format nil (car query) (cdr query)) query )))
+		  (when print 
+		    (format t "~{~a~^	~}~%" (loop for i from 1 to (#"getColumnCount" (#"getMetaData" results)) collect (#"getColumnName" (#"getMetaData" results) i))))
 		  (loop while (#"next" results) 
-		     with headers 
-		     collect (loop for column from 1 to (#"getColumnCount" (#"getMetaData" results))
+		     with headers
+		     collect (block columns (loop for column from 1 to (#"getColumnCount" (#"getMetaData" results))
 				when with-headers
 				do (unless headers (setq headers (make-array (#"getColumnCount" (#"getMetaData" results)))))
 				and collect (cons (or (svref headers (1- column))
 						      (setf (svref headers (1- column))
 							    (#"getColumnName" (#"getMetaData" results) column)))
-					      (#"getString" results column))
-				unless with-headers collect (#"getString" results column))))
+						  (print (#"getString" results column)))
+				unless with-headers collect (#"getString" results column) into columns
+				finally (if print (format t "~{~s~^	~}~%" columns) (return-from columns columns))))
+		     into rows
+		     finally (if print nil (return-from nil rows))))
 	     (and (boundp 'results) results (#"close" results))
-	     (and (boundp 'statement) statement (#"close" statement)))))
+	     (and (boundp 'statement) statement (#"close" statement)))
+	   ))
 	(t (error "Don't yet support sql-query for ~a" (jclass-name (jobject-class connection))))))
 
 (defun sql-server-driver-properties ()
@@ -72,3 +78,8 @@
 ;; sqljdbc4.jar is in lib/
 ;; not enough in java 7 - put sqljdbc4.jar in same dir as abcl.jar
 
+(defun table-column-names  (table connection)
+  (mapcar 'car (car (sql-query (list "select top 1 * from ~a" table) connection :with-headers t))))
+
+(defun sample-of-rows (table connection &optional howmany)
+  (sql-query (list "select top ~a * from ~a" (or howmany 5) table) connection :print t))
