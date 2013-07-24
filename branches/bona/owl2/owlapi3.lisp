@@ -403,7 +403,7 @@
 
 (defun unsatisfiable-properties (kb)
   (check-ontology kb)
-  (loop for p in (remove-if #"isAnonymous" (set-to-list (#"getEquivalentObjectProperties" (v3kb-reasoner b) (#"getOWLObjectProperty" (v3kb-datafactory b) (to-iri !owl:bottomObjectProperty)))))
+  (loop for p in (remove-if #"isAnonymous" (set-to-list (#"getEquivalentObjectProperties" (v3kb-reasoner kb) (#"getOWLObjectProperty" (v3kb-datafactory kb) (to-iri !owl:bottomObjectProperty)))))
      for uri = (make-uri (#"toString" (#"getIRI" p)))
      unless (eq uri !owl:bottomObjectProperty) collect uri))
 
