@@ -565,10 +565,9 @@
     (each-node !owl:Thing 0)
     maxdepth))
 
-(defun get-referencing-axioms (entity type ont)
-  (loop for (entity etype ont) in (gethash entity (v3kb-uri2entity ont))
-     when (eq etype type)
-     append (set-to-list (#"getReferencingAxioms" ont entity))))
+(defun get-referencing-axioms (uri ont)
+  (loop for (entity etype eont) in (gethash entity (v3kb-uri2entity ont))
+     append (set-to-list (#"getReferencingAxioms" eont entity))))
 
 (defun get-rendered-referencing-axioms (entity type ont)
   (loop for (entity etype eont) in (gethash entity (v3kb-uri2entity ont))
