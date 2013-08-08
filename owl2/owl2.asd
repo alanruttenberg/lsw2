@@ -96,6 +96,7 @@
 	     (:file "create-external-derived")
 	     (:file "terminal-alternate-symbols")
 	     (:file "jena")
+	     (:file "label-source");
 	     (:file "clean-subclass-tree")
 	     (:file "violations"))
 	    :depends-on (matcher basics)
