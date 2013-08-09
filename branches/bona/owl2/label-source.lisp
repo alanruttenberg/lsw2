@@ -7,24 +7,25 @@
 
 (defclass label-source ()
   ((sources :initarg :sources :initform nil :accessor sources)
-   (hash :initform (make-hash-table :test 'equalp) :accessor hash)
+   (label2uri :initform (make-hash-table :test 'equalp) :accessor label2uri)
    (key :initarg :key :initform nil :accessor key)
    (key2instance :initarg :key2instance :accessor key2instance :allocation :class)
-   (include-imports :initarg :include-imports :initform nil :accessor include-imports)
+   (uri2label :initarg :uri2label :initform nil :accessor uri2label)
    ))
 
 (defmethod initialize-instance ((ls label-source) &rest ignore)
   (call-next-method)
-  (let ((table (hash ls)))
-    (loop for file in (sources ls)
+  (let ((table (label2uri ls)))
+    (loop for el in (sources ls)
 	   do
-	   (let ((kb (load-ontology (namestring (truename file)))))
+	   (let ((kb (if (v3kb-p el) el  (load-ontology (namestring (truename el))))))
 	     (let ((labels (rdfs-labels kb)))
+	       (setf (uri2label ls) (v3kb-uri2label kb))
 	       (maphash (lambda(uri label) 
 			  (let ((label (car label)))
 			    (if (gethash label table) 
 				(unless (eq (gethash label table)  uri)
-				  (warn "Uri label ~a in ~a are both for ~a" (gethash label table)  uri label)
+				  (warn "Uri label ~a and ~a are both for ~a" (uri-full (gethash label table)) (uri-full uri) label)
 				  (setf (gethash label table) :ambiguous))
 				(setf (gethash label table) uri))))
 			labels)))))
@@ -33,11 +34,22 @@
   (push (cons (key ls) ls) (key2instance ls)))
 
 
+(defun label-from-uri (source uri &optional)
+  (let ((label-source (if (keywordp source)
+			  (cdr (assoc source (key2instance (mop:class-prototype (find-class 'label-source)))))
+			  source)))
+    (let ((label? (car (gethash uri (uri2label label-source)))))
+      (when (string= label? "")
+	(warn "empty label for ~a" uri))
+      (unless (eq (gethash label? (label2uri label-source)) :ambiguous)
+	label?))))
+	  
+
 (defmethod make-uri-from-label-source (source name actual)
   (let ((instance (cdr (assoc source (key2instance (mop:class-prototype (find-class 'label-source)))))))
     (unless instance
 	(error "don't know label source '~s'" () source))
-    (let ((table (hash instance)))
+    (let ((table (label2uri instance)))
       (let ((found (gethash name table)))
 	(when (eq found :ambiguous)
 	  (progn
