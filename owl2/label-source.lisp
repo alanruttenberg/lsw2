@@ -94,5 +94,8 @@
     ;; return the diff labels (if any)
     diff-labels))
 	
-
-    
+;; quick way to print some uris in label form
+(defun print-uris-from (key &rest uris) 
+  (let ((*print-uri-with-labels-from* (list key)))
+    (loop for uri in uris do (terpri) (format t "~a ~a" (uri-full uri) uri)))
+  (values))
