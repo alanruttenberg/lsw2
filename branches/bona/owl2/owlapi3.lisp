@@ -87,7 +87,7 @@
 								   (if (consp source)
 								       (if (keywordp (car source))
 									   (#0"toString" (second source))
-									   (let ((model (apply 't-jena source nil)))
+									   (let ((model (apply 't-jena (maybe-reorder-assertions source) nil)))
 									     (let ((sw (new 'StringWriter)))
 									       (#"write" model sw "RDF/XML")
 									       (#0"getBytes" (#0"toString" sw) "UTF-8"))))
@@ -97,6 +97,26 @@
 	  (setf (v3kb-uri2entity it) (compute-uri2entity it))
 	  it
 	)))))
+
+(defun maybe-reorder-assertions (assertions &aux ontology-iri version-iri)
+  "pull out two place annotations - ontology annotations, and import assertions, and put them at the start"
+  (setq assertions (rest assertions)) ; pop 'ontology
+  (when (uri-p (car assertions))
+    (setq ontology-iri (pop assertions))
+    (when (uri-p (car assertions)) 
+      (setq version-iri (pop assertions))))
+  (destructuring-bind (imports ont-annotations rest)
+      (loop for assertion in assertions
+	 if (memq (car assertion) '(import imports))
+	 collect assertion into imports
+	 else if (memq (car assertion) '(annotation ontology-annotation))
+	 collect assertion into annotations
+	 else collect assertion into rest
+	   finally (return (list imports annotations rest)))
+    `(ontology ,@(and ontology-iri (list ontology-iri))
+	       ,@(and version-iri (list version-iri))
+	       ,@imports ,@ont-annotations ,@rest)))
+    
 
 ; http://jena.apache.org/documentation/javadoc/jena/com/hp/hpl/jena/rdf/model/Model.html
 ; Predefined values for lang are "RDF/XML", "N-TRIPLE", "TURTLE" (or "TTL") and "N3". null represents the default language, "RDF/XML". "RDF/XML-ABBREV" is a synonym for "RDF/XML". 
@@ -498,6 +518,7 @@
 		  (setq writer (new 'outputstreamwriter (new 'fileoutputstream dest) "UTF-8"))))
 	    (t (error "don't know how to write to ~a" dest)))
       (ecase syntax
+	((:lsw :lisp) (owl-to-lisp-syntax ont t))
 	((:turtle)
 	 (let ((format (new 'org.semanticweb.owlapi.io.RDFXMLOntologyFormat)))
 	   (#"setAddMissingTypes" format nil)
