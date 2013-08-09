@@ -88,6 +88,7 @@ Which can then be used as !material-entity
   `(make-uri ,(uri-full object) ,(uri-abbreviated object)))
 
 (defvar *print-uri-with-labels-from*)
+(defvar *print-uri-full* nil)
 
 (defun print-uri (object stream depth)
   (when (boundp '*print-uri-with-labels-from*)
