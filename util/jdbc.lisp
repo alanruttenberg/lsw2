@@ -28,6 +28,8 @@
 ;; NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 ;; SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+(defvar *default-connection* nil)
+
 (defun with-jdbc-connection (fn jdbc-url)
   (let ((connection nil))
     (unwind-protect
@@ -36,36 +38,45 @@
       (and connection (#"close" connection))
       )))
 
+(defgeneric with-jdbc-connection-named (keyword function)
+  (:documentation "if a sql query is executed with a connection that is a keyword instead of a connection object, the sql is wrapped in a lambda and passed to this function, which calls the lambda with a single argument which is the connection. Clients of this functionality need to define eql methods on the first argument to implement the necessary setup of the connection"
+  ))
+
 ;; Do a sql query to connection. Result is a list of list, with each list one row of fields.
 ;; if with-headers is non-nil, then the values are instead ("fieldname" . value) instead of just value.
 
-(defun sql-query (query connection &key with-headers print)
-  (cond ((or (equal "com.microsoft.sqlserver.jdbc.SQLServerConnection" (jclass-name (jobject-class connection)))
-	     (equal "oracle.jdbc.driver.T4CConnection" (jclass-name (jobject-class connection))))
-	 (let (statement results)
-	   (unwind-protect 
-		(progn
-		  (setq statement (#"createStatement" connection))
-		  (setq results (#"executeQuery" statement (if (consp query) (apply 'format nil (car query) (cdr query)) query )))
-		  (when print 
-		    (format t "~{~a~^	~}~%" (loop for i from 1 to (#"getColumnCount" (#"getMetaData" results)) collect (#"getColumnName" (#"getMetaData" results) i))))
-		  (loop while (#"next" results) 
-		     with headers
-		     collect (block columns (loop for column from 1 to (#"getColumnCount" (#"getMetaData" results))
-				when with-headers
-				do (unless headers (setq headers (make-array (#"getColumnCount" (#"getMetaData" results)))))
-				and collect (cons (or (svref headers (1- column))
-						      (setf (svref headers (1- column))
-							    (#"getColumnName" (#"getMetaData" results) column)))
-						  (print (#"getString" results column)))
-				unless with-headers collect (#"getString" results column) into columns
-				finally (if print (format t "~{~s~^	~}~%" columns) (return-from columns columns))))
-		     into rows
-		     finally (if print nil (return-from nil rows))))
-	     (and (boundp 'results) results (#"close" results))
-	     (and (boundp 'statement) statement (#"close" statement)))
-	   ))
-	(t (error "Don't yet support sql-query for ~a" (jclass-name (jobject-class connection))))))
+(defun sql-query (query &optional (connection *default-connection*) &key with-headers print)
+  (if (keywordp connection)
+      (with-jdbc-connection-named connection
+	(lambda(c) (sql-query query c :with-headers with-headers :print print)))
+      (if (and (null connection) (not (null *default-connection*)))
+	  (sql-query query *default-connection* :with-headers with-headers :print print)
+	  (cond ((or (equal "com.microsoft.sqlserver.jdbc.SQLServerConnection" (jclass-name (jobject-class connection)))
+		     (equal "oracle.jdbc.driver.T4CConnection" (jclass-name (jobject-class connection))))
+		 (let (statement results)
+		   (unwind-protect 
+			(progn
+			  (setq statement (#"createStatement" connection))
+			  (setq results (#"executeQuery" statement (if (consp query) (apply 'format nil (car query) (cdr query)) query )))
+			  (when print 
+			    (format t "~{~a~^	~}~%" (loop for i from 1 to (#"getColumnCount" (#"getMetaData" results)) collect (#"getColumnName" (#"getMetaData" results) i))))
+			  (loop while (#"next" results) 
+			     with headers
+			     collect (block columns (loop for column from 1 to (#"getColumnCount" (#"getMetaData" results))
+						       when with-headers
+						       do (unless headers (setq headers (make-array (#"getColumnCount" (#"getMetaData" results)))))
+						       and collect (cons (or (svref headers (1- column))
+									     (setf (svref headers (1- column))
+										   (#"getColumnName" (#"getMetaData" results) column)))
+									 (print (#"getString" results column)))
+						       unless with-headers collect (#"getString" results column) into columns
+						       finally (if print (format t "~{~s~^	~}~%" columns) (return-from columns columns))))
+			     into rows
+			     finally (if print nil (return-from nil rows))))
+		     (and (boundp 'results) results (#"close" results))
+		     (and (boundp 'statement) statement (#"close" statement)))
+		   ))
+		(t (error "Don't yet support sql-query for ~a" (jclass-name (jobject-class connection))))))))
 
 (defun sql-server-driver-properties ()
   (map 'list (lambda(e)
@@ -82,4 +93,17 @@
   (mapcar 'car (car (sql-query (list "select top 1 * from ~a" table) connection :with-headers t))))
 
 (defun sample-of-rows (table connection &optional howmany)
-  (sql-query (list "select top ~a * from ~a" (or howmany 5) table) connection :print t))
+  (let ((primary-key (dbdesc-table-primary-key allscripts-dbdesc table)))
+    (sql-query (list "select  * from ~a where ~a in (select top ~a ~a from ~a order by newid())" 
+		     table primary-key (or howmany 5) primary-key table) connection :print t)))
+
+(defun table-rowcount (table connection)
+  "Return the number or rows in a table"
+  (caar (sql-query (list "select count(*) from ~a" table) connection)))
+
+(defun sql-server-columns-matching (connection &key (table-match "%")  schema (column-match "%"))
+  "Retrieve table,schema,column for all tables. Constraint tables to match table-match and column to match column-match"
+  (sql-query (list "SELECT t.name AS table_name, SCHEMA_NAME(schema_id) AS schema_name, c.name AS column_name FROM sys.tables AS t
+INNER JOIN sys.columns c ON t.OBJECT_ID = c.OBJECT_ID
+where t.name like '~a' and c.name like '~a'
+ORDER BY schema_name, table_name;" table-match  column-match) connection))
