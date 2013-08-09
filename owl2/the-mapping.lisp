@@ -40,8 +40,8 @@
 		  !owl:versionIRI
 		  ?versionuri)
 	  (push ?versionuri ?multiple-annotations/axioms)))
-  (loop while (eq (car (car ?multiple-annotations/axioms))
-		  'imports)
+  (loop while (memq (car (car ?multiple-annotations/axioms))
+		  '(imports import))
      do (triple ?ontologyiri
 		!owl:imports
 		(second (pop ?multiple-annotations/axioms))))
