@@ -1,19 +1,19 @@
 (in-package :cl-user)
 
-;; This file translates an ontology in rdf/xml into the owl lisp syntax defined 
-;; in lisp-syntax.lisp. 
+;; This file translates an ontology in rdf/xml into the owl2 lisp syntax 
 
-;; The strategy is to first translate to abstract syntax, and then use a custom
+;; The strategy is to first translate to functional syntax, and then use a custom
 ;; readtable to parse that. Some post processing to put rearrange things a bit
-;; puts it into a (define-ontolog ..) form.
+;; puts it into either  (with- ..) form or as an ontology form ready to pass to t-jena.
 ;;
-;; (pprint-owl-lisp-syntax  "http://www.biopax.org/release/biopax-level2.owl" 'biopax-level-2)
+;; (pprint-owl-lisp-syntax  "http://www.biopax.org/release/biopax-level2.owl" :biopax)
 ;; will print out a form which can be evaluated to and create an instance of owl-ontology bound to 
-;; the variable biopax-level-2
-;;
+;; the variable biopax-level-2. URIs with labels will be printed as !'my label'@biopax.
+
 
 (defparameter *as-readtable* (copy-readtable))
 
+(defparameter *owl-keyword-terms* (make-hash-table))
 (defvar *debug-owl-parse* nil)
 
 ;; make case sensitive
@@ -49,7 +49,7 @@
 
 ;; Tokenize by calling read using our custom readtable until we run out of "forms".
 ;; All symbols are interned as keywords.
-(defun as-tokenize (stream &optional (eof-marker :eof))
+(defun read-and-tokenize-functional-syntax (stream &optional (eof-marker :eof))
   (let ((*readtable* *as-readtable*)
 	(*package* (load-time-value (find-package :keyword))))
     (loop for form = (read stream nil eof-marker)
@@ -57,22 +57,31 @@
 	 collect form)))
 
 ;; do the work. 
-(defun owl-to-lisp-syntax (ontology)
+(defun owl-to-lisp-syntax (ontology &optional (bare? nil))
   (let ((as (to-owl-syntax ontology :functional)))
+;    (print as)
     (with-input-from-string (s (regex-replace-all "_value" as "_ value"))
-      (multiple-value-bind (definitions ontology-iri version-iri ontology-annotations namespaces)
-	  (as-parse (as-tokenize s))
-	(let ((base (second (assoc "a" namespaces :test 'equal))))
-	  ;; I think these are actually errors, but let's fix them
-					;(setq base (#"replaceFirst" base "#*$" ""))
-	  (when (eql (search "##" base :from-end t) (- (length base) 2))
+      (multiple-value-bind (axioms ontology-iri version-iri namespaces)
+	  (parse-functional-syntax (read-and-tokenize-functional-syntax s))
+;	(print-db ontology-iri version-iri namespaces)
+	(let ((base (second (assoc nil namespaces))))
+	  (when (eql (search "##" base :from-end t) (- (length base) 2)) ;; fix a sometimes bug
 	    (setq base (subseq base (1- (length base)))))
-	  (let ((ontnamevar (make-symbol "ONT")))
-	    (values `(with-ontology ,ontnamevar
-			 (:base ,(and base (#"replaceFirst" base "#*$" "")) :ontology-iri ,ontology-iri :version-iri ,version-iri :ontology-properties ',ontology-annotations)
-			 (,@definitions)
-		       ,ontnamevar)
-		    base)))))))
+	  (let ((ontnamevar (intern "ONT")))
+	    (if bare?
+		(maybe-reorder-assertions
+		 `(ontology ,@(and ontology-iri (list ontology-iri))
+			    ,@(and version-iri (list version-iri))
+			    ,@axioms))
+		(values `(with-ontology ,ontnamevar
+			     (:collecting t :base ,(and base (#"replaceFirst" base "#*$" "")) ;; shouldn't be necessary 
+					  :ontology-iri ,ontology-iri
+					  :version-iri ,version-iri
+					  :about ,(make-uri (v3kb-name ontology))
+					  ))
+			axioms
+			ontnamevar
+			base))))))))
  
 ;; since : are separate tokens, we need to reassemble the qnames,
 ;; which are 3 tokens, into a single uri. That's what this function
@@ -106,7 +115,16 @@
 ;; Read the namespace declarations, then call parse-ontology, after
 ;; converting qnames to uri's using these namespaces.
 
-(defun as-parse (tokenized)
+;; Prefix(iao:=<http://purl.obolibrary.org/obo/iao/>)
+;; ...
+;; Ontology(<http://purl.obolibrary.org/obo/iao/dev/iao-main.owl>
+;;  Import(<http://protege.stanford.edu/plugins/owl/dc/protege-dc.owl>)
+;;  ...
+;;  Annotation(rdfs:seeAlso <http://code.google.com/p/information-artifact-ontology/>)
+;;  Annotation(owl:versionInfo \"$Revision$\"@en)
+;;  ...
+
+(defun parse-functional-syntax (tokenized)
   (setq tokenized (eval-uri-reader-macro tokenized))
   (loop for top = (car tokenized)
      with namespaces
@@ -118,7 +136,9 @@
      finally 
      (unless (eq top :|Ontology|)
        (error "Expecting Ontology statement but got : ~a" top))
-     (return (parse-ontology (eval-uri-reader-macro (collapse-qnames (cdr tokenized) namespaces)) namespaces))))
+       	(let* ((base (second (assoc nil namespaces)))
+	      (*default-uri-base* base))
+	  (return (parse-ontology (eval-uri-reader-macro (collapse-qnames (cdr tokenized) namespaces)) namespaces)))))
 
 ;; Namespaces come in as 4 tokens, abbreviate *colon* '=' uri
 (defun parse-namespace (tokenized)
@@ -130,17 +150,15 @@
 		 (uri-p (fourth args)))
 	    ()
 	    "Malformed namespace declaration: ~a" args)
-    (values (list (symbol-name (car args)) (uri-full (fourth args)))
+    (values (list (and (car args) (symbol-name (car args))) (uri-full (fourth args)))
 	    (cdr tokenized))))
 
 (defun parse-ontology (tokenized namespaces)
   (let* ((tokens (car tokenized))
-	 (ontology-iri (pop tokens))
-	 (version-iri (if (uri-p (car tokens)) (pop tokens)))
-	 (forms (as-functionize tokens))
-	 (ontology-annotations (loop while (and (consp (car forms)) (eq (car forms) 'annotation)) collect (pop forms))))
-    (print-db ontology-iri version-iri (subseq forms 0 5) ontology-annotations)
-    (values forms ontology-iri version-iri ontology-annotations namespaces)))
+	 (forms (setq @ (rearrange-functional-syntax-parens-for-lisp tokens)))
+	 (ontology-iri (pop forms))
+	 (version-iri (and (uri-p (car forms)) (pop forms))))
+    (values forms ontology-iri version-iri namespaces)))
 
 
 ;; Change infix to prefix by assuming that keywords (other than the
@@ -148,9 +166,9 @@
 ;; are the arguments. Literals other than xsd:string and xsd:int are
 ;; translated to (literal value-as-string type-uri).
 
-(defun as-functionize (tokenized)
+(defun rearrange-functional-syntax-parens-for-lisp (tokenized)
   (and *debug-owl-parse*
-       (format t "Enter as-functionize with: ~a~%" tokenized))
+       (format t "Enter rearrange-functional-syntax-parens-for-lisp with: ~a~%" tokenized))
   (let ((xsd-string (make-uri "http://www.w3.org/2001/XMLSchema#string"))
 	(xsd-int  (make-uri "http://www.w3.org/2001/XMLSchema#int"))
 	(xsd-float  (make-uri "http://www.w3.org/2001/XMLSchema#float")))
@@ -197,8 +215,9 @@
 			  (prog1 f (setf tokenized (cdr tokenized))))))
 		 (t ;; we're a function, change to prefix after recursively processing args
 		  (prog1 
-		      (let ((temp (as-functionize args)))
-			(cons (or (gethash (symbol-name f) *owl-string-to-function*)
+		      (let ((temp (rearrange-functional-syntax-parens-for-lisp args)))
+			(cons (or (or (second (gethash (symbol-name f) *owl2-vocabulary-forms*))
+				      (first (gethash (symbol-name f) *owl2-vocabulary-forms*)))
 				  (progn
 				    (warn "Don't know what function '~a' is in '~a'~%" f `(,f ,args))
 				    f))
@@ -210,15 +229,20 @@
 		      (setf tokenized (cddr tokenized)))))))))
 
 ;; print out a nice lispy version of an ontology 
-(defun pprint-owl-lisp-syntax (ontology-location name)
+(defun pprint-owl-lisp-syntax (ontology-location label-source-key)
   (let ((*print-case* :downcase)
 	(*print-right-margin* 150))
-    (multiple-value-bind (ont base) (owl-to-lisp-syntax (maybe-url-filename ontology-location) name)
-      (let ((*namespace-replacements* (cons (list (or base *default-uri-base*) "") *namespace-replacements*)))
-	(pprint ont)
-	(decache-uri-abbreviated)
-	))))
-    
+    (let ((ontology (load-ontology ontology-location)))
+      (make-instance 'label-source :key label-source-key :sources (list ontology))
+      (let ((*print-uri-with-labels-from* (list label-source-key)))
+	(multiple-value-bind  (header definitions ontvar) (owl-to-lisp-syntax ontology)
+	    (let ((header-string (with-output-to-string (s) (pprint header s))))
+	      (write-string (subseq header-string 0 (1- (length header-string))))
+	      (format t "~%  ((asq~%~{    ~s~%~}  ))~%  ~a)~%" definitions ontvar)
+	      (decache-uri-abbreviated)
+	      (values)))))))
+
+
 ;; pull out rdfs:comments, and put them (as bare strings) after the class/individual/property name
 (defun maybe-move-rdfs-comment (args)
   (let ((comment (find-if (lambda(el)(and (consp el) 
