@@ -52,7 +52,8 @@
       (if (and (null connection) (not (null *default-connection*)))
 	  (sql-query query *default-connection* :with-headers with-headers :print print)
 	  (cond ((or (equal "com.microsoft.sqlserver.jdbc.SQLServerConnection" (jclass-name (jobject-class connection)))
-		     (equal "oracle.jdbc.driver.T4CConnection" (jclass-name (jobject-class connection))))
+		     (equal "oracle.jdbc.driver.T4CConnection" (jclass-name (jobject-class connection)))
+		     (equal "com.hxtt.sql.access.r" (jclass-name (jobject-class connection))))
 		 (let (statement results)
 		   (unwind-protect 
 			(progn
