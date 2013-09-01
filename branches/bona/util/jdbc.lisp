@@ -108,3 +108,14 @@
 INNER JOIN sys.columns c ON t.OBJECT_ID = c.OBJECT_ID
 where t.name like '~a' and c.name like '~a'
 ORDER BY schema_name, table_name;" table-match  column-match) connection))
+
+(defun table-names (connection)
+  (cond ((equal "com.hxtt.sql.access.r" (jclass-name (jobject-class connection)))
+	 (let ((arr (jnew-array "java.lang.String" 1)))
+	   (jarray-set arr "TABLE" 0)
+	   (loop with tables = 
+		(#"getTables" (#"getMetaData" c) +null+ +null+ "%" arr)
+	      for next? = (#"next" tables)
+	      until (not next?) do (print (#"getString" tables 3))
+		)))
+	(t (error "table-names not supported for other than access database at the moment"))))
