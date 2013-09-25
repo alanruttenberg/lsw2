@@ -32,7 +32,8 @@
 	     (:file "mediawiki-bot")
 ;	     (:file "backtrace-trim")
 	     (:file "obo")
-	     (:file "jdbc"))
+	     (:file "jdbc")
+	     (:file "jargrep"))
 	    :depends-on
 	    (macros)))
   :depends-on (xptest xmls) )
