@@ -36,6 +36,6 @@
 	     (:file "jargrep"))
 	    :depends-on
 	    (macros)))
-  :depends-on (xptest xmls) )
+  :depends-on (xptest xmls xpath) )
 
 ;;;; eof
