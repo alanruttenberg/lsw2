@@ -53,6 +53,7 @@
 
 ;;; returns a panel that becomes the contents of the window
 (defmethod make-contents ((this inspector))
+  (print this)
   (with-slots (object header fields table table-maker history) this
     (let (
   ;;; these vars are used by refresh; hence defined before value is set
@@ -82,7 +83,8 @@
 	      #'(lambda ()
 		  (if table-panel
 		      (let ((parent (#"getParent" table-panel)))
-			(#"remove" parent table-panel)))
+			(when parent
+			  (#"remove" parent table-panel))))
 
 		  (jss::set-java-field constraints "gridwidth" remainder)
 		  (jss::set-java-field constraints "gridheight" remainder)
