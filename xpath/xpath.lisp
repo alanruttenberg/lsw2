@@ -4,7 +4,7 @@
 (defun make-xpath-namespace-context ()
   (let ((wrapped (cl-user::new 'org.apache.xalan.extensions.ExtensionNamespaceContext))
 	(interfaces (cl-user::jclass-all-interfaces 'org.apache.xalan.extensions.ExtensionNamespaceContext)))
-    (cl-user::jdelegating-interface-implementation  
+    (jss::jdelegating-interface-implementation  
      (car interfaces)
      wrapped
      "getNamespaceURI"

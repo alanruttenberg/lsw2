@@ -27,9 +27,7 @@
 	    :components
 	    ((:file "xpath")
 	     (:file "loop")
-	     ))
-   )
-  :depends-on (util))
+	     ))))
 
 ;;;; eof
  
