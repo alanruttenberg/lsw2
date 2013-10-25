@@ -173,14 +173,20 @@
 
 (defmacro with-ontology (name (&key base ontology-properties about includes rules eval collecting also-return-axioms only-return-axioms
 				    ontology-iri version-iri) definitions &body body)
-  (let ((axioms-var (make-symbol "AXIOMS")))
+  (let ((axioms-var (make-symbol "AXIOMS"))
+	(oiri (make-symbol "ONTOLOGY-IRI"))
+	(viri (make-symbol "VERSION-IRI")))
     `(let* ((*default-uri-base* (or ,(cond ((stringp base) base) ((uri-p base) (uri-full base)))  *default-uri-base* ))
-	    (,axioms-var nil))
+	    (,axioms-var nil)
+	    (,oiri ,ontology-iri)
+	    (,viri ,version-iri))
+       (when (stringp ,oiri) (setq ,oiri (make-uri ,oiri)))
+       (when (stringp ,viri) (setq ,viri (make-uri ,viri)))
        (let ((,name 
 	      (funcall (if ,only-return-axioms 'list 'load-ontology)
 		       (append (list* 'ontology
-			      ,@(if (or about ontology-iri) (list (or about ontology-iri)))
-			      ,@(if version-iri (list version-iri))
+			      ,@(if (or about oiri) (list (or about oiri)))
+			      ,@(if viri (list viri))
 			      ,ontology-properties)
 		       ,(cond (eval definitions)
 			      (collecting `(setq ,axioms-var (collecting-axioms ,@definitions
