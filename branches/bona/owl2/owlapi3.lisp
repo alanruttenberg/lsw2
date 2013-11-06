@@ -63,9 +63,10 @@
       (#"write" model sw "RDF/XML")
       (load-ontology sw name))))
 
-(defun load-ontology (source &key name reasoner)
+(defun load-ontology (source &key name reasoner (silent-missing t))
 ;  (set-java-field 'OWLRDFConsumer "includeDublinCoreEvenThoughNotInSpec" nil)
 ;  (set-java-field 'ManchesterOWLSyntaxEditorParser "includeDublinCoreEvenThoughNotInSpec" nil)
+  (#"setProperty" 'system "entityExpansionLimit" "1000000") ; avoid low limit as we are not worried about security
   (let ((mapper nil)
 	(uri nil))
     (setq source (if (java-object-p source) (#"toString" source) source))
@@ -78,7 +79,7 @@
 	  ;(list (length (set-to-list (#"getOntologyIRIs" mapper))) uri)
 	  )))
     (let* ((manager (#"createOWLOntologyManager" 'org.semanticweb.owlapi.apibinding.OWLManager)))
-      (#"setSilentMissingImportsHandling" manager t)
+      (#"setSilentMissingImportsHandling" manager silent-missing)
       (and mapper (#"addIRIMapper" manager mapper))
       (let ((ont
 	     (if uri
@@ -122,7 +123,7 @@
 ; Predefined values for lang are "RDF/XML", "N-TRIPLE", "TURTLE" (or "TTL") and "N3". null represents the default language, "RDF/XML". "RDF/XML-ABBREV" is a synonym for "RDF/XML". 
 
 (defun load-kb-jena (file &key (format "RDF/XML"))    
-  (let ((url (format nil "file://~a" (namestring (truename file))))
+  (let ((url (if (search "//" file :test 'equalp) file (format nil "file://~a" (namestring (truename file)))))
 	(in-model (#"createDefaultModel" 'com.hp.hpl.jena.rdf.model.ModelFactory)))
     (setq @ in-model)
     (#"read" in-model
@@ -263,30 +264,31 @@
 	it)))
 
 (defun instantiate-reasoner (ont  &optional (reasoner *default-reasoner*) (profile nil))
-  (unless (v3kb-reasoner ont)
-    (setf (v3kb-default-reasoner ont) reasoner)
-    (let* ((config (ecase reasoner 
-		     (:hermit (hermit-reasoner-config profile ont))
-		     ((:pellet :pellet-sparql) (pellet-reasoner-config))
-		     (:factpp (factpp-reasoner-config))))
-	   (factory (ecase reasoner
-		      (:hermit (new "org.semanticweb.HermiT.Reasoner$ReasonerFactory"))
-		      ((:pellet :pellet-sparql) (new 'com.clarkparsia.pellet.owlapiv3.PelletReasonerFactory))
-		      (:factpp (new 'uk.ac.manchester.cs.factplusplus.owlapiv3.FaCTPlusPlusReasonerFactory))
-		      ))
-	   (reasoner-instance
-	    (if (eq reasoner :pellet-sparql)
-		(#"createNonBufferingReasoner" factory (v3kb-ont ont) config)
-		(#"createReasoner" factory (v3kb-ont ont) config))))
-      (setf (v3kb-reasoner ont) reasoner-instance)
-      (when (member reasoner '(:pellet :pellet-sparql))
-	(setf (v3kb-pellet-jena-model ont) 
-	      (let ((graph (new 'org.mindswap.pellet.jena.PelletReasoner)))
-		(#"createInfModel" 'com.hp.hpl.jena.rdf.model.ModelFactory
-				   (#"bind" graph (#"getKB" reasoner-instance)))
-		)))
-      t)
-    ))
+  (unless (null reasoner)
+    (unless (v3kb-reasoner ont)
+      (setf (v3kb-default-reasoner ont) reasoner)
+      (let* ((config (ecase reasoner 
+		       (:hermit (hermit-reasoner-config profile ont))
+		       ((:pellet :pellet-sparql) (pellet-reasoner-config))
+		       (:factpp (factpp-reasoner-config))))
+	     (factory (ecase reasoner
+			(:hermit (new "org.semanticweb.HermiT.Reasoner$ReasonerFactory"))
+			((:pellet :pellet-sparql) (new 'com.clarkparsia.pellet.owlapiv3.PelletReasonerFactory))
+			(:factpp (new 'uk.ac.manchester.cs.factplusplus.owlapiv3.FaCTPlusPlusReasonerFactory))
+			))
+	     (reasoner-instance
+	      (if (eq reasoner :pellet-sparql)
+		  (#"createNonBufferingReasoner" factory (v3kb-ont ont) config)
+		  (#"createReasoner" factory (v3kb-ont ont) config))))
+	(setf (v3kb-reasoner ont) reasoner-instance)
+	(when (member reasoner '(:pellet :pellet-sparql))
+	  (setf (v3kb-pellet-jena-model ont) 
+		(let ((graph (new 'org.mindswap.pellet.jena.PelletReasoner)))
+		  (#"createInfModel" 'com.hp.hpl.jena.rdf.model.ModelFactory
+				     (#"bind" graph (#"getKB" reasoner-instance)))
+		  )))
+	t)
+      )))
 
 ;; for later.
 ;;	setPhysicalURIForOntology(OWLOntology ontology, java.net.URI physicalURI) 
@@ -297,7 +299,7 @@
     (instantiate-reasoner ont reasoner profile)
     (when (or (eq reasoner :pellet) (eq reasoner :pellet-sparql))
       (pellet-log-level (#"getKB" (v3kb-reasoner ont)) log))
-					;  (if classify (#"prepareReasoner" (v3kb-reasoner ont)))
+    ;;  (if classify (#"prepareReasoner" (v3kb-reasoner ont)))
     (if classify
 	(ecase reasoner 
 	  (:hermit (#"classify" (v3kb-reasoner ont)))
