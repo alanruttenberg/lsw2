@@ -72,6 +72,7 @@
   (declare (optimize (speed 3) (safety 0)))
   (let ((seen (make-hash-table :test #'eql :size 4000000)))
     (setq seen! seen)
+    (funcall fn element)
     (map-elements-1 element fn)))
 
 (defun find-immediate-children-with-tag (element tag)
