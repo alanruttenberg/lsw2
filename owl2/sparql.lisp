@@ -75,6 +75,7 @@
 	       do (format t "~{~s~^	~}~%" one))
 	    (terpri t))
 	  (if flatten (loop for b in bindings append b) (if values bindings (values))))
+
 	(let* (	;; Query query = QueryFactory.create(queryString);
 	       (jquery (#"create" 'QueryFactory query (if (eq syntax :terp)
 							  (#"getInstance" 'TerpSyntax)
@@ -104,6 +105,7 @@
 				     (#"createInfModel" 'modelfactory 
 							(#"getOWLReasoner" 'ReasonerRegistry)
 							(#"getModel" (kb-jena-reasoner kb)))))))
+	       (print-db qe)
 	       ;; ResultSet results = qe.execSelect();
 	       (vars (set-to-list (#"getResultVars" jquery))))
 	  (unwind-protect
@@ -302,7 +304,9 @@
 (defparameter *sparql-function-names*
   '((is-canonical "reasoning:isCanonical")
     (isiri "isIRI")
+    (isliteral "isLiteral")
     (isblank "isBlank")
+    (bound "bound")
     ))
  
 (defun emit-sparql-filter (expression s)
