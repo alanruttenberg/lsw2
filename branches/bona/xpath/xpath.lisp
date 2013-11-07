@@ -28,10 +28,10 @@
 
 (defparameter *cached-xpath-expressions* (make-hash-table :test 'equal))
 
-(defun query (element path)
+(defun query (element path &optional (return-type "NODESET"))
   (let ((expression (or (gethash path *cached-xpath-expressions*)
 			(setf (gethash path *cached-xpath-expressions*) (#"compile" *xpath* path)))))
-    (#"evaluate" expression element (cl-user::get-java-field 'XPathConstants "NODESET"))))
+    (#"evaluate" expression element (cl-user::get-java-field 'XPathConstants return-type))))
 
 (defun elements (node &rest elements)
   (loop for element in elements
