@@ -34,7 +34,8 @@
   (let ((connection nil))
     (unwind-protect
 	 (progn
-	   (funcall fn (#"getConnection" 'java.sql.DriverManager jdbc-url)))
+	   (let ((*default-connection* (#"getConnection" 'java.sql.DriverManager jdbc-url)))
+	     (funcall fn *default-connection*)))
       (and connection (#"close" connection))
       )))
 
@@ -71,7 +72,7 @@
 										   (#"getColumnName" (#"getMetaData" results) column)))
 									 (#"getString" results column)) into columns
 						       else collect (#"getString" results column) into columns
-						       finally (return-from columns (if print (format t "~{~s~^	~}~%" columns) columns))))
+						       finally (return-from columns (if print (progn (format t "~{~s~^	~}~%" (mapcar 'cdr columns)) (values)) columns))))
 			     into rows
 			     finally (if print nil (return-from nil rows))))
 		     (and (boundp 'results) results (#"close" results))
