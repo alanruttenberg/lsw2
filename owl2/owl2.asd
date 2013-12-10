@@ -63,6 +63,7 @@
 	    ((:jar-file "org.semanticweb.HermiT")
 	     (:jar-file "owlapi-bin")
 	     (:jar-file "factplusplus-1.5.0")
+	     (:jar-file "elk-owlapi-041")
 	     (:jar-directory "pellet")
 	     (:jar-directory "prefuse")
 	     ))
@@ -96,7 +97,8 @@
 	     (:file "create-external-derived")
 	     (:file "terminal-alternate-symbols")
 	     (:file "jena")
-	     (:file "label-source");
+	     (:file "label-source")
+	     (:file "owl-to-lisp-syntax");
 	     (:file "clean-subclass-tree")
 	     (:file "violations"))
 	    :depends-on (matcher basics)

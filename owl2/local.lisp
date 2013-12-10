@@ -101,7 +101,7 @@
        for el in (find-elements-with-tag (xmls::parse f) "uri")
        for uri = (coerce (attribute-named el "uri") 'simple-base-string)
        for name = (coerce (attribute-named el "name") 'simple-base-string)
-       for physical-uri = (if (find #\: uri) uri (format nil "file://~a" (namestring (truename (format nil "~a~a" dir uri)))))
+       for physical-uri = (if (find #\: uri) uri (format nil "file://~a" (namestring (translate-logical-pathname (format nil "~a~a" dir uri)))))
        when (and uri name)
        do 
        (#"addMapping" mapper (#"create" 'org.semanticweb.owlapi.model.IRI name) (#"create" 'org.semanticweb.owlapi.model.IRI physical-uri))
