@@ -91,6 +91,7 @@
 (defun collapse-qnames (tokenized namespaces)
   (let ((*namespace-replacements* 
 	 (append (mapcar 'reverse namespaces) *namespace-replacements*)))
+;    (print-db *namespace-replacements* )
     (labels ((doit (tok)
 	     (cond ((atom tok) tok)
 		   ((consp tok) 
@@ -98,19 +99,28 @@
 		       while tok
 		       for (this colon? that) = tok
 		       collect (cond ((eq colon? *colon*)
+;				      (print-db this colon? that *default-uri-base* (length tok))
 				      (setq tok (cdddr tok))
 				      (let ((*print-case* :upcase))
 					(make-uri (format nil "~a~a"
 							  (if (eq :|http| this) 
 							      "http:"
-							      (second  (assoc (princ-to-string this) namespaces
+							      (second  (assoc (format nil "~a:" this) namespaces
 									      :test 'equal)))
 							  (princ-to-string that)))))
+				     ;; handle empty prefix
+				     ((eq this *colon*)
+;				      (print-db this colon? that *default-uri-base* (length tok)) 
+				      (setq tok (cddr tok))
+				      (let ((*print-case* :upcase))
+					(make-uri (format nil "~a~a"
+							  *default-uri-base*
+							  (princ-to-string (string colon?))))))
 				     ((consp this)
 				      (setq tok (cdr tok))
 				      (doit this))
 				     (t (setq tok (cdr tok)) this)))))))
-      (doit tokenized))))
+      (let ((a (doit tokenized))) '(pprint a) a))))
 
 ;; Read the namespace declarations, then call parse-ontology, after
 ;; converting qnames to uri's using these namespaces.
@@ -134,13 +144,15 @@
        (setq tokenized rest)
        (push namespace namespaces))
      finally 
-     (unless (eq top :|Ontology|)
-       (error "Expecting Ontology statement but got : ~a" top))
-       	(let* ((base (second (assoc nil namespaces)))
-	      (*default-uri-base* base))
-	  (return (parse-ontology (eval-uri-reader-macro (collapse-qnames (cdr tokenized) namespaces)) namespaces)))))
+       (progn '(pprint namespaces) 
 
-;; Namespaces come in as 4 tokens, abbreviate *colon* '=' uri
+     (unless (eq top :|Ontology|)
+       (error "Expecting Ontology statement but got : ~a" top)))
+       (let* ((base (second (assoc nil namespaces)))
+	      (*default-uri-base* base))
+	 (return (parse-ontology (eval-uri-reader-macro (collapse-qnames (cdr tokenized) namespaces)) namespaces)))))
+
+;; Namespaces come in as 3 or 4 tokens, abbreviation*  *colon* '=' uri
 (defun parse-namespace (tokenized)
   (let ((args (if (eq (caar tokenized) *colon*)
 		  (cons nil (car tokenized))
@@ -150,7 +162,7 @@
 		 (uri-p (fourth args)))
 	    ()
 	    "Malformed namespace declaration: ~a" args)
-    (values (list (and (car args) (symbol-name (car args))) (uri-full (fourth args)))
+    (values (list (and (car args) (concatenate 'string (symbol-name (car args)) ":")) (uri-full (fourth args)))
 	    (cdr tokenized))))
 
 (defun parse-ontology (tokenized namespaces)
@@ -178,16 +190,16 @@
 	   while tokenized
 	   do (and *debug-owl-parse* (format t "At loop start f: ~a args: ~a~%" f args))
 	   collect
-	     (cond ( ;; translate owl keywords like "partial" to appropriate lisp keywords
-		    (and (symbolp f) (gethash (symbol-name f) *owl-keyword-terms*))
-		    (prog1
+	   (cond ( ;; translate owl keywords like "partial" to appropriate lisp keywords
+		  (and (symbolp f) (gethash (symbol-name f) *owl-keyword-terms*))
+		  (prog1
 		      (gethash (symbol-name f) *owl-keyword-terms*)
 		    (and *debug-owl-parse* (format t "Keyword or uri: ~a~%" f))
 		    (setf tokenized (cdr tokenized))))
-		 (;; leave uris alone
+		 ( ;; leave uris alone
 		  (uri-p f)
 		  (prog1 f (setf tokenized (cdr tokenized))))
-		 (;; anonymous nodes are sometimes translated to this, e.g. 
+		 ( ;; anonymous nodes are sometimes translated to this, e.g. 
 		  ;; pellet-svn/trunk/test_data/owl-test/DatatypeProperty/consistent001.rdf
 		  ;; leave them as is for now. Don't know what to do with them yet, though
 		  (eq f :_)
@@ -198,14 +210,14 @@
 		  (not (symbolp f))
 		  (if (eq args :^^)
 		      (prog1 
-			(cond ((eq (third tokenized) xsd-string)
-				    f)
-				   ((eq (third tokenized) xsd-int)
-				    (parse-integer f))
-				   ((eq (third tokenized) xsd-float)
-				    (read-from-string f))
-				   (t
-				    `(literal ,f ,(third tokenized))))
+			  (cond ((eq (third tokenized) xsd-string)
+				 f)
+				((eq (third tokenized) xsd-int)
+				 (parse-integer f))
+				((eq (third tokenized) xsd-float)
+				 (read-from-string f))
+				(t
+				 `(literal ,f ,(third tokenized))))
 			(setf tokenized (cdddr tokenized)))
 		      (if (and (stringp f)
 			       (keywordp (second tokenized))
@@ -216,25 +228,27 @@
 		 (t ;; we're a function, change to prefix after recursively processing args
 		  (prog1 
 		      (let ((temp (rearrange-functional-syntax-parens-for-lisp args)))
-			(cons (or (or (second (gethash (symbol-name f) *owl2-vocabulary-forms*))
+			(prog1 (cons (or (or (second (gethash (symbol-name f) *owl2-vocabulary-forms*))
 				      (first (gethash (symbol-name f) *owl2-vocabulary-forms*)))
 				  (progn
 				    (warn "Don't know what function '~a' is in '~a'~%" f `(,f ,args))
 				    f))
 			      ;; make rdfs comments prettier by moving them to the front of the expression (after the name)
-			      (if (member (symbol-name f) '("Class" "Individual" "DatatypeProperty" "ObjectProperty") :test 'equal)
+			      (if nil ;(member (symbol-name f) '("Class" "Individual" "DatatypeProperty" "ObjectProperty") :test 'equal)
 				  (maybe-move-rdfs-comment temp)
-				  temp)))
-		      (and *debug-owl-parse* (format t "Function head: ~a, args: ~a, after: ~a~%" f args temp))
-		      (setf tokenized (cddr tokenized)))))))))
+				  temp))
+			(and *debug-owl-parse* (format t "Function head: ~s, args: ~s, after: ~s~%" f args temp))))
+		    (setf tokenized (cddr tokenized))
+		    '(break))))
+	     ))))
 
 ;; print out a nice lispy version of an ontology 
 (defun pprint-owl-lisp-syntax (ontology-location label-source-key)
   (let ((*print-case* :downcase)
 	(*print-right-margin* 150))
     (let ((ontology (load-ontology ontology-location)))
-      (make-instance 'label-source :key label-source-key :sources (list ontology))
-      (let ((*print-uri-with-labels-from* (list label-source-key)))
+      (and label-source-key (make-instance 'label-source :key label-source-key :sources (list ontology)))
+      (let ((*print-uri-with-labels-from* (and label-source-key (list label-source-key))))
 	(multiple-value-bind  (header definitions ontvar) (owl-to-lisp-syntax ontology)
 	    (let ((header-string (with-output-to-string (s) (pprint header s))))
 	      (write-string (subseq header-string 0 (1- (length header-string))))
