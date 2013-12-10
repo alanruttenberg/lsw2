@@ -13,11 +13,17 @@
 (defvar *sparql-allow-trace* t)
 (defvar *sparql-always-trace* nil)
 
+
+(defun sparql-update-load (endpoint folder-iri files)
+  (sparql-endpoint-query endpoint
+			 (format nil "~{load <~a>;~%~}" (mapcar (lambda(e) (concatenate 'string folder-iri e))  files)) :command "request"))
+
 (defun sparql-endpoint-query (url query &key query-options geturl-options (command :select) format)
   (let* ((parsed (xmls::parse
 		 (apply 'get-url (if (uri-p url) (uri-full url) url)
 			:post (append `((,(cond ((member command '(:select :describe :ask :construct)) "query")
-						(t "update")) ,query)
+						((member command '(:update)) "query")
+						(t command)) ,query)
 					("format" "application/sparql-results+xml")
 					,(if (eq command :construct) `("Accept" ,(or format "application/rdf+xml")) '("Accept" "application/sparql-results+xml"))
 					,@(if (eq command :select)
@@ -105,9 +111,9 @@
 				     (#"createInfModel" 'modelfactory 
 							(#"getOWLReasoner" 'ReasonerRegistry)
 							(#"getModel" (kb-jena-reasoner kb)))))))
-	       (print-db qe)
 	       ;; ResultSet results = qe.execSelect();
 	       (vars (set-to-list (#"getResultVars" jquery))))
+	  (print-db qe)
 	  (unwind-protect
 	       (with-constant-signature ((getv "get") (next "next") (has-next "hasNext") (get-uri "getURI"))
 		 (flet ((get-vars (bindingset)
