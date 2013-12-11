@@ -33,7 +33,7 @@
 ;	     (:file "backtrace-trim")
 	     (:file "obo")
 	     (:file "jdbc")
-	     (:file "collection-misc")
+	     (:file "collections-misc")
 	     (:file "jargrep"))
 	    :depends-on
 	    (macros)))
