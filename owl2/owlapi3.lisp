@@ -331,7 +331,11 @@
 	((stringp thing)
 	 (parse-manchester-expression kb thing))
 	((uri-p thing)
-	 (#"getOWLClass" (v3kb-datafactory kb) (to-iri thing)))))
+	 (#"getOWLClass" (v3kb-datafactory kb) (to-iri thing)))
+	((consp thing)
+	 (to-owlapi-class-expression (eval-uri-reader-macro thing) (v3kb-datafactory kb)))
+	(t (error "don't know how to turn ~s into a class expression" thing))
+	))
 
 (defun class-query (class kb fn &optional (flatten t) include-nothing)
   (instantiate-reasoner kb (or (v3kb-default-reasoner kb) *default-reasoner*) nil)
@@ -368,6 +372,16 @@
 		  (#"getSameIndividuals" (v3kb-reasoner kb)
 		     (#"getOWLNamedIndividual" (v3kb-datafactory kb) (to-iri individual))))
        collecting (make-uri (#"toString" (#"getIRI" e)))))
+
+(defun entailed? (axiom-expression kb)
+  (#"isEntailed" (list-to-java-set (list (to-axiom-expression class-expression kb))) kb)) ;not yet implemented
+
+(defun satisfiable? (class-expression kb)
+  (instantiate-reasoner kb)
+  (#"isSatisfiable" (v3kb-reasoner kb) (to-class-expression class-expression kb)))
+
+(defun is-subclass-of? (sub super kb)
+  (not (satisfiable? `(object-intersection-of (object-complement-of ,super) ,sub) kb)))
 
 (defun annotation-properties (kb)
   (mapcar 'make-uri (mapcar #"toString" (mapcar #"getIRI"  (set-to-list (#"getAnnotationPropertiesInSignature" (v3kb-ont o)))))))

@@ -100,7 +100,8 @@
 	     (:file "label-source")
 	     (:file "owl-to-lisp-syntax");
 	     (:file "clean-subclass-tree")
-	     (:file "violations"))
+	     (:file "violations")
+	     (:file "to-owlapi-class-expression"))
 	    :depends-on (matcher basics)
 	    ))
   :depends-on (util inspect xmls))
