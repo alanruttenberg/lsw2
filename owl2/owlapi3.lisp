@@ -102,6 +102,8 @@
 (defun maybe-reorder-assertions (assertions &aux ontology-iri version-iri)
   "pull out two place annotations - ontology annotations, and import assertions, and put them at the start"
   (setq assertions (rest assertions)) ; pop 'ontology
+  (and (and (null (car assertions)) (uri-p (second assertions)))
+       (error "If you supply a version iri you need to supply an ontology iri"))
   (when (uri-p (car assertions))
     (setq ontology-iri (pop assertions))
     (when (uri-p (car assertions)) 
