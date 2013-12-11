@@ -16,6 +16,7 @@
 	       (cond ((uri-p input) input)
 		     ((java-object-p input) input)
 		     ((stringp input) input)
+		     ((null input) nil)
 		     (t (error "can't translate ~a" input))))
 	      ((and (consp input) (eq (car input) :literal)) input)
 	      (t
