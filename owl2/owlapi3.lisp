@@ -263,6 +263,15 @@
       (let ((it (new 'SimpleConfiguration (new 'owlapi.reasoner.ConsoleProgressMonitor) )))
 	it)))
 
+(defun elk-reasoner-config (&optional profile ont)
+  (let ((standard (new 'SimpleConfiguration))
+	(progressMonitor (new 'owlapi.reasoner.ConsoleProgressMonitor)))
+    (new 'org.semanticweb.owlapi.reasoner.SimpleConfiguration progressMonitor
+	 (#"getFreshEntityPolicy" standard)
+	 (new 'long (#"toString" (#"getTimeOut" standard)))
+	 (#"valueOf" 'individualNodeSetPolicy "BY_SAME_AS")
+	 )))
+
 (defun instantiate-reasoner (ont  &optional (reasoner *default-reasoner*) (profile nil))
   (unless (null reasoner)
     (unless (v3kb-reasoner ont)
@@ -270,11 +279,13 @@
       (let* ((config (ecase reasoner 
 		       (:hermit (hermit-reasoner-config profile ont))
 		       ((:pellet :pellet-sparql) (pellet-reasoner-config))
-		       (:factpp (factpp-reasoner-config))))
+		       (:factpp (factpp-reasoner-config))
+		       (:elk (elk-reasoner-config))))
 	     (factory (ecase reasoner
 			(:hermit (new "org.semanticweb.HermiT.Reasoner$ReasonerFactory"))
 			((:pellet :pellet-sparql) (new 'com.clarkparsia.pellet.owlapiv3.PelletReasonerFactory))
 			(:factpp (new 'uk.ac.manchester.cs.factplusplus.owlapiv3.FaCTPlusPlusReasonerFactory))
+			(:elk  (new 'org.semanticweb.elk.owlapi.ElkReasonerFactory))
 			))
 	     (reasoner-instance
 	      (if (eq reasoner :pellet-sparql)
@@ -303,7 +314,7 @@
     (if classify
 	(ecase reasoner 
 	  (:hermit (#"classify" (v3kb-reasoner ont)))
-	  ((:pellet :pellet-sparql :factpp) (#"precomputeInferences" 
+	  ((:pellet :pellet-sparql :factpp :elk) (#"precomputeInferences" 
 					     (v3kb-reasoner ont)
 					     (jnew-array-from-array
 					      (find-java-class 'org.semanticweb.owlapi.reasoner.InferenceType)
@@ -374,6 +385,7 @@
        collecting (make-uri (#"toString" (#"getIRI" e)))))
 
 (defun entailed? (axiom-expression kb)
+  (error "todo")
   (#"isEntailed" (list-to-java-set (list (to-axiom-expression class-expression kb))) kb)) ;not yet implemented
 
 (defun satisfiable? (class-expression kb)
