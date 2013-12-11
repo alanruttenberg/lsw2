@@ -31,9 +31,10 @@
      (ontology ?ontologyiri (??a ?versionuri)
 	       (?+ ?multiple-annotations/axioms))
      :case :subscript-free)
-  (triple ?ontologyiri
-	  !rdf:type
-	  !owl:Ontology)
+  (if (uri-p ?ontologyiri)
+      (triple ?ontologyiri
+	      !rdf:type
+	      !owl:Ontology))
   (if ?versionuri
       (if (uri-p ?versionuri)
 	  (triple ?ontologyiri
