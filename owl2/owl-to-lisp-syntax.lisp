@@ -243,7 +243,7 @@
 	     ))))
 
 ;; print out a nice lispy version of an ontology 
-(defun pprint-owl-lisp-syntax (ontology-location label-source-key)
+(defun pprint-owl-lisp-syntax (ontology-location label-source-key &key (stream t))
   (let ((*print-case* :downcase)
 	(*print-right-margin* 150))
     (let ((ontology (load-ontology ontology-location)))
@@ -251,8 +251,8 @@
       (let ((*print-uri-with-labels-from* (and label-source-key (list label-source-key))))
 	(multiple-value-bind  (header definitions ontvar) (owl-to-lisp-syntax ontology)
 	    (let ((header-string (with-output-to-string (s) (pprint header s))))
-	      (write-string (subseq header-string 0 (1- (length header-string))))
-	      (format t "~%  ((asq~%~{    ~s~%~}  ))~%  ~a)~%" definitions ontvar)
+	      (write-string (subseq header-string 0 (1- (length header-string))) stream)
+	      (format stream "~%  ((asq~%~{    ~s~%~}  ))~%  ~a)~%" definitions ontvar)
 	      (decache-uri-abbreviated)
 	      (values)))))))
 
