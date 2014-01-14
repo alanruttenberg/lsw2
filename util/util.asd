@@ -34,7 +34,8 @@
 	     (:file "obo")
 	     (:file "jdbc")
 	     (:file "collections-misc")
-	     (:file "jargrep"))
+	     (:file "jargrep")
+	     (:file "datetime"))
 	    :depends-on
 	    (macros)))
   :depends-on (xptest xmls xpath) )
