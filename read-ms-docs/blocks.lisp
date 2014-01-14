@@ -10,9 +10,9 @@
   (let ((*print-case* :downcase))
     (print-unreadable-object (o stream :type t :identity nil)
       (format stream "~s - ~a sheets, ~a blocks"
-	      (book-path o)
-	      (length (parsed-sheets o))
-	      (length (parsed-blocks o))))))
+	      (ignore-errors (book-path o))
+	      (ignore-errors (length (parsed-sheets o)))
+	      (ignore-errors (length (parsed-blocks o)))))))
 
 (defmethod report-parse-results ((b parsed-book))
   (format t "Parse results for book ~a~%" b) 
