@@ -106,9 +106,7 @@
   (#"getOWLNamedIndividual" data-factory (to-iri arg)))
 
 (defun to-owlapi-number (arg data-factory)
-  (#"getOWLLiteral" data-factory arg))
-
-
+  arg)
 
 (defun to-owlapi-data-range (arg data-factory)
   arg)
