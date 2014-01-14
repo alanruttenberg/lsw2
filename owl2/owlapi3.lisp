@@ -274,6 +274,11 @@
 	 (#"valueOf" 'individualNodeSetPolicy "BY_SAME_AS")
 	 )))
 
+(defun reset-reasoner (ont  &optional (reasoner *default-reasoner*) (profile nil))
+  (setf (v3kb-reasoner ont) nil
+	(v3kb-pellet-jena-model ont) nil)
+  (instantiate-reasoner ont reasoner profile))
+
 (defun instantiate-reasoner (ont  &optional (reasoner *default-reasoner*) (profile nil))
   (unless (null reasoner)
     (unless (v3kb-reasoner ont)
