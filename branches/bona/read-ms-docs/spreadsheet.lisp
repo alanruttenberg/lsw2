@@ -19,7 +19,7 @@
 		      when (or (not only-sheets)
 			       (member (car sheet)  only-sheets :test 'equal))
 		      append (get-sheet (second sheet) (first sheet) :skip-rows skip-rows :row-limit row-limit
-					:with-style? with-style? :process-hyperlink?  process-hyperlink?
+					:with-style? with-style? :process-hyperlink?  get-hyperlink?
 					))))
     contents
     ))
