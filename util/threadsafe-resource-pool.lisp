@@ -94,7 +94,6 @@
 
 ;; keep track of taken resources. must be called with lock already held
 (defmethod checked-out ((r resource-pool) resource args)
-  (print-db resource args)
   (push (list resource args) (taken-resources r)))
 
 (defmethod checked-in ((r resource-pool) resource)
