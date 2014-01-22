@@ -11,7 +11,8 @@
    (pool-lock :accessor pool-lock)
    (pool-limit :accessor pool-limit :initform nil :initarg :pool-limit)
    (checked-out-count :accessor checked-out-count :initform 0)
-   (active? :accessor active? :initform nil)))
+   (active? :accessor active? :initform nil)
+   (promises :accessor promises :initarg :promises :initform nil)))
 
 ;; create a new instance of resource. (internal - specialize)
 ;; Protocol: 
@@ -50,14 +51,50 @@
 ;; destroy-pool then the pool will be inactive even though it was
 ;; active when we first checked.
 
-(defmethod take-resource :around ((r resource-pool) &rest args &key (wait? t) &allow-other-keys)
+#|;;;;;;;;;;;;;;;;
+
+How to handle the case of :wait? t ??
+
+We need to block when we are waiting. Ideally we wouldn't consume a
+thread for that. BUT: If we did we could make a condition variable,
+save it, and when put-resource, check and condition-notify a the end
+of put-resource.
+
+Or we could sleep and check again. Also consumes a thread.
+
+Can we use futures? So that the submitter is the one to block and we
+get to exit?
+
+Or submit task?
+
+Proposal:
+
+Broaden API to say that results are Promises.
+
+If we can't get a resource, return the promise and spawn a task to
+sleep a bit and try again but to fulfill the promise rather than care
+about returning the result.
+
+
+|#;;;;;;;;;;;;;;;;
+(defmethod take-resource :around ((r resource-pool) &rest args &key (promise-if-unavailable? nil) sleep &allow-other-keys)
   (assert (active? r) () "~s is no longer active" (pool-name r))
   (bt:with-lock-held ((pool-lock r))
     (assert (active? r) () "~s is no longer active" (pool-name r)) 
+
+    ;; handle outstanding promises    
+
     (when (pool-has-reached-limit? r)
-      (if wait?
-	  (return-from take-resource nil)
-	  (bt:condition-wait xx xx)))
+      (if promise-if-unavailable?
+	  (let ((promise (lparallel:promise)))
+	    (push promise (promises r))
+	    (lparallel:submit-timeout
+	     (channel r)
+	     (/ 1 (pool-poll-frequency r))
+	     (lambda() 
+	       (apply 'take-resource r args)
+	    (return-from take-resource promise))
+	  (return-from take-resource nil)))
     (let ((resource (call-next-method)))
       (when resource
 	(incf (checked-out-count r))
@@ -69,7 +106,7 @@
   (bt:with-lock-held ((pool-lock r))
     (assert (active? r) () "~s is no longer active" (pool-name r)) 
     (when (not (member resource (taken-resources r) :key 'first))
-      (warn "attempt to put resource ~a into poll ~a but it wasn't taken from there. resource not returned"
+      (warn "attempt to put resource ~a into pool ~a but it wasn't taken from there. resource not returned"
 	    resource r))
     (progn
       (call-next-method)
