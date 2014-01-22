@@ -30,27 +30,6 @@
 		    collect (list (#"getSheetName" workbook n) (#"getSheetAt" workbook n)))
     ))
 
-(defun get-cell-value (cell)
-  (and cell
-       (let ((type (#"getCellType" cell))
-	     (formula nil))
-	 (when (eql type (load-time-value (get-java-field 'org.apache.poi.hssf.usermodel.HSSFCell "CELL_TYPE_FORMULA")))
-	   (setq formula (#"getCellFormula" cell))
-	   (setq type (#"getCachedFormulaResultType" cell)))
-	 (let ((value
-		(cond ((eql type (load-time-value (get-java-field 'org.apache.poi.hssf.usermodel.HSSFCell "CELL_TYPE_STRING")))
-		       (#"getStringCellValue" cell))
-		      ((eql type (load-time-value (get-java-field 'org.apache.poi.hssf.usermodel.HSSFCell "CELL_TYPE_NUMERIC")))
-		       (#"getNumericCellValue" cell))
-		      ((eql type (load-time-value (get-java-field 'org.apache.poi.hssf.usermodel.HSSFCell "CELL_TYPE_BLANK")))
-		       nil)
-		      ((eql type (load-time-value (get-java-field 'org.apache.poi.hssf.usermodel.HSSFCell "CELL_TYPE_BOOLEAN")))
-		       (#"getBooleanCellValue" cell))
-		      ((eql type (load-time-value (get-java-field 'org.apache.poi.hssf.usermodel.HSSFCell "CELL_TYPE_ERROR")))
-		       `(:error ,(#"getErrorCellValue" cell)))
-		      (t (error "unknown cell type ~a ~a" cell type)))))
-	   (values value formula (#"getCellStyle" cell))))))
-
 
 ;; 	   (if formula
 ;; 	       (values value formula)
@@ -128,17 +107,69 @@
 		      collect (list key cell)))))))
 
 (defun get-sheet-as-row-lists (sheet)
-  (loop with first = (#"getFirstRowNum" sheet)
-     for rowno from first to (#"getLastRowNum" sheet) 
-     with nocells = (loop for row below (#"getPhysicalNumberOfRows" sheet)
-		       maximize (or (and (not (#"getRow" sheet row)) 0)
-				    (#"getPhysicalNumberOfCells" (#"getRow" sheet row))))
-     for row = (#"getRow" sheet rowno)
-     for cell-list = (and row 
-			  (loop for colno below nocells
-			     for colcount from 1
-			     for cell = (#"getCell" row colno)
-			     collect (get-cell-value cell)))
-     ;do (print-db row cell-list (#"getRowNum" row)) (when (equal (car cell-list) "nlsb") (push row @@))
-     collect cell-list))
+  (let ((them nil))
+    (each-row-in-sheet nil (lambda(row) (push row them)) sheet)
+    (nreverse them)))
 
+;; before optimization 
+;; 76.037 seconds real time
+;; 51375663 cons cells
+
+;; after optimization
+;; 31.865 seconds real time
+;; 1701517 cons cells
+
+(defun each-row-in-sheet  (file fn &key (sheet :first))
+  (declare (optimize (speed 3) (safety 0)))
+  (let* ((sheets (unless (java-object-p sheet) (list-sheets  :file file)))
+	 (selected-sheet (if (java-object-p sheet) 
+			     sheet
+			     (if (eq sheet :first)
+				 (second (first sheets))
+				 (second (assoc (string sheet) sheets :test 'equalp))))))
+    (assert selected-sheet () "couldn't find sheet ~a" selected-sheet)
+    (jss:with-constant-signature ((getrow "getRow") (getcell "getCell") (get-number-of-cells "getPhysicalNumberOfCells"))
+      (loop with first = (#"getFirstRowNum" selected-sheet)
+	 for rowno from first to (#"getLastRowNum" selected-sheet) 
+	 with nocells = (loop for rownum below (#"getPhysicalNumberOfRows" selected-sheet)
+			   for row = (getrow selected-sheet rownum)
+			   maximize (or (and (not row) 0)
+					(get-number-of-cells row)))
+	 for row = (getrow selected-sheet rowno)
+	 for cell-list = (and row 
+			      (loop for colno below nocells
+				 for colcount from 1
+				 for cell = (getcell row colno)
+				 collect (get-cell-value cell)))
+	 do (funcall fn cell-list)))))
+     
+
+(defun get-cell-value (cell)
+  (declare (optimize (speed 3) (safety 0)))
+  (with-constant-signature ((getcelltype "getCellType")
+			    (geterror "getErrorCellValue")
+			    (getstring "getStringCellValue")
+			    (getnumber "getNumericCellValue")
+			    (getboolean "getBooleanCellValue")
+			    (getstyle "getCellStyle")
+			    (getformula "getCellFormula")
+			    (getformulatype "getCachedFormulaResultType"))
+    (and cell
+	 (let ((type (getcelltype cell))
+	       (formula nil))
+	   (when (eql type (load-time-value (get-java-field 'org.apache.poi.hssf.usermodel.HSSFCell "CELL_TYPE_FORMULA")))
+	     (setq formula (getformula cell))
+	     (setq type (getformulatype cell)))
+	   (let ((value
+		  (cond ((eql type (load-time-value (get-java-field 'org.apache.poi.hssf.usermodel.HSSFCell "CELL_TYPE_STRING")))
+			 (getstring cell))
+			((eql type (load-time-value (get-java-field 'org.apache.poi.hssf.usermodel.HSSFCell "CELL_TYPE_NUMERIC")))
+			 (getnumber cell))
+			((eql type (load-time-value (get-java-field 'org.apache.poi.hssf.usermodel.HSSFCell "CELL_TYPE_BLANK")))
+			 nil)
+			((eql type (load-time-value (get-java-field 'org.apache.poi.hssf.usermodel.HSSFCell "CELL_TYPE_BOOLEAN")))
+			 (getboolean cell))
+			((eql type (load-time-value (get-java-field 'org.apache.poi.hssf.usermodel.HSSFCell "CELL_TYPE_ERROR")))
+			 `(:error ,(geterror cell)))
+			(t (error "unknown cell type ~a ~a" cell type)))))
+	     (values value formula (getstyle cell)))))))
