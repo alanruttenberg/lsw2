@@ -55,7 +55,7 @@
 (defvar *endpoint-abbreviations* nil)
 ;; http://www-128.ibm.com/developerworks/xml/library/j-sparql/
 
-(defun sparql (query &rest all &key (kb (and (boundp '*default-kb*) *default-kb*)) (use-reasoner *default-reasoner*) (flatten nil) (trace nil) (trace-show-query trace) endpoint-options geturl-options (values t) (endpoint nil) (chunk-size nil) (syntax :sparql) &allow-other-keys &aux (command :select) count)
+(defun sparql (query &rest all &key (kb (and (boundp '*default-kb*) *default-kb*)) (use-reasoner :pellet) (flatten nil) (trace nil) (trace-show-query trace) endpoint-options geturl-options (values t) (endpoint nil) (chunk-size nil) (syntax :sparql) &allow-other-keys &aux (command :select) count)
   (when chunk-size (return-from sparql (apply 'sparql-by-chunk query all)))
   (setq use-reasoner (or endpoint use-reasoner))
   (setq count (and (consp query)
@@ -86,8 +86,6 @@
 	       (jquery (#"create" 'QueryFactory query (if (eq syntax :terp)
 							  (#"getInstance" 'TerpSyntax)
 							  (#"lookup" 'Syntax "SPARQL"))))
-
-
 	       ;; Execute the query and obtain results
 	       ;; QueryExecution qe = QueryExecutionFactory.create(query, model);
 	       (qe (cond ((or (member use-reasoner '(:sparqldl :pellet t)))
