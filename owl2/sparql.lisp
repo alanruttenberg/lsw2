@@ -56,6 +56,7 @@
 ;; http://www-128.ibm.com/developerworks/xml/library/j-sparql/
 
 (defun sparql (query &rest all &key (kb (and (boundp '*default-kb*) *default-kb*)) (use-reasoner :pellet) (flatten nil) (trace nil) (trace-show-query trace) endpoint-options geturl-options (values t) (endpoint nil) (chunk-size nil) (syntax :sparql) &allow-other-keys &aux (command :select) count)
+
   (when chunk-size (return-from sparql (apply 'sparql-by-chunk query all)))
   (setq use-reasoner (or endpoint use-reasoner))
   (setq count (and (consp query)
@@ -83,7 +84,7 @@
 	  (if flatten (loop for b in bindings append b) (if values bindings (values))))
 
 	(let* (	;; Query query = QueryFactory.create(queryString);
-	       (jquery (#"create" 'QueryFactory query (if (eq syntax :terp)
+	       (jquery  (#"create" 'QueryFactory query (if (eq syntax :terp)
 							  (#"getInstance" 'TerpSyntax)
 							  (#"lookup" 'Syntax "SPARQL"))))
 	       ;; Execute the query and obtain results
@@ -98,20 +99,24 @@
 							  (#"bind" graph (#"getKB" (v3kb-reasoner kb))))))))
 			  (#"prepare" (v3kb-pellet-jena-model kb))
 			  (#"create" 'SparqlDLExecutionFactory jquery (v3kb-pellet-jena-model kb)))
-			 ((or (eq use-reasoner :none) (eq use-reasoner nil)) 
+			 ((or (eq use-reasoner :none) (eq use-reasoner nil))
 			  (#"create" 'QueryExecutionFactory jquery
 				     (if (java-object-p kb) kb (jena-model kb))))
 			 ((or (eq use-reasoner :jena))
-			  (unless (v3kb-pellet-jena-model kb) (instantiate-reasoner kb :pellet-sparql nil))
-			  (#"create" 'QueryExecutionFactory jquery (v3kb-pellet-jena-model kb)))
+			  (if (java-object-p kb)
+			      (#"create" 'QueryExecutionFactory jquery kb)
+			      (progn
+				(unless (v3kb-pellet-jena-model kb)
+				  (instantiate-reasoner kb :pellet-sparql nil))
+				(#"create" 'QueryExecutionFactory jquery (v3kb-pellet-jena-model kb)))))
 			 ((eq use-reasoner :owl) (error "Not supported yet")
 			  (#"create" 'QueryExecutionFactory jquery 
 				     (#"createInfModel" 'modelfactory 
 							(#"getOWLReasoner" 'ReasonerRegistry)
-							(#"getModel" (kb-jena-reasoner kb)))))))
+							(#"getModel" (kb-jena-reasoner kb)))))
+			 (t (error "wtf: use-reasoner: ~a"use-reasoner))))
 	       ;; ResultSet results = qe.execSelect();
 	       (vars (set-to-list (#"getResultVars" jquery))))
-	  (print-db qe)
 	  (unwind-protect
 	       (with-constant-signature ((getv "get") (next "next") (has-next "hasNext") (get-uri "getURI"))
 		 (flet ((get-vars (bindingset)
