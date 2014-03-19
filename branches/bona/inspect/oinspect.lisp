@@ -283,7 +283,7 @@
 	 (slots (mop::compute-slots class)))
     (cons '("Slot" "Value")
 	  (mapcar #'(lambda (slot)
-		      (let ((slot-name (system:%slot-definition-name slot)))
+		      (let ((slot-name (mop:slot-definition-name slot)))
 			(list (string-downcase slot-name)
 			      (if (slot-boundp object slot-name)
 				  (slot-value object slot-name)
