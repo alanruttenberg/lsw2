@@ -83,7 +83,7 @@
 
 (defun to-owlapi-object-property-expression (arg data-factory)
   (if (and (consp arg)
-	   (eq (car (gethash (car arg) (second *owl2-vocabulary-forms*)))  'OBJECTINVERSEOF ))
+	   (eq (car (gethash (car arg)  *owl2-vocabulary-forms*))  'OBJECTINVERSEOF ))
       (#"getOWLObjectInverseOf" data-factory (#"getOWLObjectProperty" data-factory (to-iri (second arg))))
       (#"getOWLObjectProperty" data-factory (to-iri arg))))
 

@@ -75,9 +75,9 @@ $sep = "================================================================";
 if ($ENV{OS} =~ /windows/i) {$pathJoin = ";"} else {$pathJoin = ":" }
 if (!(@version[0] =~ /version/) && !(@version[1] =~ /version/) ) 
   { complainCantTellVersion() }
-elsif (!((@version[0] =~ /"1.[567]/) || (@version[1] =~ /"1.[567]/)))
+elsif (!((@version[0] =~ /"1.[5678]/) || (@version[1] =~ /"1.[567]/)))
    { complainWrongVersion(); exit() }
-if ((@version[0] =~ /"1.7/) || (@version[1] =~ /"1.7/)) { $bits="-d64" } ; 
+if ((@version[0] =~ /"1.[78]/) || (@version[1] =~ /"1.[78]/)) { $bits="-d64" } ; 
 
 @libs = grep(/.jar$/,split /\n/,`find "$here/lib" -follow`);
 
