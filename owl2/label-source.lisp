@@ -11,6 +11,7 @@
    (key :initarg :key :initform nil :accessor key)
    (key2instance :initarg :key2instance :accessor key2instance :allocation :class)
    (uri2label :initarg :uri2label :initform nil :accessor uri2label)
+   (ignore-obsolete :initarg :ignore-obsolete :initform t :accessor ignore-obsolete)
    ))
 
 (defmethod initialize-instance ((ls label-source) &rest ignore)
@@ -25,7 +26,9 @@
 			  (let ((label (car label)))
 			    (if (gethash label table) 
 				(unless (eq (gethash label table)  uri)
-				  (warn "Uri label ~a and ~a are both for ~a" (uri-full (gethash label table)) (uri-full uri) label)
+				  (warn "Uri label ~a and ~a are both for ~a" (or (and (keywordp (gethash label table))(gethash label table))
+										  (uri-full (gethash label table)) )
+					(or (and (keywordp uri) uri) (uri-full uri)) label) 
 				  (setf (gethash label table) :ambiguous))
 				(setf (gethash label table) uri))))
 			labels)))))
