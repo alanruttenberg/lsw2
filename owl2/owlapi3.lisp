@@ -364,6 +364,7 @@
 	 for uri = (and iri (make-uri string))
 	 unless (or (null iri) (and (eq uri !owl:Nothing) (not include-nothing))) collect (make-uri string)))))
 
+
 (defun children (class kb)
   (class-query class kb (lambda(ce reasoner) (#"getSubClasses" reasoner ce t))))
 
@@ -385,6 +386,7 @@
 (defun equivalents (class kb)
   (class-query class kb (lambda(ce reasoner) (#"getEquivalentClasses" reasoner ce)) nil t))
 
+
 (defun same-individuals (individual kb)
   (loop for e in (jss::set-to-list
 		  (#"getSameIndividuals" (v3kb-reasoner kb)
@@ -400,6 +402,7 @@
   (#"isSatisfiable" (v3kb-reasoner kb) (to-class-expression class-expression kb)))
 
 (defun is-subclass-of? (sub super kb)
+  "This is faster than using parents or ancestors as you don't have to classify the ontology in order to test it"
   (not (satisfiable? `(object-intersection-of (object-complement-of ,super) ,sub) kb)))
 
 (defun annotation-properties (kb)
@@ -417,9 +420,16 @@
 	  collect (list  prop-uri
 			 (if (jclass-superclass-p (find-java-class "OWLLiteral") (jobject-class value))
 			     (cond ((#"isRDFPlainLiteral" value) (#"getLiteral" value))
-				     (t value))
+				   ((#"isBoolean" value) (let ((string (#"getLiteral" value)))
+							   (if (equal string "true") :true :false)))
+				   ((equal (#"toString" (#"getDatatype" value)) "xsd:string")
+				    (#"getLiteral" value))
+				   (t value))
 			     value
 			     ))))))
+
+(defun entity-annotation-value (uri kb prop)
+  (second (car (entity-annotations uri kb prop))))
 
 (defun entity-label (uri kb)
   (loop for ont in (set-to-list (#"getImportsClosure" (v3kb-ont kb)))
@@ -628,7 +638,7 @@
     maxdepth))
 
 (defun get-referencing-axioms (uri ont)
-  (loop for (entity etype eont) in (gethash entity (v3kb-uri2entity ont))
+  (loop for (entity etype eont) in (gethash uri (v3kb-uri2entity ont))
      append (set-to-list (#"getReferencingAxioms" eont entity))))
 
 (defun get-rendered-referencing-axioms (entity type ont)
