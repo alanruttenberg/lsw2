@@ -1,0 +1,43 @@
+SNARK is run regularly in
+ Macintosh Common Lisp on Mac OS X
+ Clozure Common Lisp (CCL nee OpenMCL) on Mac OS X
+ Steel Bank Common Lisp (SBCL) on Mac OS X
+ CMU Common Lisp (CMUCL) on Mac OS X
+ Allegro Common Lisp on Solaris
+and has been run in other ANSI Common Lisp systems
+
+(replace "yyyymmdd" by the SNARK version date)
+
+Installing SNARK:
+
+  tar xfz snark-yyyymmdd.tar.gz
+  cd snark-yyyymmdd
+  lisp
+  (load "snark-system.lisp")
+  (make-snark-system t)			;t specifies compilation
+  (make-snark-system t)			;compile again for more inlining (optional)
+					;can use :optimize instead of t to compile for
+					;higher speed at the expense of less error checking
+  (quit)
+
+Running SNARK:
+
+  lisp
+  (load "snark-system.lisp")
+  (make-snark-system)			;loads SNARK files compiled above
+  :
+
+The lengthy load process in running SNARK can be eliminated
+for CCL, SBCL, CMUCL, Allegro Common Lisp, or CLISP by doing
+   lisp
+   (load "snark-system.lisp")
+   (make-snark-system)
+   (save-snark-system)
+after installing SNARK as above.
+(save-snark-system) will print instructions for running
+the resulting Lisp core image with SNARK preloaded.
+
+In the case of SBCL, (save-snark-system) can be replaced by
+(save-snark-system :name "snark" :executable t)
+to create a standalone SNARK executable. This is done
+by the make-snark-sbcl and make-snark-sbcl64 scripts.

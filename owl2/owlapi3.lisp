@@ -63,9 +63,10 @@
       (#"write" model sw "RDF/XML")
       (load-ontology sw name))))
 
-(defun load-ontology (source &key name reasoner)
+(defun load-ontology (source &key name reasoner (silent-missing t))
 ;  (set-java-field 'OWLRDFConsumer "includeDublinCoreEvenThoughNotInSpec" nil)
 ;  (set-java-field 'ManchesterOWLSyntaxEditorParser "includeDublinCoreEvenThoughNotInSpec" nil)
+  (#"setProperty" 'system "entityExpansionLimit" "1000000") ; avoid low limit as we are not worried about security
   (let ((mapper nil)
 	(uri nil))
     (setq source (if (java-object-p source) (#"toString" source) source))
@@ -78,7 +79,7 @@
 	  ;(list (length (set-to-list (#"getOntologyIRIs" mapper))) uri)
 	  )))
     (let* ((manager (#"createOWLOntologyManager" 'org.semanticweb.owlapi.apibinding.OWLManager)))
-      (#"setSilentMissingImportsHandling" manager t)
+      (#"setSilentMissingImportsHandling" manager silent-missing)
       (and mapper (#"addIRIMapper" manager mapper))
       (let ((ont
 	     (if uri
@@ -87,7 +88,7 @@
 								   (if (consp source)
 								       (if (keywordp (car source))
 									   (#0"toString" (second source))
-									   (let ((model (apply 't-jena source nil)))
+									   (let ((model (apply 't-jena (maybe-reorder-assertions source) nil)))
 									     (let ((sw (new 'StringWriter)))
 									       (#"write" model sw "RDF/XML")
 									       (#0"getBytes" (#0"toString" sw) "UTF-8"))))
@@ -98,13 +99,39 @@
 	  it
 	)))))
 
-(defun load-kb-jena (file)    
-  (let ((url (format nil "file://~a" (namestring (truename file))))
+(defun maybe-reorder-assertions (assertions &aux ontology-iri version-iri)
+  "pull out two place annotations - ontology annotations, and import assertions, and put them at the start"
+  (setq assertions (rest assertions)) ; pop 'ontology
+  (and (and (null (car assertions)) (uri-p (second assertions)))
+       (error "If you supply a version iri you need to supply an ontology iri"))
+  (when (uri-p (car assertions))
+    (setq ontology-iri (pop assertions))
+    (when (uri-p (car assertions)) 
+      (setq version-iri (pop assertions))))
+  (destructuring-bind (imports ont-annotations rest)
+      (loop for assertion in assertions
+	 if (memq (car assertion) '(import imports))
+	 collect assertion into imports
+	 else if (memq (car assertion) '(annotation ontology-annotation))
+	 collect assertion into annotations
+	 else collect assertion into rest
+	   finally (return (list imports annotations rest)))
+    `(ontology ,@(and ontology-iri (list ontology-iri))
+	       ,@(and version-iri (list version-iri))
+	       ,@imports ,@ont-annotations ,@rest)))
+    
+
+; http://jena.apache.org/documentation/javadoc/jena/com/hp/hpl/jena/rdf/model/Model.html
+; Predefined values for lang are "RDF/XML", "N-TRIPLE", "TURTLE" (or "TTL") and "N3". null represents the default language, "RDF/XML". "RDF/XML-ABBREV" is a synonym for "RDF/XML". 
+
+(defun load-kb-jena (file &key (format "RDF/XML"))    
+  (let ((url (if (search "//" file :test 'equalp) file (format nil "file://~a" (namestring (truename file)))))
 	(in-model (#"createDefaultModel" 'com.hp.hpl.jena.rdf.model.ModelFactory)))
+    (setq @ in-model)
     (#"read" in-model
 	     (new 'bufferedinputstream
 		  (#"getInputStream" (#"openConnection" (new 'java.net.url url))))
-	     url)
+	     url format)
     in-model))
 
 (defmacro collecting-axioms (&rest body)
@@ -147,27 +174,35 @@
        (progv (mapcar 'first ,classes) (mapcar 'second ,classes)
 	 ,@body))))
 
-(defmacro with-ontology (name (&key base ontology-properties about includes rules eval collecting
+(defmacro with-ontology (name (&key base ontology-properties about includes rules eval collecting also-return-axioms only-return-axioms
 				    ontology-iri version-iri) definitions &body body)
-  `(let* ((*default-uri-base* (or ,(cond ((stringp base) base) ((uri-p base) (uri-full base)))  *default-uri-base* )))
-     (let ((,name 
-	    (load-ontology
-	     (append (list* 'ontology
-			    ,@(if (or about ontology-iri) (list (or about ontology-iri)))
-			    ,@(if version-iri (list version-iri))
-			    ,ontology-properties)
-		     ,(cond (eval definitions)
-			    (collecting `(collecting-axioms ,@definitions
-							    (include-out-of-line-metadata ',name #'as)
-								 (include-out-of-line-axioms ',name #'as)
-								 ))
-			    (t (list 'quote definitions)))
-		     )
-	     :name ',name
-	     )))
-       (let ((*default-kb* ,name))
-	 (declare (ignorable *default-kb* ))
-	 ,@body))))
+  (let ((axioms-var (make-symbol "AXIOMS"))
+	(oiri (make-symbol "ONTOLOGY-IRI"))
+	(viri (make-symbol "VERSION-IRI")))
+    `(let* ((*default-uri-base* (or ,(cond ((stringp base) base) ((uri-p base) (uri-full base)))  *default-uri-base* ))
+	    (,axioms-var nil)
+	    (,oiri ,ontology-iri)
+	    (,viri ,version-iri))
+       (when (stringp ,oiri) (setq ,oiri (make-uri ,oiri)))
+       (when (stringp ,viri) (setq ,viri (make-uri ,viri)))
+       (let ((,name 
+	      (funcall (if ,only-return-axioms 'list 'load-ontology)
+		       (append (list* 'ontology
+			      ,@(if (or about oiri) (list (or about oiri)))
+			      ,@(if viri (list viri))
+			      ,ontology-properties)
+		       ,(cond (eval definitions)
+			      (collecting `(setq ,axioms-var (collecting-axioms ,@definitions
+										(include-out-of-line-metadata ',name #'as)
+										(include-out-of-line-axioms ',name #'as)
+										)))
+			      (t (list 'quote definitions)))
+		       )
+	       :name ',name
+	       )))
+	 (let ((*default-kb* ,name))
+	   (declare (ignorable *default-kb* ))
+	   (values-list (append (multiple-value-list (progn ,@body)) (and ,also-return-axioms (list ,axioms-var)))))))))
 
 (defun include-out-of-line-axioms (name as-fn))
 
@@ -187,10 +222,13 @@
 
 ;; 	    ))))
  
-(if (#"getBaseLoader" *classpath-manager*)
-    (defmethod print-object ((obj (jclass "org.semanticweb.HermiT.Reasoner" (#"getBaseLoader" *classpath-manager*))) stream) 
-      (print-unreadable-object (obj stream :identity t)
-	(format stream "org.semanticweb.HermiT.Reasoner"))))
+
+
+
+;;; *classpath-manager* is unbound(if (#"getBaseLoader" *classpath-manager*)
+;;; *classpath-manager* is unbound    (defmethod print-object ((obj (jclass "org.semanticweb.HermiT.Reasoner" (#"getBaseLoader" *classpath-manager*))) stream) 
+;;; *classpath-manager* is unbound      (print-unreadable-object (obj stream :identity t)
+;;; *classpath-manager* is unbound	(format stream "org.semanticweb.HermiT.Reasoner"))))
 
 (defmethod print-object ((obj (jclass "java.lang.Class")) stream) 
   (print-unreadable-object (obj stream :identity t)
@@ -199,8 +237,8 @@
 (defun pellet-reasoner-config ()
   (let ((standard (new 'SimpleConfiguration))
 	(progressMonitor (new 'owlapi.reasoner.ConsoleProgressMonitor)))
-    (set-java-field 'PelletOptions "USE_ANNOTATION_SUPPORT" t)
-    (set-java-field 'pelletoptions "TREAT_ALL_VARS_DISTINGUISHED" nil)
+    (jss::set-java-field 'PelletOptions "USE_ANNOTATION_SUPPORT" +true+)
+    (jss::set-java-field 'pelletoptions "TREAT_ALL_VARS_DISTINGUISHED" +false+)
     (new 'org.semanticweb.owlapi.reasoner.SimpleConfiguration progressMonitor
 	 (#"getFreshEntityPolicy" standard)
 	 (new 'long (#"toString" (#"getTimeOut" standard)))
@@ -221,37 +259,54 @@
   (if profile
       (let ((new (new 'org.semanticweb.HermiT.Configuration))
 	    (monitor (new 'org.semanticweb.HermiT.monitor.CountingMonitor)))
-	(set-java-field new "monitor" monitor)
+	(jss::set-java-field new "monitor" monitor)
 	(setf (v3kb-hermit-monitor ont) monitor)
 	new)
       (let ((it (new 'SimpleConfiguration (new 'owlapi.reasoner.ConsoleProgressMonitor) )))
 	it)))
 
+(defun elk-reasoner-config (&optional profile ont)
+  (let ((standard (new 'SimpleConfiguration))
+	(progressMonitor (new 'owlapi.reasoner.ConsoleProgressMonitor)))
+    (new 'org.semanticweb.owlapi.reasoner.SimpleConfiguration progressMonitor
+	 (#"getFreshEntityPolicy" standard)
+	 (new 'long (#"toString" (#"getTimeOut" standard)))
+	 (#"valueOf" 'individualNodeSetPolicy "BY_SAME_AS")
+	 )))
+
+(defun reset-reasoner (ont  &optional (reasoner *default-reasoner*) (profile nil))
+  (setf (v3kb-reasoner ont) nil
+	(v3kb-pellet-jena-model ont) nil)
+  (instantiate-reasoner ont reasoner profile))
+
 (defun instantiate-reasoner (ont  &optional (reasoner *default-reasoner*) (profile nil))
-  (unless (v3kb-reasoner ont)
-    (setf (v3kb-default-reasoner ont) reasoner)
-    (let* ((config (ecase reasoner 
-		     (:hermit (hermit-reasoner-config profile ont))
-		     ((:pellet :pellet-sparql) (pellet-reasoner-config))
-		     (:factpp (factpp-reasoner-config))))
-	   (factory (ecase reasoner
-		      (:hermit (new "org.semanticweb.HermiT.Reasoner$ReasonerFactory"))
-		      ((:pellet :pellet-sparql) (new 'com.clarkparsia.pellet.owlapiv3.PelletReasonerFactory))
-		      (:factpp (new 'uk.ac.manchester.cs.factplusplus.owlapiv3.FaCTPlusPlusReasonerFactory))
-		      ))
-	   (reasoner-instance
-	    (if (eq reasoner :pellet-sparql)
-		(#"createNonBufferingReasoner" factory (v3kb-ont ont) config)
-		(#"createReasoner" factory (v3kb-ont ont) config))))
-      (setf (v3kb-reasoner ont) reasoner-instance)
-      (when (member reasoner '(:pellet :pellet-sparql))
-	(setf (v3kb-pellet-jena-model ont) 
-	      (let ((graph (new 'org.mindswap.pellet.jena.PelletReasoner)))
-		(#"createInfModel" 'com.hp.hpl.jena.rdf.model.ModelFactory
-				   (#"bind" graph (#"getKB" reasoner-instance)))
-		)))
-      t)
-    ))
+  (unless (null reasoner)
+    (unless (v3kb-reasoner ont)
+      (setf (v3kb-default-reasoner ont) reasoner)
+      (let* ((config (ecase reasoner 
+		       (:hermit (hermit-reasoner-config profile ont))
+		       ((:pellet :pellet-sparql) (pellet-reasoner-config))
+		       (:factpp (factpp-reasoner-config))
+		       (:elk (elk-reasoner-config))))
+	     (factory (ecase reasoner
+			(:hermit (new "org.semanticweb.HermiT.Reasoner$ReasonerFactory"))
+			((:pellet :pellet-sparql) (new 'com.clarkparsia.pellet.owlapiv3.PelletReasonerFactory))
+			(:factpp (new 'uk.ac.manchester.cs.factplusplus.owlapiv3.FaCTPlusPlusReasonerFactory))
+			(:elk  (new 'org.semanticweb.elk.owlapi.ElkReasonerFactory))
+			))
+	     (reasoner-instance
+	      (if (eq reasoner :pellet-sparql)
+		  (#"createNonBufferingReasoner" factory (v3kb-ont ont) config)
+		  (#"createReasoner" factory (v3kb-ont ont) config))))
+	(setf (v3kb-reasoner ont) reasoner-instance)
+	(when (member reasoner '(:pellet :pellet-sparql))
+	  (setf (v3kb-pellet-jena-model ont) 
+		(let ((graph (new 'org.mindswap.pellet.jena.PelletReasoner)))
+		  (#"createInfModel" 'com.hp.hpl.jena.rdf.model.ModelFactory
+				     (#"bind" graph (#"getKB" reasoner-instance)))
+		  )))
+	t)
+      )))
 
 ;; for later.
 ;;	setPhysicalURIForOntology(OWLOntology ontology, java.net.URI physicalURI) 
@@ -262,11 +317,11 @@
     (instantiate-reasoner ont reasoner profile)
     (when (or (eq reasoner :pellet) (eq reasoner :pellet-sparql))
       (pellet-log-level (#"getKB" (v3kb-reasoner ont)) log))
-					;  (if classify (#"prepareReasoner" (v3kb-reasoner ont)))
+    ;;  (if classify (#"prepareReasoner" (v3kb-reasoner ont)))
     (if classify
 	(ecase reasoner 
 	  (:hermit (#"classify" (v3kb-reasoner ont)))
-	  ((:pellet :pellet-sparql :factpp) (#"precomputeInferences" 
+	  ((:pellet :pellet-sparql :factpp :elk) (#"precomputeInferences" 
 					     (v3kb-reasoner ont)
 					     (jnew-array-from-array
 					      (find-java-class 'org.semanticweb.owlapi.reasoner.InferenceType)
@@ -277,6 +332,15 @@
 	(pellet-log-level (#"getKB" (v3kb-reasoner ont)) "OFF")
 	))))
 
+	 
+;; (set-to-list (#"getViolations" (setq a2 (#"checkOntology" (setq a1 (new 'owl2dlprofile)) (v3kb-ont f)))))
+
+;;   (with-ontology f (:collecting t) 
+;; 	     ((asq (declaration (class !a)) (declaration (object-property !p)) (declaration (object-property !q))(subclassof  !a (object-has-self !p)) (transitiveobjectproperty !q)(disjointobjectproperties (annotation !rdfs:label "foo") !p !q)))
+;; 	   (#"isAnnotated" (#"getAxiom" (print (car (set-to-list (#"getViolations" (setq a2 (#"checkOntology" (setq a1 (new 'owl2dlprofile)) (v3kb-ont f)))))))))
+;; 	   ;(check-ontology f :classify t)
+;; 	   )
+
 (defun to-class-expression (thing kb)
   (cond ((jclass-superclass-p (load-time-value (find-java-class 'org.semanticweb.owlapi.model.owlentity)) (jobject-class thing))
 	 thing)
@@ -285,16 +349,21 @@
 	((stringp thing)
 	 (parse-manchester-expression kb thing))
 	((uri-p thing)
-	 (#"getOWLClass" (v3kb-datafactory kb) (to-iri thing)))))
+	 (#"getOWLClass" (v3kb-datafactory kb) (to-iri thing)))
+	((consp thing)
+	 (to-owlapi-class-expression (eval-uri-reader-macro thing) (v3kb-datafactory kb)))
+	(t (error "don't know how to turn ~s into a class expression" thing))
+	))
 
 (defun class-query (class kb fn &optional (flatten t) include-nothing)
   (instantiate-reasoner kb (or (v3kb-default-reasoner kb) *default-reasoner*) nil)
   (let ((expression (to-class-expression class kb)))
     (let ((nodes (funcall fn expression (v3kb-reasoner kb))))
-      (loop for iri in (set-to-list (if flatten (#"getFlattened" nodes) nodes))
+      (loop for iri in (jss::set-to-list (if flatten (#"getFlattened" nodes) nodes))
 	 for string = (and iri (#"toString" (#"getIRI" iri)))
 	 for uri = (and iri (make-uri string))
 	 unless (or (null iri) (and (eq uri !owl:Nothing) (not include-nothing))) collect (make-uri string)))))
+
 
 (defun children (class kb)
   (class-query class kb (lambda(ce reasoner) (#"getSubClasses" reasoner ce t))))
@@ -317,11 +386,24 @@
 (defun equivalents (class kb)
   (class-query class kb (lambda(ce reasoner) (#"getEquivalentClasses" reasoner ce)) nil t))
 
+
 (defun same-individuals (individual kb)
-  (loop for e in (set-to-list
+  (loop for e in (jss::set-to-list
 		  (#"getSameIndividuals" (v3kb-reasoner kb)
 		     (#"getOWLNamedIndividual" (v3kb-datafactory kb) (to-iri individual))))
        collecting (make-uri (#"toString" (#"getIRI" e)))))
+
+(defun entailed? (axiom-expression kb)
+  (error "todo")
+  (#"isEntailed" (list-to-java-set (list (to-axiom-expression class-expression kb))) kb)) ;not yet implemented
+
+(defun satisfiable? (class-expression kb)
+  (instantiate-reasoner kb)
+  (#"isSatisfiable" (v3kb-reasoner kb) (to-class-expression class-expression kb)))
+
+(defun is-subclass-of? (sub super kb)
+  "This is faster than using parents or ancestors as you don't have to classify the ontology in order to test it"
+  (not (satisfiable? `(object-intersection-of (object-complement-of ,super) ,sub) kb)))
 
 (defun annotation-properties (kb)
   (mapcar 'make-uri (mapcar #"toString" (mapcar #"getIRI"  (set-to-list (#"getAnnotationPropertiesInSignature" (v3kb-ont o)))))))
@@ -338,9 +420,16 @@
 	  collect (list  prop-uri
 			 (if (jclass-superclass-p (find-java-class "OWLLiteral") (jobject-class value))
 			     (cond ((#"isRDFPlainLiteral" value) (#"getLiteral" value))
-				     (t value))
+				   ((#"isBoolean" value) (let ((string (#"getLiteral" value)))
+							   (if (equal string "true") :true :false)))
+				   ((equal (#"toString" (#"getDatatype" value)) "xsd:string")
+				    (#"getLiteral" value))
+				   (t value))
 			     value
 			     ))))))
+
+(defun entity-annotation-value (uri kb prop)
+  (second (car (entity-annotations uri kb prop))))
 
 (defun entity-label (uri kb)
   (loop for ont in (set-to-list (#"getImportsClosure" (v3kb-ont kb)))
@@ -383,6 +472,12 @@
   (loop for c in (set-to-list (#"getEntitiesMinusBottom" (#"getUnsatisfiableClasses" (v3kb-reasoner kb))))
      collect (make-uri (#"toString" (#"getIRI" c)))))
 
+(defun unsatisfiable-properties (kb)
+  (check-ontology kb)
+  (loop for p in (remove-if #"isAnonymous" (set-to-list (#"getEquivalentObjectProperties" (v3kb-reasoner kb) (#"getOWLObjectProperty" (v3kb-datafactory kb) (to-iri !owl:bottomObjectProperty)))))
+     for uri = (make-uri (#"toString" (#"getIRI" p)))
+     unless (eq uri !owl:bottomObjectProperty) collect uri))
+
 (defun test-reasoners ()
   (let (o)
     (setq o (load-ontology "http://purl.obolibrary.org/obo/iao.owl"))
@@ -417,10 +512,10 @@
 	  (#"put" prop->lang-none (get-entity prop :annotation-property kb) langs-none))
 	(let ((any-lang-provider (new 'owlapi.util.annotationvalueshortformprovider a-props prop->lang-none ontset
 				      (new 'simpleshortformprovider))))
-	  (set-java-field any-lang-provider "quoteShortFormsWithSpaces" (make-immediate-object t :boolean))
+	  (jss::set-java-field any-lang-provider "quoteShortFormsWithSpaces" +true+)
 	  (let ((lang-specific-provider (new 'owlapi.util.annotationvalueshortformprovider a-props prop->lang ontset any-lang-provider)))
 	    ;; next isn't working yet
-	    (set-java-field lang-specific-provider "quoteShortFormsWithSpaces" (make-immediate-object t :boolean))
+	    (jss::set-java-field lang-specific-provider "quoteShortFormsWithSpaces" +true+)
 	    (setf (v3kb-short-form-provider kb) 
 		  (new 'owlapi.util.BidirectionalShortFormProviderAdapter (#"getImportsClosure" (v3kb-ont kb))
 		       lang-specific-provider)))))))
@@ -474,6 +569,7 @@
 		  (setq writer (new 'outputstreamwriter (new 'fileoutputstream dest) "UTF-8"))))
 	    (t (error "don't know how to write to ~a" dest)))
       (ecase syntax
+	((:lsw :lisp) (owl-to-lisp-syntax ont t))
 	((:turtle)
 	 (let ((format (new 'org.semanticweb.owlapi.io.RDFXMLOntologyFormat)))
 	   (#"setAddMissingTypes" format nil)
@@ -541,10 +637,9 @@
     (each-node !owl:Thing 0)
     maxdepth))
 
-(defun get-referencing-axioms (entity type ont)
-  (loop for (entity etype ont) in (gethash entity (v3kb-uri2entity ont))
-     when (eq etype type)
-     append (set-to-list (#"getReferencingAxioms" ont entity))))
+(defun get-referencing-axioms (uri ont)
+  (loop for (entity etype eont) in (gethash uri (v3kb-uri2entity ont))
+     append (set-to-list (#"getReferencingAxioms" eont entity))))
 
 (defun get-rendered-referencing-axioms (entity type ont)
   (loop for (entity etype eont) in (gethash entity (v3kb-uri2entity ont))

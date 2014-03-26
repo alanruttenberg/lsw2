@@ -7,6 +7,10 @@
 ; return the first element with tag you find. If more-tags are supplied,
 ; then recurse and look for more within the first found element
 
+(defun index-xml (element)
+  ;; map all elements keeping path, hash path, tag -> elementb)
+)
+
 (defun find-element-with-tag (element tag &rest more-tags)
   (let ((found
 	 (loop with q = (list element)
@@ -47,6 +51,29 @@
     (if (and found more-tags)
 	(loop for el in found append (apply 'find-element-with-tag el more-tags))
 	found)))
+
+(defvar seen! nil)
+(defvar yikes! 0)
+
+(defun map-elements-1 (element fn)
+  (declare (optimize (speed 3) (safety 0)))
+  (incf yikes!)
+  (and element
+       (unless nil; (gethash element seen!)
+	 ; (setf (gethash element seen!) t)
+	 (when (consp element)
+	   (let ((children (cddr (the list element))))
+	     (when (consp children)
+	       (dolist (c (the list children))
+		 (funcall (the function fn) c)
+		 (map-elements-1 c fn))))))))
+
+(defun map-elements (element fn)
+  (declare (optimize (speed 3) (safety 0)))
+  (let ((seen (make-hash-table :test #'eql :size 4000000)))
+    (setq seen! seen)
+    (funcall fn element)
+    (map-elements-1 element fn)))
 
 (defun find-immediate-children-with-tag (element tag)
   (and (listp (cddr element))

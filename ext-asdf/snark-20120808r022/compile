@@ -1,0 +1,4 @@
+(load "snark-system.lisp")
+(make-snark-system t)
+(make-snark-system :optimize)
+(quit)

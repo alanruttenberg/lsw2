@@ -61,6 +61,7 @@
 			 (#"setRequestProperty" connection "Content-Type" "application/x-www-form-urlencoded"))
 		       (#"setRequestProperty" connection "Content-Type" "text/xml"))
 		   (let ((out (new 'PrintWriter (#"getOutputStream" connection))))
+		     ;(print post)
 		       (#"print" out post)
 		       (#"close" out)))
 		 (when head
@@ -119,6 +120,8 @@
 	(concatenate 'string protocol "://" tunnel path))
       url))
 
+
+
 (defun unpack-headers (response headers)
   (append
    (if response
@@ -134,8 +137,25 @@
 			 (loop for i below (#"size" value)
 			    collect (#"get" value i)))
 	   ))))
+
+;; FIXME - workaround for http://lists.common-lisp.net/pipermail/armedbear-devel/2012-July/002477.html
+(defun unpack-headers (response headers)
+  (append
+   (if response
+       (list (list "response-code" response))
+       nil)
+   (and headers
+        (with-constant-signature ((size "size") (get "get"))
+        (loop
+           for key in (set-to-list (#"keySet" headers))
+           for value = (#"get" headers key)
+           when value
+           collect (cons key
+                         (loop for i below (size value)
+                            collect (get value i)))
+           )))))
 	
-    
+
 
 #|(defun get-url (url &key force-refetch dont-cache persist)
   "Get the contents of a page, saving it for this session in *page-cache*, so when debugging we don't keep fetching"
@@ -172,7 +192,7 @@
 (defun save-url-contents-in-cache (url content)
   (let ((fname (url-cached-file-name url)))
     (ensure-directories-exist fname)
-    (with-open-file (f fname :direction :output :if-does-not-exist :create)
+    (with-open-file (f fname :direction :output :if-does-not-exist :create :external-format :utf-8)
       (format f "~s" url)
       (write-string content f))))
 
@@ -231,17 +251,16 @@
 		    (format nil "%~2x" (char-code fixme)) fixme))))
 
 (defun clean-uri (site path &optional (protocol "http" ) (fragment "") (query nil) (nofix nil))
-  (let ((null (load-time-value (make-immediate-object nil :ref))))
-    (if (eq nofix t)
-	(#"toString" (new 'java.net.uri protocol site path (or query null) (or fragment null)))
-	(loop for (pattern replacement) in *uri-workaround-character-fixes*
-	   with uri = (#0"toString" (new 'java.net.uri protocol site path (or query null) (or fragment null)))
-	   for new = 
-	   (#0"replaceAll" (#0"matcher" pattern uri) replacement)
-	   then
-	   (#0"replaceAll" (#0"matcher" pattern new) replacement)
-	   finally (return  (#"toString" new)) )
-	)))
+  (if (eq nofix t)
+      (#"toString" (new 'java.net.uri protocol (or site +null+) path (or query null) (or fragment +null+)))
+      (loop for (pattern replacement) in *uri-workaround-character-fixes*
+	 with uri = (#0"toString" (new 'java.net.uri protocol (or site +null+) path (or query +null+) (or fragment +null+)))
+	 for new = 
+	 (#0"replaceAll" (#0"matcher" pattern uri) replacement)
+	 then
+	 (#0"replaceAll" (#0"matcher" pattern new) replacement)
+	 finally (return  (#"toString" new)) )
+      ))
 
 (defmacro with-cookies-from (site &body body)
   (if (and (consp site) (eq (car site) 'get-url))

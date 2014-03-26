@@ -14,10 +14,12 @@
   :components
   ((:module macros
 	    :pathname ""
-	    :components ((:file "string") (:file "encapsulate"))) 
+	    :components ((:file "string")
+			 ;(:file "encapsulate")
+			 )) 
    (:module utils :pathname ""
 	    :components
-	    ((:jar-file "md5.jar")
+	    ((:jar-file "md5")
 	     (:file "config")
 	     (:file "tests")
 	     (:file "namespace")
@@ -28,10 +30,14 @@
 	     (:file "xmls-helpers")
 	     (:file "server")
 	     (:file "mediawiki-bot")
-	     (:file "backtrace-trim")
-	     (:file "obo"))
+;	     (:file "backtrace-trim")
+	     (:file "obo")
+	     (:file "jdbc")
+	     (:file "collections-misc")
+	     (:file "jargrep")
+	     (:file "datetime"))
 	    :depends-on
 	    (macros)))
-  :depends-on (xptest xmls) )
+  :depends-on (xptest xmls xpath) )
 
 ;;;; eof

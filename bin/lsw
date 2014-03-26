@@ -5,5 +5,8 @@ if [ "x$ABCL_WD" = "x" ] ; then
   bindir=`dirname $0`
   ABCL_WD=`(cd "$bindir/.."; pwd)`
 fi
+echo \$ABCL_WD wd
+echo \$bindir
+
 export ABCL_WD
 perl "$ABCL_WD/bin/abcl" $* -- --load "$ABCL_WD/scripts/lsw-startup.lisp" 

@@ -66,7 +66,8 @@
 (defun wget-executable ()
   (let ((it (#"replaceAll" (with-output-to-string (s) (run-shell-command "which wget" :output s))
 		 "(.*?)\\s*$" "$1")))
-    (if (equal it "") nil it)))
+    (assert (not (equal it "")) (it) "Couldn't find wget")
+    it))
 
   ;; e.g.
 
@@ -100,7 +101,7 @@
        for el in (find-elements-with-tag (xmls::parse f) "uri")
        for uri = (coerce (attribute-named el "uri") 'simple-base-string)
        for name = (coerce (attribute-named el "name") 'simple-base-string)
-       for physical-uri = (if (find #\: uri) uri (format nil "file://~a~a" dir uri))
+       for physical-uri = (if (find #\: uri) uri (format nil "file://~a" (namestring (translate-logical-pathname (format nil "~a~a" dir uri)))))
        when (and uri name)
        do 
        (#"addMapping" mapper (#"create" 'org.semanticweb.owlapi.model.IRI name) (#"create" 'org.semanticweb.owlapi.model.IRI physical-uri))

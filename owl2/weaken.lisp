@@ -48,7 +48,7 @@
   (let ((changes (or (v3kb-changes ont) (setf (v3kb-changes ont) (new 'arraylist)))))
     (#"addAll" changes (#"addAxiom" (v3kb-manager ont) (v3kb-ont ont) axiom))))
 
-(defun weaken-to-only-subclasses (ont &optional new-ontology-name)
+(defun weaken-to-only-subclasses (ont &optional new-ontology-name &key (keep-class-assertions t))
   (let ((target (and new-ontology-name
 		     (let* ((manager (#"createOWLOntologyManager" 'OWLManager))
 			    (ontology (#"createOntology" manager)))
@@ -69,9 +69,10 @@
 	      ((Declaration AnnotationAssertion)
 	       (when target (add-axiom axiom target)))
 	      (ClassAssertion
-	       (if (jinstance-of-p (#"getClassExpression" axiom) (find-java-class 'OWLClass))
+	       (when keep-class-assertions
+		 (if (jinstance-of-p (#"getClassExpression" axiom) (find-java-class 'OWLClass))
 		   (when target (add-axiom axiom target))
-		   (when (not target) (remove-axiom axiom ont))))
+		   (when (not target) (remove-axiom axiom ont)))))
 	      (otherwise (when (not target) (remove-axiom axiom ont)))))
 	  t)
       (unwind-protect (and (v3kb-changes (or target ont))

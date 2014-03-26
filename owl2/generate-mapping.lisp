@@ -16,6 +16,7 @@
 	       (cond ((uri-p input) input)
 		     ((java-object-p input) input)
 		     ((stringp input) input)
+		     ((null input) nil)
 		     (t (error "can't translate ~a" input))))
 	      ((and (consp input) (eq (car input) :literal)) input)
 	      (t
@@ -41,11 +42,11 @@
 		     FunctionalObjectProperty FunctionalDataProperty InverseFunctionalObjectProperty ReflexiveObjectProperty IrreflexiveObjectProperty SymmetricObjectProperty AsymmetricObjectProperty TransitiveObjectProperty  ClassAssertion ObjectPropertyAssertion DataPropertyAssertion Declaration AnnotationAssertion haskey disjointunion))
 	   :first-triple)
 	  ((and (member head
-			'(DisjointClasses DisjointDataProperties DisjointDataProperties DifferentIndividuals))
+			'(DisjointClasses DisjointDataProperties DisjointObjectProperties DifferentIndividuals))
 		(= (length (cdr form)) 2))
 	   :first-triple)
 	  ((member head
-		   '(DisjointClasses DisjointDataProperties DisjointDataProperties DifferentIndividuals Negativedatapropertyassertion Negativeobjectpropertyassertion))
+		   '(DisjointClasses DisjointDataProperties DisjointObjectProperties DifferentIndividuals Negativedatapropertyassertion Negativeobjectpropertyassertion))
 	   :first-triple-subject)
 	  ;; be careful not to do nested t triples for these. 
 	  ((member head '(EquivalentClasses EquivalentObjectProperties EquivalentDataProperties SameIndividual))

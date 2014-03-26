@@ -53,6 +53,7 @@
 
 ;;; returns a panel that becomes the contents of the window
 (defmethod make-contents ((this inspector))
+  (print this)
   (with-slots (object header fields table table-maker history) this
     (let (
   ;;; these vars are used by refresh; hence defined before value is set
@@ -82,15 +83,16 @@
 	      #'(lambda ()
 		  (if table-panel
 		      (let ((parent (#"getParent" table-panel)))
-			(#"remove" parent table-panel)))
+			(when parent
+			  (#"remove" parent table-panel))))
 
-		  (set-java-field constraints "gridwidth" remainder)
-		  (set-java-field constraints "gridheight" remainder)
-		  (set-java-field constraints "weightx" 1.0)
-		  (set-java-field constraints "weighty" 1.0)
-		  (set-java-field constraints "gridx" 0)
-		  (set-java-field constraints "gridy" 1)
-		  (set-java-field constraints "fill" (get-java-field 'java.awt.GridBagConstraints "BOTH"))
+		  (jss::set-java-field constraints "gridwidth" remainder)
+		  (jss::set-java-field constraints "gridheight" remainder)
+		  (jss::set-java-field constraints "weightx" 1.0)
+		  (jss::set-java-field constraints "weighty" 1.0)
+		  (jss::set-java-field constraints "gridx" 0)
+		  (jss::set-java-field constraints "gridy" 1)
+		  (jss::set-java-field constraints "fill" (get-java-field 'java.awt.GridBagConstraints "BOTH"))
 
 
 		  (let ((data (oinspect-data this object)))
@@ -229,7 +231,7 @@
 (defmethod tostring ((inspector t) (v t)) 
   (princ-to-string v))
 
-(defparameter %%java-null (load-time-value (make-immediate-object nil :ref)))
+(defparameter %%java-null (load-time-value +null+))
 
 (defun %java-null (v) 
   (equal v %%java-null))
@@ -281,7 +283,7 @@
 	 (slots (mop::compute-slots class)))
     (cons '("Slot" "Value")
 	  (mapcar #'(lambda (slot)
-		      (let ((slot-name (system:%slot-definition-name slot)))
+		      (let ((slot-name (mop:slot-definition-name slot)))
 			(list (string-downcase slot-name)
 			      (if (slot-boundp object slot-name)
 				  (slot-value object slot-name)

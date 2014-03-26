@@ -60,9 +60,10 @@
   :components
   ((:module lib 
 	    :components
-	    ((:jar-file "org.semanticweb.HermiT.jar")
-	     (:jar-file "owlapi-bin.jar")
-	     (:jar-file "factplusplus-1.5.0.jar")
+	    ((:jar-file "org.semanticweb.HermiT")
+	     (:jar-file "owlapi-bin")
+	     (:jar-file "factplusplus-1.5.0")
+	     (:jar-file "elk-owlapi-041")
 	     (:jar-directory "pellet")
 	     (:jar-directory "prefuse")
 	     ))
@@ -96,7 +97,11 @@
 	     (:file "create-external-derived")
 	     (:file "terminal-alternate-symbols")
 	     (:file "jena")
-	     (:file "clean-subclass-tree"))
+	     (:file "label-source")
+	     (:file "owl-to-lisp-syntax");
+	     (:file "clean-subclass-tree")
+	     (:file "violations")
+	     (:file "to-owlapi-class-expression"))
 	    :depends-on (matcher basics)
 	    ))
   :depends-on (util inspect xmls))
