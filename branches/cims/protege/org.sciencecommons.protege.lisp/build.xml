@@ -1,0 +1,194 @@
+<?xml version = "1.0" encoding = "utf-8"?>
+
+<project name = "Lisp Example Project" default = "install" basedir = ".">    
+
+   <!-- 
+        To run this build file set the environment variable
+        PROTEGE_HOME to point to a protege distribution and type ant
+        install or jar.
+     -->
+
+   <property environment="env"/>
+   <property name = "protege.home"      location="${env.PROTEGE_HOME}"/>
+   <property file="${protege.home}/build.properties"/>
+   <property file="local.properties"/>
+
+   <property file="version.properties"/>
+   <property name="major.version" value="1"/>
+   <property name="minor.version" value="0"/>
+   <property name="micro.version" value="0"/>
+
+   <property name = "plugin"          value = "org.sciencecommons.protege.lisp"/>
+
+   
+   <!-- 
+        these properties probably don't need changing
+        -->
+   <property name = "src"               location = "./src"/>  
+   <property name = "build"             location = "./build"/>
+   <property name = "bundle.dir"        location = "${build}"/>
+   <property name = "classes"           location = "${build}/classes"/>
+   <property name = "lib"               location = "./lib"/>
+   <property name = "genlib"            location = "${build}/lib"/>
+   <property name = "manifest"          location = "${build}/manifest.mf"/>
+
+   <property name = "protege.common"    location="${protege.home}/bundles"/>
+   <property name = "protege.plugins"   location="${protege.home}/plugins"/>
+   <property name = "protege.osgi"      location="${protege.home}/felix.jar"/>
+   <property name="equinox.common" 
+             location="${protege.common}/org.eclipse.equinox.common.jar"/>
+   <property name="equinox.registry"
+             location="${protege.common}/org.eclipse.equinox.registry.jar"/>
+   <property name="protege.lib" 
+             location="${protege.common}/org.protege.editor.core.application.jar"/>
+   <property name="common.lib"
+             location="${protege.common}/org.protege.common.jar"/>
+
+   <property name="owl.lib"
+             location="${protege.plugins}/org.semanticweb.owl.owlapi.jar"/>
+
+   <property name="owl.editor.jar"
+	     location="${protege.plugins}/org.protege.editor.owl.jar"/>
+
+
+   <target name = "init">
+     <tstamp>
+       <format property="build.time" pattern="yyyy_MM_dd_hhmm"/>
+     </tstamp>
+     <property name="bundle.version"
+               value="${major.version}.${minor.version}.${micro.version}.${build.time}"/>
+     <mkdir dir = "${build}"/>
+     <mkdir dir = "${classes}"/>
+     <mkdir dir = "${classes}/lib"/>
+     <mkdir dir = "${genlib}"/>
+   </target>  
+
+   <!-- ============================================================= -->
+   <!--             Configuring the Compile Classpath                 -->
+   <!-- ============================================================= -->
+
+
+    <target name="checkProtegeLibsAndReport" depends="checkProtegeLibs"
+            unless="libs.found">
+      <echo message="Missing protege libraries.  You need to set "/>
+      <echo message="the PROTEGE_HOME environment variable to a"/>
+      <echo message="protege installation directory where the"/>
+      <echo message="appropriate plugins have been installed."/>
+      <echo message="Alternatively set the jar libs in local.properties (protege.lib=...)"/>
+      <echo message="Use the -v option to ant to see what jars are missing."/>
+      <fail message = "missing protege libraries"/>
+    </target>
+
+   <target name = "checkProtegeLibs" depends="init">
+     <echo message="Using Protege Home = ${protege.home} to find protege jars"/>
+     <condition property="libs.found">
+       <and>
+         <available file="${protege.osgi}" type="file"/>
+	     <available file="${equinox.common}" type = "file"/>
+	     <available file="${equinox.registry}" type = "file"/>
+	     <available file="${owl.editor.jar}" type = "file"/>
+         <available file="${owl.lib}" type="file"/>
+       </and>
+     </condition>
+     <path id = "project.classpath">    
+       <pathelement location="${protege.osgi}"/>
+       <pathelement location="${protege.lib}"/>
+       <pathelement location="${equinox.common}"/>
+       <pathelement location="${equinox.registry}"/>
+       <pathelement location="${owl.editor.jar}"/>
+       <pathelement location="${owl.lib}"/>
+       <fileset dir="${lib}"/>
+       <fileset dir="${genlib}"/>
+     </path>
+   </target>
+
+
+   <target name = "buildlibs" depends="checkProtegeLibsAndReport">
+       <unjar dest="${build}"
+              src="${common.lib}">
+           <patternset>
+               <include name = "**/log4j.jar"/>
+               <include name = "**/looks.jar"/>
+           </patternset>
+       </unjar>
+   </target>
+
+
+   <target name="build.manifest">
+     <copy tofile="${manifest}" 
+           file="META-INF/MANIFEST.MF" overwrite="true"/>
+     <manifest file="${manifest}" 
+               mode = "update">
+        <attribute name="Built-By" value = "${user.name}"/>
+        <attribute name="Bundle-Version" value="${bundle.version}"/>
+     </manifest>
+   </target>
+
+   <target name="copy.resources" depends="build.manifest">
+     <copy todir="${classes}">
+       <fileset dir="${src}">
+         <include name="**/*"/>
+         <exclude name="**/*.java"/>
+         <exclude name="**/MANIFEST.MF"/>
+         <exclude name="**/manifest.mf"/>
+       </fileset>
+     </copy>
+     <copy todir="${classes}/lib">
+       <fileset dir="${lib}" excludes="junit*.jar"/>
+     </copy>
+     <copy todir="${classes}">
+       <fileset dir="." includes="*.xml">
+           <exclude name="build.xml"/>
+       </fileset>
+     </copy>
+     <copy todir="${classes}">
+       <fileset dir="./resources"/>
+     </copy>
+       
+   	 <!-- the manifest doesn't belong here but this is good for IDE's -->
+     <mkdir dir="${classes}/META-INF"/>  
+     <copy todir="${classes}/META-INF"   
+           file = "${manifest}"/>
+   </target>
+
+
+   <target name = "compile" depends = "buildlibs, checkProtegeLibsAndReport">
+     <javac srcdir = "${src}"
+            destdir = "${classes}" 
+            debug="on"
+            includeAntRuntime="false">
+       <classpath refid = "project.classpath"/>  
+     </javac>
+   </target>
+
+   <target name = "jar" depends = "compile, copy.resources">
+     <jar jarfile = "${build}/${plugin}.jar"
+          basedir = "${classes}" 
+          manifest = "${build}/manifest.mf"/>
+   </target>
+
+   <target name = "install" depends = "jar">
+     <!-- flush cache -->
+     <delete dir = "${protege.home}/configuration/org.eclipse.core.runtime"/>
+     <delete dir = "${protege.home}/configuration/org.eclipse.osgi"/>
+     <copy file="${build}/${plugin}.jar" 
+           todir = "${protege.plugins}"
+           overwrite = "true"/>
+   </target>
+	
+   <target name = "clean">
+     <delete dir = "${build}"/>
+   </target>
+
+
+   <target name = "usage">
+     <echo message = "To run this script set the PROTEGE_HOME environment"/>
+     <echo message = "variable and use one of the following targets"/>
+     <echo message = "jar - builds the jar (bundle) file for this project"/>
+     <echo message = "install - installs  the bundle into the Protege distribution"/>
+     <echo message = "copy.resources - copyies resources into the classes directory"/>
+     <echo message = "    this can  be useful for ide developers - see the wiki"/>
+   </target>
+
+
+</project>

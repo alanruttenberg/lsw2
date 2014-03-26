@@ -1,0 +1,6 @@
+sbcl < compile >& compile.out
+sbcl << ENDOFSTDIN
+(load "snark-system.lisp")
+(make-snark-system)
+(save-snark-system :name "snark" :executable t)
+ENDOFSTDIN

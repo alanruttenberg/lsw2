@@ -1,0 +1,6 @@
+#!/bin/sh
+
+perl `dirname $0`/../abcl $* --noinit --load scripts/report.lisp --eval "(report \"$*\")"
+
+
+

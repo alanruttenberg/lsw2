@@ -1,0 +1,7 @@
+Change Log
+==========
+
+SPARQL-DL API 1.0 (Jan 25, 2011)
+----------------------------------
+
+* Initial version based on OWL API 3.2

@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<!-- test document -->
+<book title = 'The Cyberiad'>
+  <!-- comment in here -->
+  <author xmlns='http://authors'>Stanislaw Lem</author>
+  <info:subject xmlns:info='http://bookinfo' rank='1'>&quot;Cybernetic Fables&quot;</info:subject>
+</book>

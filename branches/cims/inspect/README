@@ -1,0 +1,50 @@
+Reflective inspectors, other UI tools, etc.
+  -- Mike Travers 4/2007
+
+To use:
+
+Load:
+(asdf::oos 'asdf::load-op 'inspect)
+
+Make a window and then inspects it:
+(oinspect (make-window "foo" 100 100))
+
+Browsing RDF:
+With default KB loaded:
+
+(make-instance 'rdf-inspector-window
+  :object !<http://ecocyc.org/compound/d-galacturonate>
+  :show-inverse t)
+
+Inspect over SPARQL:
+
+(make-instance 'rdf-inspector-window
+  :reasoner !<http://dbpedia.org/sparql/?>
+  :from-graphs (list !<http://dbpedia.org>)
+  :show-inverse t
+  :object !<http://dbpedia.org/resource/Soyuz_TM-6>)
+
+Or:
+(oinspect-sparql-endpoint (make-uri "http://spade.lbl.gov:2021/sparql"))
+
+The global variable *inspected* should be bound to the value of the last
+inspected object.
+
+
+To graph relations as you traverse them, do this:
+(make-instance 'inspect-graph)
+
+
+Bugs/feature requests: 
+- smarter sizing of columns
+- visible history
+- link to prefuse or other grapher
+- knows about more kinds of Java objects
+- can get fields out of Java objects 
+- smarter about errors that occur during data fetch (ie, prefuse Display objects)
+- CLOS instance inspect needs to deal with unbound fields
+- structure inspect
+- handle dotted list
+- smarter history; disable BACK button when appropriate
+- close-all-inspecters
+- tooltips wrong for Java objects 

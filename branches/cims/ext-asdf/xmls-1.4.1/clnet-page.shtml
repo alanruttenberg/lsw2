@@ -1,0 +1,73 @@
+<!DOCTYPE html 
+PUBLIC "-//W3C//DTD XHTML 1.1 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"> 
+
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en"> 
+
+<head> 
+<title>xmls - a small xml parser for common lisp</title> 
+<link href="styles.css" rel="stylesheet" type="text/css"/> 
+</head> 
+
+<body> 
+
+<h1>XMLS, a simple XML parser for Common Lisp</h1> 
+<h2>Downloads</h2> 
+<table>
+  <tr> 
+    <td><span style="color: red">latest --></span> Better support for Unicode.</td>
+    <td>xmls-1.4</td> 
+    <td><a href="xmls-1.4.tar.gz">source</a></td> 
+    <td><a href="xmls-1.4.tar.gz.asc">signature</a></td> 
+    <td><a href="xmls-1.4.tar.gz.md5">md5</a></td> 
+    <td><a href="latest/Changelog">changelog</a></td> 
+  </tr> 
+
+  <tr> 
+    <td>&nbsp;</td> 
+   <td>xmls-1.3</td> 
+    <td><a href="xmls-1.3.tar.gz">source</a></td> 
+    <td><a href="xmls-1.3.tar.gz.asc">signature</a></td> 
+    <td><a href="xmls-1.3.tar.gz.md5">md5</a></td> 
+ </tr> 
+  
+  <tr> 
+    <td>&nbsp;</td> 
+   <td>xmls-1.2</td> 
+    <td><a href="xmls-1.2.tar.gz">source</a></td> 
+    <td><a href="xmls-1.2.tar.gz.asc">signature</a></td> 
+    <td><a href="xmls-1.2.tar.gz.md5">md5</a></td> 
+ </tr> 
+
+  <tr> 
+    <td>&nbsp;</td> 
+   <td>xmls-1.1</td> 
+    <td><a href="xmls-1.1.tar.gz">source</a></td> 
+    <td><a href="xmls-1.1.tar.gz.asc">signature</a></td> 
+    <td><a href="xmls-1.1.tar.gz.md5">md5</a></td> 
+ </tr> 
+  
+  <tr> 
+    <td>&nbsp;</td> 
+    <td>xmls-1.0</td> 
+    <td><a href="xmls-1.0.tar.gz">source</a></td> 
+    <td><a href="xmls-1.0.tar.gz.asc">signature</a></td> 
+    <td><a href="xmls-1.0.tar.gz.md5">md5</a></td> 
+ </tr> 
+  
+</table>
+
+<h2>Source repository</h2>
+
+<p>There is no publicly-accessible source repository for XMLS.  Please submit
+patches to the maintainer.  The likelihood of getting patches doesn't justify
+the effort of maintaining such a source repository.  If this is a real problem
+for you, please contact the maintainer and we will arrange to provide you access to
+the private repository.</p>
+
+   <!--#include virtual="latest/README.html" -->
+
+
+</body> 
+
+</html> 
