@@ -2,6 +2,14 @@
 ;; date that it was imported
 ;; version number of the ontology from which it came
 
+;; Sorry for lack of documentation. For an example of input see:
+;; https://infectious-disease-ontology.googlecode.com/svn/trunk/src/ontology/ido-core/external-templates.txt
+;; https://infectious-disease-ontology.googlecode.com/svn/trunk/src/ontology/ido-core/ido-external.owl
+;; https://infectious-disease-ontology.googlecode.com/svn/trunk/src/ontology/ido-core/ido-external-by-hand.owl
+;;
+;; output is
+;; ;; https://infectious-disease-ontology.googlecode.com/svn/trunk/src/ontology/ido-core/ido-external-derived.owl
+
 (defparameter *external-derived-rdf-prefixes*
   '(("xsd" "http://www.w3.org/2001/XMLSchema#")
     ("rdf" "http://www.w3.org/1999/02/22-rdf-syntax-ns#")
