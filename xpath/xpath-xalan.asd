@@ -11,9 +11,10 @@
 
 (in-package :asdf)
 
-(defsystem :xpath
+(defsystem :xpath-xalan
   :name ""
   :author "Alan Ruttenberg"
+  :version "1.0.0"
   :licence "BSD"
   :components
   ((:module jars

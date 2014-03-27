@@ -155,7 +155,7 @@ TODO: Add filtering by path name, so we can look only in, say, the XML files"
    jar-filenames 
    (lambda(doc entry)
      (let ((forms
-	    (loop for node being the cloned-nodeset-nodes of (xpath:query doc "//Form")
+	    (loop for node being the cloned-nodeset-nodes of (xpath-xalan:query doc "//Form")
 	       for id = (#"getAttribute" node "id")
 	       for name = (#"getAttribute" node "name")
 	       collect (list name id))))
@@ -168,7 +168,7 @@ TODO: Add filtering by path name, so we can look only in, say, the XML files"
 
 
 (defun pdb-chem-info (pdbxml)
-  (loop for node being the cloned-nodeset-nodes of (xpath:query pdbxml "//PDBx:chem_comp")
+  (loop for node being the cloned-nodeset-nodes of (xpath-xalan:query pdbxml "//PDBx:chem_comp")
      for id = (#"getAttribute" node "id")
      for (formula name) = (xpath:elements node "PDBx:formula" "PDBx:name")
      collect (list id name formula (third (assoc id *chebi-pdb-chems* :test 'equal)))))

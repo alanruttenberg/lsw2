@@ -1,5 +1,5 @@
-(defpackage "XPATH"  (:use "COMMON-LISP") (:export "SET-NAMESPACE-URI" "QUERY" "ELEMENTS" "ATTRIBUTE-NAMED"))
-(in-package :xpath)
+(defpackage "XPATH-XALAN"  (:use "COMMON-LISP") (:export "SET-NAMESPACE-URI" "QUERY" "ELEMENTS" "ATTRIBUTE-NAMED"))
+(in-package :xpath-xalan)
 
 (defun make-xpath-namespace-context ()
   (let ((wrapped (cl-user::new 'org.apache.xalan.extensions.ExtensionNamespaceContext))
