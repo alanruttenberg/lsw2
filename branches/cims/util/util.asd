@@ -38,6 +38,6 @@
 	     (:file "datetime"))
 	    :depends-on
 	    (macros)))
-  :depends-on (xptest xmls xpath) )
+  :depends-on (xptest xmls xpath-xalan) )
 
 ;;;; eof

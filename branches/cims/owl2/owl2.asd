@@ -1,5 +1,12 @@
 ;;;; -*- Mode: LISP -*-
-;;;;
+
+;; FIXME!  Should be set before we get here...
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (require :asdf)
+  (require :abcl-contrib)
+  (asdf:load-system :jss)
+  (funcall (intern :ensure-compatibility :jss))
+  (asdf:load-system :abcl-asdf))
 
 (in-package :asdf)
 
