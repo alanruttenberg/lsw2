@@ -49,7 +49,8 @@
   (fourth (find-if (lambda(e) (and (member arch (second e) :test 'equal)
 						  (member os (first e) :test 'equal)))
 				  *factpp-natives*)))
-			   
+
+#+nil			   
 (defparameter cl-user::*factpp-jni-path*
   (let ((arch (#"getProperty" 'system "os.arch"))
 	(os (#"getProperty" 'system "os.name")))
