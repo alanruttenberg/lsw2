@@ -86,7 +86,7 @@
 	(let* (	;; Query query = QueryFactory.create(queryString);
 	       (jquery  (#"create" 'QueryFactory query (if (eq syntax :terp)
 							  (#"getInstance" 'TerpSyntax)
-							  (#"lookup" 'Syntax "SPARQL"))))
+							  (#"lookup" 'jena.query.Syntax "SPARQL"))))
 	       ;; Execute the query and obtain results
 	       ;; QueryExecution qe = QueryExecutionFactory.create(query, model);
 	       (qe (cond ((or (member use-reasoner '(:sparqldl :pellet t)))
