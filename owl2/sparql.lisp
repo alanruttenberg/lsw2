@@ -25,7 +25,7 @@
 						 ((member command '(:update)) "update")
 						 (t command)) ,query)
 					 ,(unless (eq command :update)
-						  (or format (unless (eq command :update) "application/sparql-results+xml")))
+						  (or format (unless (eq command :update) (list "format" "application/sparql-results+xml"))))
 					 ,@(if (eq command :select)
 					       '(("should-sponge" "soft"))))
 				       query-options)
