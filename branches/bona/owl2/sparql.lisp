@@ -20,16 +20,21 @@
 
 (defun sparql-endpoint-query (url query &key query-options geturl-options (command :select) format)
   (let* ((parsed (xmls::parse
-		 (apply 'get-url (if (uri-p url) (uri-full url) url)
-			:post (append `((,(cond ((member command '(:select :describe :ask :construct)) "query")
-						((member command '(:update)) "query")
-						(t command)) ,query)
-					("format" "application/sparql-results+xml")
-					,(if (eq command :construct) `("Accept" ,(or format "application/rdf+xml")) '("Accept" "application/sparql-results+xml"))
-					,@(if (eq command :select)
-					      '(("should-sponge" "soft"))))
-				      query-options)
-			(append geturl-options (list :dont-cache t :force-refetch t )))))
+		  (apply 'get-url (if (uri-p url) (uri-full url) url)
+			 :post (append `((,(cond ((member command '(:select :describe :ask :construct)) "query")
+						 ((member command '(:update)) "update")
+						 (t command)) ,query)
+					 ("format" ,(or format (unless (eq command :update) "application/sparql-results+xml")))
+					 ,@(if (eq command :select)
+					       '(("should-sponge" "soft"))))
+				       query-options)
+			 (append geturl-options (if (eq command :construct) 
+						    `(:accept ,(or format "application/rdf+xml"))
+						    (if (eq command :update)
+							nil
+							'(:accept "application/sparql-results+xml")) )
+				 (list :dont-cache t :force-refetch t)
+				 ))))
 	(results (find-elements-with-tag parsed "result"))
 	(variables (mapcar (lambda(e) (attribute-named e "name")) (find-elements-with-tag parsed "variable"))))
     (loop for result in results
@@ -56,7 +61,6 @@
 ;; http://www-128.ibm.com/developerworks/xml/library/j-sparql/
 
 (defun sparql (query &rest all &key (kb (and (boundp '*default-kb*) *default-kb*)) (use-reasoner :pellet) (flatten nil) (trace nil) (trace-show-query trace) endpoint-options geturl-options (values t) (endpoint nil) (chunk-size nil) (syntax :sparql) &allow-other-keys &aux (command :select) count)
-
   (when chunk-size (return-from sparql (apply 'sparql-by-chunk query all)))
   (setq use-reasoner (or endpoint use-reasoner))
   (setq count (and (consp query)
