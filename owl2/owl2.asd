@@ -65,6 +65,7 @@
   :name "OWL"
   :author "Alan Ruttenberg"
   :license "BSD"
+  :version "1.0.1"
   :components
   ((:module lib 
 	    :components
