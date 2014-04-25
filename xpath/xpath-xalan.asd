@@ -14,21 +14,21 @@
 (defsystem :xpath-xalan
   :name ""
   :author "Alan Ruttenberg"
-  :version "1.0.0"
+  :version "1.0.1"
   :licence "BSD"
   :components
-  ((:module jars
-	    :pathname ""
-	    :serial t
+  ((:module xalan-j_2_7_1
 	    :components
-	    ((:jar-directory "xalan-j_2_7_1")
-	    ))
+	    ((:jar-file "serializer")
+             (:jar-file "xalan")
+             (:jar-file "xercesImpl")
+             (:jar-file "xml-apis")
+             (:jar-file "xsltc")))
    (:module lisp
 	    :pathname ""
 	    :components
 	    ((:file "xpath")
-	     (:file "loop")
-	     ))))
+	     (:file "loop")))))
 
 ;;;; eof
  

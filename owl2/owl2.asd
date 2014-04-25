@@ -65,17 +65,76 @@
   :name "OWL"
   :author "Alan Ruttenberg"
   :license "BSD"
-  :version "1.0.1"
+  :version "1.0.2"
   :components
   ((:module lib 
+            :depends-on (lib/prefuse/lib
+                         lib/pellet/lib
+                         lib/pellet/lib/antlr
+                         lib/pellet/lib/jena
+                         lib/pellet/lib/jaxb)
 	    :components
 	    ((:jar-file "org.semanticweb.HermiT")
 	     (:jar-file "owlapi-bin")
 	     (:jar-file "factplusplus-1.5.0")
 	     (:jar-file "elk-owlapi-041")
-	     (:jar-directory "pellet")
-	     (:jar-directory "prefuse")
-	     ))
+             #+nil
+	     (:jar-directory "pellet")))
+   (:module lib/pellet/lib
+            :components
+            ((:jar-file "aterm-java-1.6")
+             (:jar-file "pellet-cli")
+             (:jar-file "pellet-core")
+             (:jar-file "pellet-datatypes")
+             (:jar-file "pellet-dig")
+             (:jar-file "pellet-el")
+             (:jar-file "pellet-explanation")
+             (:jar-file "pellet-jena")
+             (:jar-file "pellet-modularity")
+             (:jar-file "pellet-owlapi")
+             (:jar-file "pellet-owlapiv3")
+             (:jar-file "pellet-pellint")
+             (:jar-file "pellet-query")
+             (:jar-file "pellet-rules")
+             #+nil
+             (:jar-file "pellet-test")
+             #+nil ;; Not including as we will be running LSW2 in a
+                   ;; servlet context where (presumably) newer
+                   ;; versions of these interfaces will be available
+             (:jar-file "servlet")))
+   (:module lib/pellet/lib/antlr
+            :components
+            ((:jar-file "antlr-runtime-3.2")))
+   (:module lib/pellet/lib/jena
+            :components
+            ((:jar-file "arq-2.8.4")
+             (:jar-file "icu4j-3.4.4")
+             (:jar-file "iri-0.8")
+             #+nil
+             (:jar-file "jena-2.6.3-tests")
+             (:jar-file "jena-2.6.3")
+             #+nil
+             (:jar-file "junit-4.5")
+             #+nil ;; might be in use with servlet container
+             (:jar-file "log4j-1.2.13")
+             (:jar-file "lucene-core-2.3.1")
+             #+nil ;; might be in use with servlet container
+             (:jar-file "slf4j-api-1.5.8")
+             #+nil ;; might be in use with servlet container
+             (:jar-file "slf4j-log4j12-1.5.8")
+             (:jar-file "stax-api-1.0.1")
+             (:jar-file "wstx-asl-3.2.9")
+             (:jar-file "xercesImpl-2.7.1")))
+   (:module lib/pellet/lib/jaxb
+            :components
+            ((:jar-file "jaxb-api")))
+   (:module lib/prefuse/lib
+            :components
+            ((:jar-file "prefuse")))
+;;;; not including lib/pellet/lib/junit lib/pellet/lib/jetty
+;;;; lib/pellet/lib/jgrapht as either they will potentially conflict
+;;;; with being in Java Servlet container (e.g. jetty), or were not
+;;;; deemed to be necessary (untested)
    (:module "basics"
 	    :pathname ""
  	    :components
