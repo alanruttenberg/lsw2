@@ -29,11 +29,14 @@
 ;; SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 (defvar *default-connection* nil)
+(defvar *jdbc-trace* nil)
 
 (defun with-jdbc-connection (fn jdbc-url)
   (let ((connection nil))
     (unwind-protect
 	 (progn
+	   (when (search "jdbc:sqlite" jdbc-url) 
+	       (#"forName" 'Class "org.sqlite.JDBC"))
 	   (let ((*default-connection* (#"getConnection" 'java.sql.DriverManager jdbc-url)))
 	     (funcall fn *default-connection*)))
       (and connection (#"close" connection))
@@ -45,8 +48,12 @@
 
 ;; Do a sql query to connection. Result is a list of list, with each list one row of fields.
 ;; if with-headers is non-nil, then the values are instead ("fieldname" . value) instead of just value.
-
-(defun sql-query (query &optional (connection *default-connection*) &key with-headers print)
+;; query can be a list of strings, in which case they are concatenated
+;; if format-args is supplied then the query string used as a format string with the format-args
+(defun sql-query (query &optional (connection *default-connection*) &key with-headers print format-args trace)
+  (when (listp query) (setq query (format nil "~{~a~^ ~}" query)))
+  (when format-args (setq query (apply 'format nil query format-args)))
+  (when (or trace *jdbc-trace*) (print query))
   (if (keywordp connection)
       (with-jdbc-connection-named connection
 	(lambda(c) (sql-query query c :with-headers with-headers :print print)))
@@ -54,7 +61,9 @@
 	  (sql-query query *default-connection* :with-headers with-headers :print print)
 	  (cond ((or (equal "com.microsoft.sqlserver.jdbc.SQLServerConnection" (jclass-name (jobject-class connection)))
 		     (equal "oracle.jdbc.driver.T4CConnection" (jclass-name (jobject-class connection)))
-		     (equal "com.hxtt.sql.access.r" (jclass-name (jobject-class connection))))
+		     (equal "com.hxtt.sql.access.r" (jclass-name (jobject-class connection)))
+		     (equal "org.postgresql.jdbc4.Jdbc4Connection" (jclass-name (jobject-class connection)))
+		     (equal "org.sqlite.Conn" (jclass-name (jobject-class connection))))
 		 (let (statement results)
 		   (unwind-protect 
 			(progn
