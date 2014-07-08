@@ -11,7 +11,7 @@
   (get-url url :post message))
 
 (defun get-url (url &key post (force-refetch  post) (dont-cache post) (persist (not post)) cookiestring nofetch verbose tunnel referer (follow-redirects t) 
-		(ignore-errors nil) head accept extra-headers (appropriate-response (lambda(res) (and (numberp res) (>= res 200) (< res 400)))) verb
+		(ignore-errors nil) head accept to-file extra-headers (appropriate-response (lambda(res) (and (numberp res) (>= res 200) (< res 400)))) verb
 		&aux headers)
   "Get the contents of a page, saving it for this session in *page-cache*, so when debugging we don't keep fetching"
   (sleep 0.0001)			; give time for control-c
@@ -32,6 +32,17 @@
 				do (sleep 0.0001)
 				collect (#"toString" (new 'lang.string buffer 0 count))
 				))))
+	       (stream->file (stream file)
+		 (let ((buffer (jnew-array "byte" 4096))
+		       (ofile (new 'java.io.file (namestring (translate-logical-pathname file)))))
+		   (when (not (#"exists" ofile))
+		     (#"createNewFile" ofile))
+		   (let ((ostream (new 'java.io.fileoutputstream ofile)))
+		     (loop for count = (#"read" stream buffer)
+		      while (plusp count)
+		      do (sleep 0.0001)
+		      (#"write" ostream buffer 0 count))
+		     (#"close" ostream))))
 	     (doit()
 	       (when verbose (format t "~&;Fetching ~s~%" url))
 	       (let ((connection (#"openConnection" (new 'java.net.url (maybe-rewrite-for-tunnel url tunnel))))
@@ -80,9 +91,12 @@
 			 (if (and (member responsecode '(301 302 303)) follow-redirects)
 			     (progn (setq url (second (assoc "Location" (unpack-headers responsecode headers) :test 'equal)))
 				    (doit))
-			     (ignore-errors (stream->string stream)))
+			     (ignore-errors
+			       (if to-file 
+				   (stream->file stream to-file)
+				   (stream->string stream)))))
 
-			 ))))))
+			 )))))
 	(if ignore-errors
 	    (multiple-value-bind (value errorp) (ignore-errors (doit))
 	      (if errorp
@@ -250,7 +264,7 @@
       collect (list (#"compile" '|java.util.regex.Pattern| (format nil "[~c]" fixme))
 		    (format nil "%~2x" (char-code fixme)) fixme))))
 
-(defun clean-uri (site path &optional (protocol "http" ) (fragment "") (query nil) (nofix nil))
+(defun clean-uri (site path &optional (protocol "http" ) (fragment nil) (query nil) (nofix nil))
   (if (eq nofix t)
       (#"toString" (new 'java.net.uri protocol (or site +null+) path (or query null) (or fragment +null+)))
       (loop for (pattern replacement) in *uri-workaround-character-fixes*
