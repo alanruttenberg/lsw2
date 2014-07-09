@@ -23,3 +23,19 @@ Then add to your .emacs
 The slime contribs settings are documented at 
 http://common-lisp.net/project/slime/doc/html/Loading-Contribs.html
 
+To start LSW, start emacs and then M-x slime <ret>
+
+You should be placed into a buffer where you can execute code.
+
+To verify the kit's working do
+
+(show-classtree "http://purl.obolibrary.org/obo/bfo.owl")
+
+You should get a window with an interactive treemap explorer to wander
+around the BFO ontology. Click on one of the labels.
+
+To develop, you'll probably want to read about slime:
+http://common-lisp.net/project/slime/doc/html/index.html, which is
+your emacs-based IDE.
+
+
