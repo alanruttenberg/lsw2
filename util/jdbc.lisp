@@ -130,3 +130,12 @@ ORDER BY schema_name, table_name;" table-match  column-match) connection))
 	      until (not next?) do (print (#"getString" tables 3))
 		)))
 	(t (error "table-names not supported for other than access database at the moment"))))
+
+(defun table-counts (connection tables &optional (threshold 1) &rest fields)
+  (loop for table in tables 
+     for count = (parse-integer (caar (sql-query (format nil "select count(*) from ~a" table) connection)))
+     if (and (plusp count)
+	     (<= count threshold)
+	     fields)
+     collect (list table count (sql-query (format nil "select ~{~a~^,~} from ~a" fields table) connection))
+     else collect (list table count)))
