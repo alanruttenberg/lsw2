@@ -19,7 +19,9 @@
   (let ((table (label2uri ls)))
     (loop for el in (sources ls)
 	   do
-	   (let ((kb (if (v3kb-p el) el  (load-ontology (namestring (truename el))))))
+	   (let ((kb (if (v3kb-p el) el  (load-ontology (if (symbolp el) 
+							    (format nil "http://purl.obolibrary.org/obo/~a.owl" (string-downcase el))
+							     (namestring (truename el)))))))
 	     (let ((labels (rdfs-labels kb)))
 	       (setf (uri2label ls) (v3kb-uri2label kb))
 	       (maphash (lambda(uri label) 
