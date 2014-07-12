@@ -104,11 +104,6 @@
 (defun table-column-names  (table connection)
   (mapcar 'car (car (sql-query (list "select top 1 * from ~a" table) connection :with-headers t))))
 
-(defun sample-of-rows (table connection &optional howmany)
-  (let ((primary-key (dbdesc-table-primary-key allscripts-dbdesc table)))
-    (sql-query (list "select  * from ~a where ~a in (select top ~a ~a from ~a order by newid())" 
-		     table primary-key (or howmany 5) primary-key table) connection :print t)))
-
 (defun table-rowcount (table connection)
   "Return the number or rows in a table"
   (caar (sql-query (list "select count(*) from ~a" table) connection)))
