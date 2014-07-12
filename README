@@ -1,0 +1,25 @@
+In the below, <lsw2 trunk> is the checked out trunk directory for lsw2
+<repositories> is the directory where you keep checked out working copies
+I assume you are using emacs.
+
+To get going:
+
+Check out the current version of slime from github
+cd <repositories>
+git clone https://github.com/slime/slime.git
+
+Then add to your .emacs
+
+(add-to-list 'load-path "<repositories>/slime")
+(set-language-environment "UTF-8")
+(setq slime-net-coding-system 'utf-8-unix)
+(require 'slime-autoloads)
+(setq slime-contribs '(slime-repl slime-fancy slime-asdf))
+
+(setq slime-lisp-implementations
+ '((lsw ("<lsw2 trunk>") :init slime-init-command)
+   (abcl ("<lsw2 trunk>/bin/abcl --noinit") :init slime-init-command)))
+
+The slime contribs settings are documented at 
+http://common-lisp.net/project/slime/doc/html/Loading-Contribs.html
+
