@@ -38,7 +38,7 @@
 		      (list* (second form) (first form) (cddr form)))))
 ;	     (print (eval-uri-reader-macro reordered))
 	     (manchester-expression reordered)))
-	  )))
+	  ))
 
   (defmacro ce (form)
     `(eval-uri-reader-macro ',(manchester-expression form))))
