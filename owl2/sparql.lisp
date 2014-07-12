@@ -24,8 +24,7 @@
 			 :post (append `((,(cond ((member command '(:select :describe :ask :construct)) "query")
 						 ((member command '(:update)) "update")
 						 (t command)) ,query)
-					 ,(unless (eq command :update)
-						  (or format (unless (eq command :update) (list "format" "application/sparql-results+xml"))))
+					 ("format" ,(or format (unless (eq command :update) "application/sparql-results+xml")))
 					 ,@(if (eq command :select)
 					       '(("should-sponge" "soft"))))
 				       query-options)
@@ -62,7 +61,6 @@
 ;; http://www-128.ibm.com/developerworks/xml/library/j-sparql/
 
 (defun sparql (query &rest all &key (kb (and (boundp '*default-kb*) *default-kb*)) (use-reasoner :pellet) (flatten nil) (trace nil) (trace-show-query trace) endpoint-options geturl-options (values t) (endpoint nil) (chunk-size nil) (syntax :sparql) &allow-other-keys &aux (command :select) count)
-
   (when chunk-size (return-from sparql (apply 'sparql-by-chunk query all)))
   (setq use-reasoner (or endpoint use-reasoner))
   (setq count (and (consp query)
