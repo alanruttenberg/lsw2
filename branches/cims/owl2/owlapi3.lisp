@@ -23,6 +23,8 @@
 
 (defvar *default-reasoner* :hermit)
 
+(defvar *last-jena-model* nil) ; for the last with-ontology form
+
 (defmethod jena-model ((o v3kb))
   (or (v3kb-told-jena-model o) 
       (setf (v3kb-told-jena-model o) (to-jena-model o))))
@@ -90,6 +92,7 @@
 									   (#0"toString" (second source))
 									   (let ((model (apply 't-jena (maybe-reorder-assertions source) nil)))
 									     (let ((sw (new 'StringWriter)))
+									       (setq *last-jena-model*  model)
 									       (#"write" model sw "RDF/XML")
 									       (#0"getBytes" (#0"toString" sw) "UTF-8"))))
 								       (#0"toString" source))))
@@ -201,8 +204,10 @@
 	       :name ',name
 	       )))
 	 (let ((*default-kb* ,name))
-	   (declare (ignorable *default-kb* ))
-	   (values-list (append (multiple-value-list (progn ,@body)) (and ,also-return-axioms (list ,axioms-var)))))))))
+	   (flet ((write-ontology (&optional (pathname (make-pathname  :name (string-downcase (string (v3kb-name *default-kb*))) :type "owl" :directory (pathname-directory "~/Desktop/"))))
+		    (jena-serialize-to-file *last-jena-model* "RDF/XML-ABBREV" pathname)))
+	     (declare (ignorable *default-kb* ))
+	     (values-list (append (multiple-value-list (progn ,@body)) (and ,also-return-axioms (list ,axioms-var))))))))))
 
 (defun include-out-of-line-axioms (name as-fn))
 
