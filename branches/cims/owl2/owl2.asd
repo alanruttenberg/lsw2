@@ -155,6 +155,7 @@
 	     (:file "generate-mapping")
 	     (:file "the-mapping")
 	     (:file "swrl-rdf-mapping")
+	     (:file "manchester-class-expression")
 	     (:file "sparql")
 	     (:file "graph")
 	     (:file "weaken")
@@ -169,7 +170,8 @@
 	     (:file "owl-to-lisp-syntax");
 	     (:file "clean-subclass-tree")
 	     (:file "violations")
-	     (:file "to-owlapi-class-expression"))
+	     (:file "to-owlapi-class-expression")
+	     )
 	    :depends-on (matcher basics)
 	    ))
   :depends-on (util inspect xmls))
