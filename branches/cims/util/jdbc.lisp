@@ -63,7 +63,8 @@
 		     (equal "oracle.jdbc.driver.T4CConnection" (jclass-name (jobject-class connection)))
 		     (equal "com.hxtt.sql.access.r" (jclass-name (jobject-class connection)))
 		     (equal "org.postgresql.jdbc4.Jdbc4Connection" (jclass-name (jobject-class connection)))
-		     (equal "org.sqlite.Conn" (jclass-name (jobject-class connection))))
+		     (equal "org.sqlite.Conn" (jclass-name (jobject-class connection)))
+		     (equal "com.mysql.jdbc.JDBC4Connection" (jclass-name (jobject-class connection))))
 		 (let (statement results)
 		   (unwind-protect 
 			(progn
