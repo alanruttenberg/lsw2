@@ -171,6 +171,7 @@
 	     (:file "clean-subclass-tree")
 	     (:file "violations")
 	     (:file "to-owlapi-class-expression")
+	     (:file "text-classtree")
 	     )
 	    :depends-on (matcher basics)
 	    ))
