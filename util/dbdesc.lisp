@@ -1,13 +1,3 @@
-<<<<<<< local
-;;   (find table (find-immediate-children-with-tag dbdesc "TABLE") :key (lambda(e) (third (third e))) :test 'equal))
- 
- 
-;; this uses the dbdesc to find the primary key and probably some oracle specific functions that should be conditionalized.
-(defun sample-of-rows (table connection dbdesc &optional howmany)
-  (let ((primary-key (dbdesc-table-primary-key dbdesc table)))
-    (sql-query (list "select  * from ~a where ~a in (select top ~a ~a from ~a order by newid())" 
-		     table primary-key (or howmany 5) primary-key table) connection :print t)))
-=======
 ;; Copyright © 2013 Alan Ruttenberg and SUNY at Buffalo All Rights Reserved.
 
 ;; Redistribution and use in source and binary forms, with or without
@@ -126,4 +116,3 @@
   (let ((primary-key (dbdesc-table-primary-key dbdesc table)))
     (sql-query (list "select  * from ~a where ~a in (select top ~a ~a from ~a order by newid())" 
 		     table primary-key (or howmany 5) primary-key table) connection :print t)))
-			    
