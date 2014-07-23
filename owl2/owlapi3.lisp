@@ -681,20 +681,6 @@
 	       
 ;; Call fn on each axiom in the ontology (include-imports-closure -> t to include the imports closure)
 
-(defun each-axiom (ont fn &optional include-imports-closure)
-  (declare (optimize (speed 3) (safety 0)))
-  (let* ((ont (if (v3kb-p ont) (v3kb-ont ont) ont))
-	 (onts (if include-imports-closure
-		   (set-to-list (#"getImportsClosure" ont))
-		   (list ont))))
-    (with-constant-signature ((iterator "iterator" t) (hasnext "hasNext") (next "next"))
-      (loop for one in onts
-	   do
-	   (loop with iterator = (iterator (#"getAxioms" one))
-	      while (hasNext iterator)
-	      for item = (next iterator)
-	      do (funcall fn  item))))))
-    
 
 
  '(sparql '(:select (?class ?label) () (?class !rdfs:subClassOf (!oborel:has_participant some !<http://purl.org/obo/owl/PRO#submitted_irf7pirf7p>))
