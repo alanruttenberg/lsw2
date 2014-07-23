@@ -90,6 +90,7 @@
 	     (:file "manchester-class-expression")
 	     (:file "sparql")
 	     (:file "graph")
+	     (:file "axioms")
 	     (:file "weaken")
 	     (:file "local")
 	     (:file "module")
