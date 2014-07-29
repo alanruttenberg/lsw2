@@ -17,7 +17,7 @@
 (defmethod print-text-tree ((node text-tree-node) &optional (indent 0))
   (print-one-node node indent)
   (if (text-tree-node-children node)
-      (loop for child in (text-tree-node-children node) do (print-text-tree-structure child (+ indent 2)))))
+      (loop for child in (text-tree-node-children node) do (print-text-tree child (+ indent 2)))))
 
 (defmethod print-one-node  ((node text-tree-node) &optional (indent 0))
   (loop repeat indent do (write-char #\space))
