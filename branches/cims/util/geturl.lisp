@@ -20,10 +20,11 @@
   (and head
        (setq force-refetch t dont-cache t persist nil follow-redirects nil))
   (or (and (not force-refetch) (gethash url *page-cache*))
-      (and (not force-refetch) (probe-file (url-cached-file-name url))
-	   (get-url-from-cache url))
-      (and nofetch
-	   (error "Didn't find cached version of ~a" url))
+      (when (config :web-cache)
+	(and (not force-refetch) (probe-file (url-cached-file-name url))
+	     (get-url-from-cache url))
+	(and nofetch
+	     (error "Didn't find cached version of ~a" url)))
       (labels ((stream->string (stream)
 		 (let ((buffer (jnew-array "byte" 4096)))
 		   (apply 'concatenate 'string
@@ -117,11 +118,12 @@
 	    ))))
 
 (defun persist-page-cache ()
-  (maphash
-   (lambda(k v)
-     (unless (probe-file (url-cached-file-name v))
-       (save-url-contents-in-cache k v)))
-   *page-cache*))
+  (unless (config :web-cache)
+    (maphash
+     (lambda(k v)
+       (unless (probe-file (url-cached-file-name v))
+	 (save-url-contents-in-cache k v)))
+     *page-cache*)))
 
 
 (defun header-value (header headers)
@@ -170,58 +172,40 @@
            )))))
 	
 
-
-#|(defun get-url (url &key force-refetch dont-cache persist)
-  "Get the contents of a page, saving it for this session in *page-cache*, so when debugging we don't keep fetching"
-  (or (and (not force-refetch) (gethash url *page-cache*))
-      (and persist (probe-file (url-cached-file-name url))
-	   (get-url-from-cache url))
-      (multiple-value-bind (value errorp) 
-	  (ignore-errors 
-	    (let ((stream (#"openStream" (new 'net.url url)))
-		  (buffer (jnew-array "byte" 4096)))
-	      (apply 'concatenate 'string
-		     (loop for count = (#"read" stream buffer)
-			while (plusp count)
-			collect (#"toString" (new 'lang.string buffer 0 count))
-			))))
-	(if errorp
-	    (progn
-	      (list :error (java-exception-message errorp)))
-	    (if dont-cache
-		value
-		(setf (gethash url *page-cache*) (save-url-contents-in-cache url value)))))))|#
-
-
 (defun cache-url ())
 
 (defun url-cached-file-name (url)
-  (let ((it (new 'com.hp.hpl.jena.shared.uuid.MD5 url)))
-    (#"processString" it)
-    (let* ((digest (#"getStringDigest" it))
-	   (subdirs (coerce (subseq digest 0 4) 'list)))
-      (merge-pathnames (make-pathname :directory (cons :relative (mapcar 'string subdirs))
-				      :name digest :type "urlcache") (config :web-cache)))))
+  (and (config :web-cache)
+       (let ((it (new 'com.hp.hpl.jena.shared.uuid.MD5 url)))
+	 (#"processString" it)
+	 (let* ((digest (#"getStringDigest" it))
+		(subdirs (coerce (subseq digest 0 4) 'list)))
+	   (merge-pathnames (make-pathname :directory (cons :relative (mapcar 'string subdirs))
+					   :name digest :type "urlcache") (config :web-cache))))))
 
 (defun save-url-contents-in-cache (url content)
   (let ((fname (url-cached-file-name url)))
-    (ensure-directories-exist fname)
-    (with-open-file (f fname :direction :output :if-does-not-exist :create :external-format :utf-8)
-      (format f "~s" url)
-      (write-string content f))))
+    (and fname 
+	 (ensure-directories-exist fname)
+	 (with-open-file (f fname :direction :output :if-does-not-exist :create :external-format :utf-8)
+	   (format f "~s" url)
+	   (write-string content f)))))
 
 (defun get-url-from-cache (url)
   (let ((fname (url-cached-file-name url)))
-    (with-open-file (f fname :direction :input)
-      (let ((url-saved (read f)))
-	(assert (equalp url url-saved) () "md5 collision(!) ~s, ~s" url url-saved)
-	(let ((result (make-string (- (file-length f) (file-position f)))))
-	  (read-sequence result f)
-	  result)))))
+    (and fname
+	 (with-open-file (f fname :direction :input)
+	   (let ((url-saved (read f)))
+	     (assert (equalp url url-saved) () "md5 collision(!) ~s, ~s" url url-saved)
+	     (let ((result (make-string (- (file-length f) (file-position f)))))
+	       (read-sequence result f)
+	       result))))))
 
 (defun forget-cached-url (url)
-  (delete-file (url-cached-file-name url))
-  (remhash url *page-cache*))
+  (when (and (config :web-cache)
+	     (probe-file (url-cached-file-name url)))
+    (delete-file (url-cached-file-name url))
+    (remhash url *page-cache*)))
 
 (defun java-exception-message (exception)
   (ignore-errors (caar (all-matches (#"toString" (slot-value exception 'system::cause)) "(?s)=+\\s*(.*?)\\n" 1))))
@@ -254,7 +238,8 @@
      "(?s)(?i)<table.*?<hr>" "")))
 
 (defun cached-url-safari (url)
-  (and (probe-file (url-cached-file-name url))
+  (and (config :web-cache)
+       (probe-file (url-cached-file-name url))
        (run-shell-command (format nil "osascript -e 'tell application \"Safari\"' -e 'open \"~a\"' -e 'end tell'"
 					 (substitute #\: #\/ (namestring (truename (url-cached-file-name url))))))))
 
