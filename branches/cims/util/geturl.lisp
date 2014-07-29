@@ -20,11 +20,13 @@
   (and head
        (setq force-refetch t dont-cache t persist nil follow-redirects nil))
   (or (and (not force-refetch) (gethash url *page-cache*))
-      (when (config :web-cache)
-	(and (not force-refetch) (probe-file (url-cached-file-name url))
-	     (get-url-from-cache url))
-	(and nofetch
-	     (error "Didn't find cached version of ~a" url)))
+      (if (config-maybe :web-cache nil)
+          (progn 
+            (and (not force-refetch) (probe-file (url-cached-file-name url))
+                 (get-url-from-cache url))
+            (and nofetch
+                 (error "Didn't find cached version of ~a" url)))
+          (setf persist nil))
       (labels ((stream->string (stream)
 		 (let ((buffer (jnew-array "byte" 4096)))
 		   (apply 'concatenate 'string
