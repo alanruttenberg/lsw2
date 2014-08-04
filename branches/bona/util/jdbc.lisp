@@ -50,6 +50,7 @@
 ;; if with-headers is non-nil, then the values are instead ("fieldname" . value) instead of just value.
 ;; query can be a list of strings, in which case they are concatenated
 ;; if format-args is supplied then the query string used as a format string with the format-args
+;; multiple values are returned: 1. the result of the query, 2. the field names of the resultset
 (defun sql-query (query &optional (connection *default-connection*) &key with-headers print format-args trace)
   (when (listp query) (setq query (format nil "~{~a~^ ~}" query)))
   (when format-args (setq query (apply 'format nil query format-args)))
@@ -73,23 +74,27 @@
 			  (setq results (#"executeQuery" statement (if (consp query) (apply 'format nil (car query) (cdr query)) query )))
 			  (when print 
 			    (format t "~{~a~^	~}~%" (loop for i from 1 to (#"getColumnCount" (#"getMetaData" results)) collect (#"getColumnName" (#"getMetaData" results) i))))
-			  (loop while (#"next" results) 
-			     with headers and columns
-			     collect (block columns (loop for column from 1 to (#"getColumnCount" (#"getMetaData" results))
-						       if with-headers
-						       do (unless headers (setq headers (make-array (#"getColumnCount" (#"getMetaData" results)))) )
-						       and collect (cons (or (svref headers (1- column))
-									     (setf (svref headers (1- column))
-										   (#"getColumnName" (#"getMetaData" results) column)))
-									 (#"getString" results column)) into columns
-						       else collect (#"getString" results column) into columns
-						       finally (return-from columns (if print (progn (format t "~{~s~^	~}~%" (mapcar 'cdr columns)) (values)) columns))))
-			     into rows
-			     finally (if print nil (return-from nil rows))))
-		     (and (boundp 'results) results (#"close" results))
-		     (and (boundp 'statement) statement (#"close" statement)))
+			  (let ((field-names
+				 (loop 
+				    for i from 1 to (#"getColumnCount" (#"getMetaData" results))
+				    collect (#"getColumnName" (#"getMetaData" results) i)))) ; collect field names
+			    (loop 
+			       while (#"next" results) 
+			       with columns
+			       collect (block columns
+					 (loop 
+					    for field in field-names
+					    if with-headers
+					    collect (cons field (#"getString" results field)) into columns 
+					    else collect (#"getString" results field) into columns
+					    finally (return-from columns (if print (progn (format t "~{~s~^	~}~%" (mapcar 'cdr columns)) (values)) columns))))
+			       into rows
+			       finally (if print nil (return-from nil (values rows field-names))))))
+			  (and (boundp 'results) results (#"close" results))
+			  (and (boundp 'statement) statement (#"close" statement)))
 		   ))
 		(t (error "Don't yet support sql-query for ~a" (jclass-name (jobject-class connection))))))))
+
 
 (defun sql-server-driver-properties ()
   (map 'list (lambda(e)
