@@ -10,7 +10,7 @@
 (defun post-url-xml (url message)
   (get-url url :post message))
 
-(defun get-url (url &key post (force-refetch  post) (dont-cache post) (persist (not post)) cookiestring nofetch verbose tunnel referer (follow-redirects t) 
+(defun get-url (url &key post (force-refetch  post) (dont-cache post) (persist (or (not post) to-file)) cookiestring nofetch verbose tunnel referer (follow-redirects t) 
 		(ignore-errors nil) head accept to-file extra-headers (appropriate-response (lambda(res) (and (numberp res) (>= res 200) (< res 400)))) (verb "GET")
 		&aux headers)
   "Get the contents of a page, saving it for this session in *page-cache*, so when debugging we don't keep fetching"
@@ -21,7 +21,6 @@
        (setq force-refetch t dont-cache t persist nil follow-redirects nil))
   (or (and (not force-refetch) (gethash url *page-cache*))
       (when (config :web-cache)
-	(print-db force-refetch)
 	(and (not force-refetch) (probe-file (url-cached-file-name url))
 	     (get-url-from-cache url))
 	(and nofetch
@@ -88,7 +87,9 @@
 		 (let ((responsecode (#"getResponseCode" connection)))
 		   (if (not (funcall appropriate-response responsecode))
 		       (let ((errstream (#"getErrorStream" connection)))
-			 (error "Bad HTTP response ~A: ~A" responsecode (if errstream (stream->string errstream) "No error stream"))) 
+			 (if ignore-errors
+			     (when verbose (format t "~&;Failed to fetch ~a - got response code ~a~%" url responsecode))
+			     (error "Bad HTTP response ~A: ~A" responsecode (if errstream (stream->string errstream) "No error stream"))) )
 		       (let ((stream (ignore-errors (#"getInputStream" connection))))
 			 (if (and (member responsecode '(301 302 303)) follow-redirects)
 			     (progn (setq url (second (assoc "Location" (unpack-headers responsecode headers) :test 'equal)))
@@ -106,7 +107,7 @@
 		    (when verbose (format t "~a" (java-exception-message errorp)))
 		    (values (list :error errorp (java-exception-message errorp)) (unpack-headers nil headers)))
 		  (progn
-		    (if persist (save-url-contents-in-cache url value) value)
+		    (if (and persist (not (and ignore-errors (null value)))) (save-url-contents-in-cache url value) value)
 		    (if dont-cache
 			(values value (unpack-headers nil headers))
 			(values (setf (gethash url *page-cache*) value) (unpack-headers nil headers))))))
