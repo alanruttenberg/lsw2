@@ -11,7 +11,7 @@
   (get-url url :post message))
 
 (defun get-url (url &key post (force-refetch  post) (dont-cache post) (persist (not post)) cookiestring nofetch verbose tunnel referer (follow-redirects t) 
-		(ignore-errors nil) head accept to-file extra-headers (appropriate-response (lambda(res) (and (numberp res) (>= res 200) (< res 400)))) verb
+		(ignore-errors nil) head accept to-file extra-headers (appropriate-response (lambda(res) (and (numberp res) (>= res 200) (< res 400)))) (verb "GET")
 		&aux headers)
   "Get the contents of a page, saving it for this session in *page-cache*, so when debugging we don't keep fetching"
   (sleep 0.0001)			; give time for control-c
@@ -21,6 +21,7 @@
        (setq force-refetch t dont-cache t persist nil follow-redirects nil))
   (or (and (not force-refetch) (gethash url *page-cache*))
       (if (config-maybe :web-cache nil)
+          (print-db force-refetch)
           (progn 
             (and (not force-refetch) (probe-file (url-cached-file-name url))
                  (get-url-from-cache url))
