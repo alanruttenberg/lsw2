@@ -49,7 +49,7 @@
 	    else do (when (listp children) (setq q (nconc q (remove-if-not 'consp children))))
 	    while q)))
     (if (and found more-tags)
-	(loop for el in found append (apply 'find-element-with-tag el more-tags))
+	(loop for el in found append (apply 'find-elements-with-tag el more-tags))
 	found)))
 
 (defvar seen! nil)

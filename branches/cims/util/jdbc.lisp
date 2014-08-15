@@ -36,11 +36,13 @@
     (unwind-protect
 	 (progn
 	   (when (search "jdbc:sqlite" jdbc-url) 
-	       (#"forName" 'Class "org.sqlite.JDBC"))
-	   (let ((*default-connection* (#"getConnection" 'java.sql.DriverManager jdbc-url)))
-	     (funcall fn *default-connection*)))
-      (and connection (#"close" connection))
-      )))
+	     (#"forName" 'Class "org.sqlite.JDBC"))
+	   (if (equal (car *default-connection*) jdbc-url)
+	       (progn (funcall fn (cdr *default-connection*)))
+	       (let ((*default-connection* (cons jdbc-url (setq connection (#"getConnection" 'java.sql.DriverManager jdbc-url)))))
+		 (funcall fn (cdr *default-connection*)))))
+      (when (and connection (not (equal (car *default-connection*) jdbc-url)))
+	(#"close" connection)))))
 
 (defgeneric with-jdbc-connection-named (keyword function)
   (:documentation "if a sql query is executed with a connection that is a keyword instead of a connection object, the sql is wrapped in a lambda and passed to this function, which calls the lambda with a single argument which is the connection. Clients of this functionality need to define eql methods on the first argument to implement the necessary setup of the connection"
@@ -51,7 +53,7 @@
 ;; query can be a list of strings, in which case they are concatenated
 ;; if format-args is supplied then the query string used as a format string with the format-args
 ;; multiple values are returned: 1. the result of the query, 2. the field names of the resultset
-(defun sql-query (query &optional (connection *default-connection*) &key with-headers print format-args trace)
+(defun sql-query (query &optional (connection (cdr *default-connection*)) &key with-headers print format-args trace)
   (when (listp query) (setq query (format nil "~{~a~^ ~}" query)))
   (when format-args (setq query (apply 'format nil query format-args)))
   (when (or trace *jdbc-trace*) (print query))
@@ -59,7 +61,7 @@
       (with-jdbc-connection-named connection
 	(lambda(c) (sql-query query c :with-headers with-headers :print print)))
       (if (and (null connection) (not (null *default-connection*)))
-	  (sql-query query *default-connection* :with-headers with-headers :print print)
+	  (sql-query query (cdr *default-connection*) :with-headers with-headers :print print)
 	  (cond ((or (equal "com.microsoft.sqlserver.jdbc.SQLServerConnection" (jclass-name (jobject-class connection)))
 		     (equal "oracle.jdbc.driver.T4CConnection" (jclass-name (jobject-class connection)))
 		     (equal "com.hxtt.sql.access.r" (jclass-name (jobject-class connection)))
