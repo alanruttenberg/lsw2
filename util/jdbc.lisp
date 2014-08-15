@@ -198,3 +198,13 @@ ORDER BY schema_name, table_name;" table-match  column-match) connection))
 	     fields)
      collect (list table count (sql-query (format nil "select ~{~a~^,~} from ~a" fields table) connection))
      else collect (list table count)))
+
+(defun describe-table (connection table)
+  (let ((table-and-comment (car (table-names-matching connection table))))
+    (format t "~a:~%~a~%~{~a:  ~a~^~%~}" 
+	    (first table-and-comment)
+	    (second table-and-comment)
+	    (loop for (column doc) in (table-columns connection table) 
+	       collect column collect doc))))
+
+;; http://dev.mysql.com/doc/refman/5.0/en/fulltext-search.html#function_match
