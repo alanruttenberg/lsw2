@@ -10,8 +10,8 @@
 (defun post-url-xml (url message)
   (get-url url :post message))
 
-(defun get-url (url &key post (force-refetch  post) (dont-cache post) (persist (or (not post) to-file)) cookiestring nofetch verbose tunnel referer (follow-redirects t) 
-		(ignore-errors nil) head accept to-file extra-headers (appropriate-response (lambda(res) (and (numberp res) (>= res 200) (< res 400)))) (verb "GET")
+(defun get-url (url &key post (force-refetch  post) (dont-cache post) (to-file nil) (persist (and (not post) (not to-file))) cookiestring nofetch verbose tunnel referer (follow-redirects t) 
+		(ignore-errors nil) head accept  extra-headers (appropriate-response (lambda(res) (and (numberp res) (>= res 200) (< res 400)))) (verb "GET")
 		&aux headers)
   "Get the contents of a page, saving it for this session in *page-cache*, so when debugging we don't keep fetching"
   (sleep 0.0001)			; give time for control-c
@@ -55,7 +55,7 @@
 		   (#"setRequestProperty" connection "Cookie" (join-with-char (append *cookies* cookiestring) #\;)))
 		 (when referer
 		   (#"setRequestProperty" connection "Referer" referer))
-		 (#"setRequestProperty" connection "User-Agent" "Mozilla/4.0 (compatible)")
+		 (#"setRequestProperty" connection "User-Agent" "Mozilla/4.0")
 		 (when verb (#"setRequestMethod" connection verb))
 		 (when accept
 		   (#"setRequestProperty" connection "Accept" accept))
@@ -140,7 +140,7 @@
 
 
 
-(defun unpack-headers (response headers)
+ (defun unpack-headers (response headers)
   (append
    (if response
        (list (list "response-code" response))
