@@ -8,7 +8,8 @@
    (cookie :accessor cookie :initarg :cookie)
    (pages :accessor pages :initarg :pages )
    (users :accessor users :initarg :users )
-   (login-result :accessor login-result)))
+   (login-result :accessor login-result)
+   (api-token :accessor api-token)))
 
 (defmethod print-object ((b mediawiki-bot) stream)
   (let ((*print-case* :downcase))
@@ -24,12 +25,22 @@
 (defmethod login-via-api ((b mediawiki-bot) url user pass)
   (multiple-value-bind (result headers)
       (get-url (api-url b)
-	       :post `(("action" "login") ("lgname" ,user) ("lgpassword" ,pass) ("format" "xml"))
+	       :post `(("action" "login") ("lgname" ,user) ("lgpassword" ,pass) ("format" "xml") ,@(if (slot-boundp b 'api-token) `(("lgtoken" ,(api-token b)))))
 	       :force-refetch t)
     (setf (cookie b)
 	  (mapcar (lambda(e) (#"replaceAll" e ";.*" "")) (cdr (assoc "Set-Cookie" headers :test 'equal))))
     (let ((returned (attribute-named (find-element-with-tag (nastybot-xml-parse result) "login") "result")))
-      (assert (equalp returned "Success") () (format nil "Failed to log in: ~a" result)))))
+      (if (equalp returned "NeedToken")
+	  (progn
+	    (assert (not (boundp '*mediawiki-getting-token*)) () "Login token acquisition loop")
+	    (let ((*mediawiki-getting-token* t)
+		  (*cookies* (cookie b)))
+	      (declare (special *mediawiki-getting-token*))
+	      (let ((token (attribute-named (find-element-with-tag (nastybot-xml-parse result) "login") "token")))
+		(assert token () "Didn't get a token!")
+		(setf (api-token b) token)
+		(login-via-api b url user pass))))
+	  (assert (equalp returned "Success") () (format nil "Failed to log in: ~a" result))))))
 
 
 ;; backup
