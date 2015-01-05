@@ -106,6 +106,11 @@
     (nastybot-xml-parse (get-url-update-session b (api-url b) 
 					:post `(("action" "edit") ("title" ,page) ("appendtext" ,text) ("token"  ,token) ("format" "xml"))))))
 
+(defmethod delete-page ((b mediawiki-bot) page)
+  (let ((token (get-edit-token b page)))
+    (nastybot-xml-parse (get-url-update-session b (api-url b) 
+						:post `(("action" "delete") ("title" ,page) ("token"  ,token) ("format" "xml"))))))
+
 (defmethod raw-page-content ((b mediawiki-bot) page)
   (let ((result (query b "prop" "revisions" "titles" page "rvprop" "content")))
     (third (find-element-with-tag result "rev"))))
@@ -113,3 +118,4 @@
 
 (defun nastybot-xml-parse (s)
   (if (not (char= (char s 0) #\<)) (xmls:parse (subseq s (position #\< s))) (xmls:parse s)))
+
