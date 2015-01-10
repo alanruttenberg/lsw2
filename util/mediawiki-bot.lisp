@@ -111,8 +111,9 @@
     (nastybot-xml-parse (get-url-update-session b (api-url b) 
 						:post `(("action" "delete") ("title" ,page) ("token"  ,token) ("format" "xml"))))))
 
-(defmethod raw-page-content ((b mediawiki-bot) page)
-  (let ((result (query b "prop" "revisions" "titles" page "rvprop" "content")))
+(defmethod raw-page-content ((b mediawiki-bot) page &key follow-redirects)
+  (let ((result (apply 'query b "prop" "revisions" "titles" page "rvprop" "content"
+		       (and follow-redirects (list "redirects" "")))))
     (third (find-element-with-tag result "rev"))))
 
 
