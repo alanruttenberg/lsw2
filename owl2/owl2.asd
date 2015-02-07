@@ -47,7 +47,7 @@
   (let ((arch (#"getProperty" 'system "os.arch"))
 	(os (#"getProperty" 'system "os.name")))
     (namestring (merge-pathnames
-		 (make-pathname :directory `(:relative "lib" "factpp-native-1.5.0" ,(factpp-native-dir arch os))
+		 (make-pathname :directory `(:relative "lib" "factpp-native-1.6.3" ,(factpp-native-dir arch os))
 				:name (pathname-name (factpp-library-name arch os))
 				:type (pathname-type (factpp-library-name arch os))
 				)
@@ -61,10 +61,14 @@
   ((:module lib 
 	    :components
 	    ((:jar-file "org.semanticweb.HermiT")
-	     (:jar-file "owlapi-bin")
-	     (:jar-file "factplusplus-1.5.0")
+	     (:jar-file "owlapi-3.4.5")
+	     (:jar-file "factplusplus-1.6.3")
 	     (:jar-file "elk-owlapi-041")
-;	     (:jar-directory "pellet")
+	     (:jar-directory "jena")
+	     (:jar-file "uncommons-maths-1.2.2")
+	     (:jar-directory "pellet")
+	     (:jar-directory "pellet-support")
+	     (:jar-file "OWL-BGP-0.1.jar")
 	     (:jar-directory "prefuse")
 	     ))
    (:module "basics"
