@@ -119,7 +119,7 @@
 				     (#"createInfModel" 'modelfactory 
 							(#"getOWLReasoner" 'ReasonerRegistry)
 							(#"getModel" (kb-jena-reasoner kb)))))
-			 (t (error "wtf: use-reasoner: ~a"use-reasoner))))
+			 (t (error "SPARQL isn't supported with reasoner ~a. It is only supported, currently, when using reasoners :pellet, :pellet-sparql, :none" use-reasoner))))
 	       ;; ResultSet results = qe.execSelect();
 	       (vars (set-to-list (#"getResultVars" jquery))))
 	  (unwind-protect
