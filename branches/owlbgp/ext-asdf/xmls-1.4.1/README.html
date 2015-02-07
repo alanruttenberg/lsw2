@@ -1,0 +1,237 @@
+<html>
+<head/>
+<body>
+<h1>XMLS</h1>
+
+<h2>Summary</h2>
+<p>
+  Xmls is a small, simple, non-validating xml parser for Common Lisp.  It's
+  designed to be a self-contained, easily embedded parser that recognizes a useful
+  subset of the XML spec.  It provides a simple mapping from xml to lisp 
+  s-expressions and back.
+</p>
+
+<h2>Features</h2>
+<ul>
+  <li>
+    Free (BSD license).
+  </li>
+  <li>
+    Understands enough of the xml spec to parse many common documents, including
+    those occurring in common internet protocols like xml-rpc, webdav, and BEEP.
+    Parses 85 out of the 98 valid documents in the oasis parser compliance suite.
+  </li>
+  <li>
+    Small and easily embedded.  The entire parser is contained in one
+    file and it's currently less than 600 lines of code.  Xmls is written in
+    pure lisp and requires no external parsing tools or foreign libraries.
+  </li>
+  <li>
+    Supports xml namespaces.
+  </li>
+  <li>
+    Threadsafe.
+  </li>
+  <li>
+    Serializes s-expr list structures back to xml as well as parsing xml.
+  </li>
+</ul>
+
+<h2>Limitations</h2>
+<ul>
+  <li>
+    Parses entire document into memory and consequently can't handle large
+    documents.
+  </li>
+  <li>
+    No detailed error reporting.
+  </li>
+</ul>
+
+<h2>Xml Representation</h2>
+
+<p>
+  Parsed xml is represented as a lisp list.  A node is represented as follows:
+</p>
+
+<pre>
+(name (attributes) children*)
+</pre>
+
+<p>
+  A name is either a simple string, if the element does not belong to a namespace,
+  or a list of (name namespace-url) if the element does belong to a namespace.
+</p>
+
+<p>
+  Attributes are stored as (name value) lists.
+</p>
+
+<p>
+  Children are stored as a list of either element nodes or text nodes.
+</p>
+
+<p>
+  For example, the following xml document:
+</p>
+
+<pre>
+&lt;?xml version="1.0"?&gt;
+&lt;!-- test document --&gt;
+&lt;book title='The Cyberiad'&gt;
+  &lt;!-- comment in here --&gt;
+  &lt;author xmlns='http://authors'&gt;Stanislaw Lem&lt;/author&gt;
+  &lt;info:subject xmlns:info='http://bookinfo' rank='1'&gt;&amp;quot;Cybernetic Fables&amp;quot;&lt;/info:subject&gt;
+&lt;/book&gt;
+</pre>
+
+Would parse as:
+
+<pre>
+("book" (("title" "The Cyberiad"))
+ (("author" . "http://authors") NIL "Stanislaw Lem")
+ (("subject" . "http://bookinfo") (("rank" "1")) "\"Cybernetic Fables\""))
+</pre>
+
+<p>
+  Xmls also includes a helper function, make-node for creating xml nodes
+  of this form:
+</p>
+
+<pre>
+(make-node &amp;key name ns attrs children)
+</pre>
+
+<p>
+  Xmls provides the corresponding accessor functions node-name, node-ns
+  node-attrs, and node-children.
+</p>
+
+<h2>Usage</h2>
+
+<p>
+  The interface is straightforward.  The two main functions are parse and toxml.
+</p>
+
+<pre>
+(parse source &amp;key (compress-whitespace t))
+</pre>
+
+<p>
+  Parse accepts either a string or an input stream and attempts to parse the xml
+  document contained therein.  It will return the s-expr parse tree if it's
+  successful or nil if parsing fails.
+
+  If compress-whitespace is t, content nodes will be trimmed of whitespace and
+  empty whitespace strings between nodes will be discarded.
+</p>
+
+<pre>
+(write-xml xml stream &amp;key (indent nil))
+</pre>
+
+<p>
+  write-xml accepts a lisp list in the format described above and writes the
+  equivalent xml string to stream.  Currently, if nodes use namespaces xmls will not 
+  assign namespaces prefixes but will explicitly assign the namespace to each node.  This
+  will be changed in a later release.
+
+  Xmls will indent the generated xml output if indent is non-nil.
+</p>
+
+<pre>
+(toxml node &amp;key (indent nil))
+</pre>
+
+<p>
+  Toxml is a convenience wrapper around write-xml that returns the in a newly
+  allocated string.
+</p>
+
+<h3>Helper functions</h3>
+
+<p>These are intended to allow programmers to avoid direct manipulation of the
+  s-expression representation.  If you use these, your code should be easier to
+  read and you will avoid problems if there is a change in internal
+  representation (such changes would be hard to even find, much less correct, if
+  using the lists directly).</p>
+
+<dl>
+  <dt><code>
+      make-xmlrep  (tag &key attribs children)
+  </code>
+  </dt>
+  <dd>Constructor function.</dd>
+
+<dt><code>
+    xmlrep-add-child! (xmlrep child)
+</code>
+</dt>
+<dd>Add a new child node to the XMLREP node.</dd>
+<dt><code>
+    xmlrep-tag (xmlrep)
+</code>
+</dt>
+  <dd>Extract the tag from XMLREP.</dd>
+<dt><a name="xmlrep-tagmatch"><code>xmlrep-tagmatch (tag treenode)</code></a>
+</dt>
+<dd>Returns true if TAG is the tag of TREENODE.  Match is
+  case <em>insensitive</em> (quite possibly this is the Wrong Thing). </dd>
+<dt><code>
+    xmlrep-attribs (xmlrep)
+</code>
+</dt>
+<dd>Extract the attributes from an XMLREP node.</dd>
+<dt><code>
+    xmlrep-children (xmlrep)
+</code>
+</dt>
+<dd>Extract the children from an XMLREP node.</dd>
+<dt><code>
+    xmlrep-find-child-tags (tag treenode)
+</code>
+</dt>
+<dd>Return all of the (direct) children of TREENODE whose tags are TAG.
+  Matching done by <a href="#xmlrep-tagmatch"><code>xmlrep-tagmatch</code></a>.
+<dt><code>
+    xmlrep-find-child-tag (tag treenode
+    &optional (if-unfound :error))
+</code>
+</dt>
+<dd>Find a <em>single</em> child of TREENODE with TAG.  Returns an error
+if there is more or less than one such child.</dd>
+<dt><code>
+    xmlrep-attrib-value (attrib treenode
+    &optional (if-undefined :error))
+</code>
+</dt>
+<dd>Find the value of ATTRIB, a string, in TREENODE.
+if there is no ATTRIB, will return the value of IF-UNDEFINED,
+which defaults to :ERROR.</dd>
+<dt><code>
+    xmlrep-boolean-attrib-value (attrib treenode
+    &optional (if-undefined :error))
+</code>
+</dt>
+<dd>Find the value of ATTRIB, a string, in TREENODE.
+The value should be either "true" or "false".  The
+function will return T or NIL, accordingly.  If there is no ATTRIB,
+  will return the value of IF-UNDEFINED, which defaults to :ERROR.</dd>
+</dl>
+<h2>Installation</h2>
+
+<p>
+  xmls can be installed as an asdf system.  An asdf
+  system definition is provided with the distribution.
+</p> 
+<p>Previous versions of XMLS were single files, and could be installed simply by
+  loading the file xmls.lisp.  This option is no longer supported.</p>
+ 
+<h2>Contact Information</h2> 
+ 
+<p> 
+  Please contact Robert Goldman, rpgoldman AT sift.info with any 
+  questions or bug reports.
+</p>
+</body>
+</html>
