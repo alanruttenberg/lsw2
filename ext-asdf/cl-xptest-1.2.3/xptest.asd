@@ -16,7 +16,7 @@
 (defsystem :xptest
   :name "cl-xptest"
   :author "Craig Brozensky"
-  :version "2003.04.21"
+;  :version "2003.04.21"
   :maintainer "Kevin M. Rosenberg <kmr@debian.org>"
   :licence "Public domain"
   :description "Extreme Programming Testing Suite"

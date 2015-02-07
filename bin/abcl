@@ -1,11 +1,17 @@
 #!/usr/bin/perl
 
+# (setenv "_JAVA_OPTIONS" "-XX:-TraceClassLoading -XX:-TraceClassUnloading -XX:+UseCompressedOops -XX:+PrintGCDetails -XX:+PrintGCTimeStamps -XX:PermSize=128m  -XX:MaxPermSize=25
+
+
+
 use Getopt::Std;
 
 # Either use ABCL_WD, or figure out where with are using $0. Latter works 
 # on both on cygwin and os x
 
-getopt('rsbj'); # r=ram, s=stack, b=bits, j=java. Environment variables if not command line args.
+#http://docs.oracle.com/javase/7/docs/technotes/tools/windows/java.html
+
+getopt('rsbjgc'); # r=ram, s=stack, b=bits, j=java. Environment variables if not command line args.
 
 if ($ENV{ABCL_WD})
   { $here = $ENV{ABCL_WD} }
@@ -26,6 +32,20 @@ elsif ($ENV{ABCL_BITS})
 else
   { $bits = "-d32"; }
 
+if ($opt_g)
+{ @gc = ("-XX:$opt_g\PrintGCDetails", "-XX:$opt_g\PrintGCTimeStamps") }
+elsif ($ENV{ABCL_VERBOSEGC}) 
+{ @gc = ("-XX:$ENV{ABCL_VERBOSEGC}PrintGCDetails", "-XX:{ABCL_VERBOSEGC}PrintGCTimeStamps") }
+else
+{ @gc = ("-XX:-PrintGCDetails", "-XX:-PrintGCTimeStamps") }
+
+if ($opt_c)
+{ @cl = ("-XX:$opt_c\TraceClassLoading", "-XX:$opt_c\TraceClassUnloading") }
+elsif ($ENV{ABCL_CLASSLOADING}) 
+{ @cl = ("-XX:$ENV{ABCL_CLASSLOADING}TraceClassLoading", "-XX:{ABCL_CLASSLOADING}TraceClassUnloading") }
+else
+{ @cl = ("-XX:-TraceClassLoading", "-XX:-TraceClassUnloading") }
+
 if ($opt_r)
   { $ram = "-Xmx$opt_r\m"; }
 elsif ($ENV{ABCL_RAM}) 
@@ -40,43 +60,64 @@ elsif ($ENV{ABCL_STACK})
 else
   { $stack = "-Xss24m";}
 
+if ($opt_p)
+{ $permg = "-XX:PermSize=$opt_p\m" }
+elsif ($ENV{ABCL_PERMRAM}) 
+  { $permg = "-XX:MaxPermSize=$ENV{ABCL_PERMRAM}m" }
+else
+  { $permg = "-XX:PermSize=128m";}
+
   
 $java = $opt_j || $ENV{ABCL_JAVA} || "java";
-@version = `$java -version 2>&1`;
+@version = `$java -version 2>&1 | tr -d '\n'`;
 $sep = "================================================================";
 
-# flushed: chdir $here;
-
 if ($ENV{OS} =~ /windows/i) {$pathJoin = ";"} else {$pathJoin = ":" }
-if (!(@version[0] =~ /version/) ) 
+if (!(@version[0] =~ /version/) && !(@version[1] =~ /version/) ) 
   { complainCantTellVersion() }
-elsif (!(@version[0] =~ /"1.[56]/) ) 
-  { complainWrongVersion(); exit() }
+elsif (!((@version[0] =~ /"1.[5678]/) || (@version[1] =~ /"1.[567]/)))
+   { complainWrongVersion(); exit() }
+if ((@version[0] =~ /"1.[78]/) || (@version[1] =~ /"1.[78]/)) { $bits="-d64" } ; 
+
 @libs = grep(/.jar$/,split /\n/,`find "$here/lib" -follow`);
+
+# @jar=grep(/abcl.jar/,@libs);
+# @libs = grep(!/abcl.jar/,@libs);
 
 # $ENV{DYLD_LIBRARY_PATH}="$here/lib";
 
 # flushed: map {s/$here\///} @libs;
 
-if ($ENV{ABCL_JAR})
-{ @libs = ($ENV{ABCL_JAR},grep(!/abcl.jar/,@libs))}
+#if ($ENV{ABCL_JAR})
+#{$jar=$ENV{ABCL_JAR};
 
-$libjar = join($pathJoin,@libs);
+#{ @libs = ($ENV{ABCL_JAR},grep(!/abcl.jar/,@libs))}
 
+$classpath = join($pathJoin,@libs);
 
 if ($ENV{ABCL_PROFILE_SHARK})
   { @profileargs = ("-XrunShark") }
 
 if (`uname` =~ /Darwin/)
- { @dock = ("-Xdock:icon=$here/images/lswicon.icns","-Xdock:name=Armed Bear Common Lisp")}
+ { @dock = ("-Xdock:icon=$here/images/lswicon.icns","-Xdock:name='Armed Bear Common Lisp'")}
 
-#@args  = ($ram,$stack,$bits,@profileargs,"-cp", $libjar, @dock);
-@args  = ($ram,$stack,$bits,@profileargs,"-Xbootclasspath/a:$libjar",@dock);
+@args  = ($ram,$stack,$permg,$bits,@gc,@cl,@profileargs, @dock);
+#@args  = ($ram,$stack,$bits,@gc,@profileargs,"-Xbootclasspath/a:$classpath",@dock);
 
 if (!($ENV{OS} =~ /windows/i)) { @args = ("-server",@args);}
-print "$java @args org.armedbear.lisp.Main --load $here/scripts/system-registry.lisp @ARGV\n";
-#exec("$java",@args,"org.armedbear.lisp.Main","-Djava.library.path=\"$here/lib\"", "--load","$here/scripts/system-registry.lisp",@ARGV);
-exec("$java",@args,"org.armedbear.lisp.Main", "--load","$here/scripts/system-registry.lisp",@ARGV);
+print "java -version says:\n@version\n";
+print "jar: @jar[0]\n";
+print "args: @args\n";
+print "ARGV: @ARGV\n";
+
+$ENV{CLASSPATH}=$classpath;
+print "CLASSPATH=$classpath\n";
+
+@command = ("$java",@args,"org.armedbear.lisp.Main","--load","$here/scripts/system-registry.lisp",@ARGV,);
+
+print "@command\n";
+
+exec(@command);
 
 sub complainCantTellVersion ()
 { print("I'm trying to tell which version of java you are running, but \"$java -version\" prints\n$sep\n");
@@ -85,7 +126,7 @@ sub complainCantTellVersion ()
 }
 
 sub complainWrongVersion ()
-{ print("This project needs java 1.5 or 1.6 , but \"$java -version\" prints\n$sep\n");
+{ print("This project needs java 1.5,1.6, or 1.7, but \"$java -version\" prints\n$sep\n");
   print @version;
   print("$sep\nYou either need to install java version 1.5 or 1.6, and/or first set the\n");
   print("environment variable ABCL_JAVA to the appropriate java executable (e.g.\n");

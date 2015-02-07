@@ -1,0 +1,6 @@
+ccl64 < compile >& compile.out
+ccl64 << ENDOFSTDIN
+(load "snark-system.lisp")
+(make-snark-system)
+(save-snark-system)
+ENDOFSTDIN

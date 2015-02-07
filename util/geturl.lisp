@@ -10,8 +10,8 @@
 (defun post-url-xml (url message)
   (get-url url :post message))
 
-(defun get-url (url &key post (force-refetch  post) (dont-cache post) (persist (not post)) cookiestring nofetch verbose tunnel referer (follow-redirects t) 
-		(ignore-errors nil) head accept extra-headers (appropriate-response (lambda(res) (and (numberp res) (>= res 200) (< res 400)))) verb
+(defun get-url (url &key post (force-refetch  post) (dont-cache post) (to-file nil) (persist (and (not post) (not to-file))) cookiestring nofetch verbose tunnel referer (follow-redirects t) 
+		(ignore-errors nil) head accept  extra-headers (appropriate-response (lambda(res) (and (numberp res) (>= res 200) (< res 400)))) (verb "GET")
 		&aux headers)
   "Get the contents of a page, saving it for this session in *page-cache*, so when debugging we don't keep fetching"
   (sleep 0.0001)			; give time for control-c
@@ -20,10 +20,11 @@
   (and head
        (setq force-refetch t dont-cache t persist nil follow-redirects nil))
   (or (and (not force-refetch) (gethash url *page-cache*))
-      (and (not force-refetch) (probe-file (url-cached-file-name url))
-	   (get-url-from-cache url))
-      (and nofetch
-	   (error "Didn't find cached version of ~a" url))
+      (when (config :web-cache)
+	(and (not force-refetch) (probe-file (url-cached-file-name url))
+	     (get-url-from-cache url))
+	(and nofetch
+	     (error "Didn't find cached version of ~a" url)))
       (labels ((stream->string (stream)
 		 (let ((buffer (jnew-array "byte" 4096)))
 		   (apply 'concatenate 'string
@@ -32,6 +33,17 @@
 				do (sleep 0.0001)
 				collect (#"toString" (new 'lang.string buffer 0 count))
 				))))
+	       (stream->file (stream file)
+		 (let ((buffer (jnew-array "byte" 4096))
+		       (ofile (new 'java.io.file (namestring (translate-logical-pathname file)))))
+		   (when (not (#"exists" ofile))
+		     (#"createNewFile" ofile))
+		   (let ((ostream (new 'java.io.fileoutputstream ofile)))
+		     (loop for count = (#"read" stream buffer)
+		      while (plusp count)
+		      do (sleep 0.0001)
+		      (#"write" ostream buffer 0 count))
+		     (#"close" ostream))))
 	     (doit()
 	       (when verbose (format t "~&;Fetching ~s~%" url))
 	       (let ((connection (#"openConnection" (new 'java.net.url (maybe-rewrite-for-tunnel url tunnel))))
@@ -43,7 +55,7 @@
 		   (#"setRequestProperty" connection "Cookie" (join-with-char (append *cookies* cookiestring) #\;)))
 		 (when referer
 		   (#"setRequestProperty" connection "Referer" referer))
-		 (#"setRequestProperty" connection "User-Agent" "Mozilla/4.0 (compatible)")
+		 (#"setRequestProperty" connection "User-Agent" "Mozilla/4.0")
 		 (when verb (#"setRequestMethod" connection verb))
 		 (when accept
 		   (#"setRequestProperty" connection "Accept" accept))
@@ -61,6 +73,7 @@
 			 (#"setRequestProperty" connection "Content-Type" "application/x-www-form-urlencoded"))
 		       (#"setRequestProperty" connection "Content-Type" "text/xml"))
 		   (let ((out (new 'PrintWriter (#"getOutputStream" connection))))
+		     ;(print post)
 		       (#"print" out post)
 		       (#"close" out)))
 		 (when head
@@ -74,14 +87,19 @@
 		 (let ((responsecode (#"getResponseCode" connection)))
 		   (if (not (funcall appropriate-response responsecode))
 		       (let ((errstream (#"getErrorStream" connection)))
-			 (error "Bad HTTP response ~A: ~A" responsecode (if errstream (stream->string errstream) "No error stream"))) 
+			 (if ignore-errors
+			     (when verbose (format t "~&;Failed to fetch ~a - got response code ~a~%" url responsecode))
+			     (error "Bad HTTP response ~A: ~A" responsecode (if errstream (stream->string errstream) "No error stream"))) )
 		       (let ((stream (ignore-errors (#"getInputStream" connection))))
 			 (if (and (member responsecode '(301 302 303)) follow-redirects)
 			     (progn (setq url (second (assoc "Location" (unpack-headers responsecode headers) :test 'equal)))
 				    (doit))
-			     (ignore-errors (stream->string stream)))
+			     (ignore-errors
+			       (if to-file 
+				   (stream->file stream to-file)
+				   (stream->string stream)))))
 
-			 ))))))
+			 )))))
 	(if ignore-errors
 	    (multiple-value-bind (value errorp) (ignore-errors (doit))
 	      (if errorp
@@ -89,7 +107,7 @@
 		    (when verbose (format t "~a" (java-exception-message errorp)))
 		    (values (list :error errorp (java-exception-message errorp)) (unpack-headers nil headers)))
 		  (progn
-		    (if persist (save-url-contents-in-cache url value) value)
+		    (if (and persist (not (and ignore-errors (null value)))) (save-url-contents-in-cache url value) value)
 		    (if dont-cache
 			(values value (unpack-headers nil headers))
 			(values (setf (gethash url *page-cache*) value) (unpack-headers nil headers))))))
@@ -102,11 +120,12 @@
 	    ))))
 
 (defun persist-page-cache ()
-  (maphash
-   (lambda(k v)
-     (unless (probe-file (url-cached-file-name v))
-       (save-url-contents-in-cache k v)))
-   *page-cache*))
+  (unless (config :web-cache)
+    (maphash
+     (lambda(k v)
+       (unless (probe-file (url-cached-file-name v))
+	 (save-url-contents-in-cache k v)))
+     *page-cache*)))
 
 
 (defun header-value (header headers)
@@ -119,7 +138,9 @@
 	(concatenate 'string protocol "://" tunnel path))
       url))
 
-(defun unpack-headers (response headers)
+
+
+ (defun unpack-headers (response headers)
   (append
    (if response
        (list (list "response-code" response))
@@ -134,60 +155,59 @@
 			 (loop for i below (#"size" value)
 			    collect (#"get" value i)))
 	   ))))
+
+;; FIXME - workaround for http://lists.common-lisp.net/pipermail/armedbear-devel/2012-July/002477.html
+(defun unpack-headers (response headers)
+  (append
+   (if response
+       (list (list "response-code" response))
+       nil)
+   (and headers
+        (with-constant-signature ((size "size") (get "get"))
+        (loop
+           for key in (set-to-list (#"keySet" headers))
+           for value = (#"get" headers key)
+           when value
+           collect (cons key
+                         (loop for i below (size value)
+                            collect (get value i)))
+           )))))
 	
-    
-
-#|(defun get-url (url &key force-refetch dont-cache persist)
-  "Get the contents of a page, saving it for this session in *page-cache*, so when debugging we don't keep fetching"
-  (or (and (not force-refetch) (gethash url *page-cache*))
-      (and persist (probe-file (url-cached-file-name url))
-	   (get-url-from-cache url))
-      (multiple-value-bind (value errorp) 
-	  (ignore-errors 
-	    (let ((stream (#"openStream" (new 'net.url url)))
-		  (buffer (jnew-array "byte" 4096)))
-	      (apply 'concatenate 'string
-		     (loop for count = (#"read" stream buffer)
-			while (plusp count)
-			collect (#"toString" (new 'lang.string buffer 0 count))
-			))))
-	(if errorp
-	    (progn
-	      (list :error (java-exception-message errorp)))
-	    (if dont-cache
-		value
-		(setf (gethash url *page-cache*) (save-url-contents-in-cache url value)))))))|#
-
 
 (defun cache-url ())
 
 (defun url-cached-file-name (url)
-  (let ((it (new 'com.hp.hpl.jena.shared.uuid.MD5 url)))
-    (#"processString" it)
-    (let* ((digest (#"getStringDigest" it))
-	   (subdirs (coerce (subseq digest 0 4) 'list)))
-      (merge-pathnames (make-pathname :directory (cons :relative (mapcar 'string subdirs))
-				      :name digest :type "urlcache") (config :web-cache)))))
+  (and (config :web-cache)
+       (let ((it (new 'com.hp.hpl.jena.shared.uuid.MD5 url)))
+	 (#"processString" it)
+	 (let* ((digest (#"getStringDigest" it))
+		(subdirs (coerce (subseq digest 0 4) 'list)))
+	   (merge-pathnames (make-pathname :directory (cons :relative (mapcar 'string subdirs))
+					   :name digest :type "urlcache") (config :web-cache))))))
 
 (defun save-url-contents-in-cache (url content)
   (let ((fname (url-cached-file-name url)))
-    (ensure-directories-exist fname)
-    (with-open-file (f fname :direction :output :if-does-not-exist :create)
-      (format f "~s" url)
-      (write-string content f))))
+    (and fname 
+	 (ensure-directories-exist fname)
+	 (with-open-file (f fname :direction :output :if-does-not-exist :create :external-format :utf-8)
+	   (format f "~s" url)
+	   (write-string content f)))))
 
 (defun get-url-from-cache (url)
   (let ((fname (url-cached-file-name url)))
-    (with-open-file (f fname :direction :input)
-      (let ((url-saved (read f)))
-	(assert (equalp url url-saved) () "md5 collision(!) ~s, ~s" url url-saved)
-	(let ((result (make-string (- (file-length f) (file-position f)))))
-	  (read-sequence result f)
-	  result)))))
+    (and fname
+	 (with-open-file (f fname :direction :input)
+	   (let ((url-saved (read f)))
+	     (assert (equalp url url-saved) () "md5 collision(!) ~s, ~s" url url-saved)
+	     (let ((result (make-string (- (file-length f) (file-position f)))))
+	       (read-sequence result f)
+	       result))))))
 
 (defun forget-cached-url (url)
-  (delete-file (url-cached-file-name url))
-  (remhash url *page-cache*))
+  (when (and (config :web-cache)
+	     (probe-file (url-cached-file-name url)))
+    (delete-file (url-cached-file-name url))
+    (remhash url *page-cache*)))
 
 (defun java-exception-message (exception)
   (ignore-errors (caar (all-matches (#"toString" (slot-value exception 'system::cause)) "(?s)=+\\s*(.*?)\\n" 1))))
@@ -220,7 +240,8 @@
      "(?s)(?i)<table.*?<hr>" "")))
 
 (defun cached-url-safari (url)
-  (and (probe-file (url-cached-file-name url))
+  (and (config :web-cache)
+       (probe-file (url-cached-file-name url))
        (run-shell-command (format nil "osascript -e 'tell application \"Safari\"' -e 'open \"~a\"' -e 'end tell'"
 					 (substitute #\: #\/ (namestring (truename (url-cached-file-name url))))))))
 
@@ -230,18 +251,17 @@
       collect (list (#"compile" '|java.util.regex.Pattern| (format nil "[~c]" fixme))
 		    (format nil "%~2x" (char-code fixme)) fixme))))
 
-(defun clean-uri (site path &optional (protocol "http" ) (fragment "") (query nil) (nofix nil))
-  (let ((null (load-time-value (make-immediate-object nil :ref))))
-    (if (eq nofix t)
-	(#"toString" (new 'java.net.uri protocol site path (or query null) (or fragment null)))
-	(loop for (pattern replacement) in *uri-workaround-character-fixes*
-	   with uri = (#0"toString" (new 'java.net.uri protocol site path (or query null) (or fragment null)))
-	   for new = 
-	   (#0"replaceAll" (#0"matcher" pattern uri) replacement)
-	   then
-	   (#0"replaceAll" (#0"matcher" pattern new) replacement)
-	   finally (return  (#"toString" new)) )
-	)))
+(defun clean-uri (site path &optional (protocol "http" ) (fragment nil) (query nil) (nofix nil))
+  (if (eq nofix t)
+      (#"toString" (new 'java.net.uri protocol (or site +null+) path (or query null) (or fragment +null+)))
+      (loop for (pattern replacement) in *uri-workaround-character-fixes*
+	 with uri = (#0"toString" (new 'java.net.uri protocol (or site +null+) path (or query +null+) (or fragment +null+)))
+	 for new = 
+	 (#0"replaceAll" (#0"matcher" pattern uri) replacement)
+	 then
+	 (#0"replaceAll" (#0"matcher" pattern new) replacement)
+	 finally (return  (#"toString" new)) )
+      ))
 
 (defmacro with-cookies-from (site &body body)
   (if (and (consp site) (eq (car site) 'get-url))

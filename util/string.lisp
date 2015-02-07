@@ -23,8 +23,8 @@
   (let ((regex (string char)))
     (when (simple-string-search regex *regex-chars-needing-escape*)
       (setq regex (system::concatenate-to-string (list "\\" regex))))
-    (with-constant-signature ((tostring "toString"))
-      (loop for v across (#"split" string regex) collect (tostring v)))))
+    (with-constant-signature ((split "split") (tostring "toString"))
+      (loop for v across (split string regex) collect (tostring v)))))
 
 #+abcl
 (define-compiler-macro split-at-char
@@ -161,11 +161,13 @@
 (defun replace-all (string regex function &rest which)
   (let ((matcher (#"matcher" (if (java-object-p regex) regex (#"compile" 'java.util.regex.pattern regex)) string))
 	(sb (new 'stringbuffer)))
-    (loop while (#"find" matcher) 
+    (with-constant-signature ((append "appendReplacement")) ; workaround abcl bug
+      (loop for found = (#"find" matcher)
+	 while found 
 	 do
-	 (#"appendReplacement" matcher sb (apply function  
-					   (loop for g in which collect
-						(#"group" matcher g)))))
+	 (append matcher sb (apply function  
+				   (loop for g in which collect
+					(#"group" matcher g))))))
     (#"appendTail" matcher sb)
     (#"toString" sb)))
 

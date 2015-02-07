@@ -31,17 +31,19 @@
      (ontology ?ontologyiri (??a ?versionuri)
 	       (?+ ?multiple-annotations/axioms))
      :case :subscript-free)
-  (triple ?ontologyiri
-	  !rdf:type
-	  !owl:Ontology)
+  (if (uri-p ?ontologyiri)
+      (triple ?ontologyiri
+	      !rdf:type
+	      !owl:Ontology))
   (if ?versionuri
       (if (uri-p ?versionuri)
 	  (triple ?ontologyiri
 		  !owl:versionIRI
 		  ?versionuri)
-	  (push ?versionuri ?multiple-annotations/axioms)))
-  (loop while (eq (car (car ?multiple-annotations/axioms))
-		  'imports)
+	  (when ?versionuri
+	    (push ?versionuri ?multiple-annotations/axioms))))
+  (loop while (memq (car (car ?multiple-annotations/axioms))
+		  '(imports import))
      do (triple ?ontologyiri
 		!owl:imports
 		(second (pop ?multiple-annotations/axioms))))

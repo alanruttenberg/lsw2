@@ -65,18 +65,21 @@
       (list (#"replaceAll" (if (stringp uri) uri (uri-full uri)) ".*[/#]" ""))))
   
   
-(defun rdfs-labels (kb)
-  (or (v3kb-uri2label kb)
+(defun rdfs-labels (kb &optional (ignore-obsoletes t) force-refresh)
+  (or (and (not force-refresh) (v3kb-uri2label kb))
       (flet ((get-labels (clauses)
+	       (when ignore-obsoletes
+		 (setq clauses (append  clauses (list `(:optional (?uri !owl:deprecated ?dep))))))
 	       (or
 		(and *classtree-preferred-language*
 		     (sparql `(:select (?uri ?label) () ,@clauses
 				       (:filter (and (equal (lang ?label) ,*classtree-preferred-language*)
-						     (not (isblank ?uri)))))
+						     (not (isblank ?uri))
+						     (not (bound ?dep))))) ;; TODO filter out obsoletes
 			     :kb kb :use-reasoner *annotation-query-reasoner*))
 		(sparql `(:select (?uri ?label) ()
 				  ,@clauses
-				  (:filter (not (isblank ?uri))))
+				  (:filter (and (not (isblank ?uri)) (not (bound ?dep)))))
 			:kb kb :use-reasoner *annotation-query-reasoner*))))
 	(setf (v3kb-uri2label kb)
 	      (loop with table = (make-hash-table)
@@ -291,7 +294,7 @@
     (jarray-set fields "tooltip"  0)
     (let ((wrapped (new 'tooltipcontrol fields))
 	  (interfaces (jclass-all-interfaces 'tooltipcontrol)))
-      (jdelegating-interface-implementation  
+      (jss::jdelegating-interface-implementation  
        (car interfaces)
        wrapped
 ;;        "getToolTipLocation"
@@ -323,7 +326,7 @@
 	       (and display
 		    (if (not errorp)
 			(unless (#"isShiftDown" event)
-			  (#"setToolTipText" display (make-immediate-object nil :ref)))
+			  (#"setToolTipText" display +null+))
 			)))
 	   (condition () nil)
 	   ))
