@@ -6,6 +6,7 @@
   ont ;; instance of OWLOntology
   reasoner ;; instance of OWLReasoner
   datafactory ;; instance of OWLDataFactory
+  reasoner-factory 
   hermit-monitor ;; hermit specific performance instrumentation 
   short-form-provider ;; instance of short form provider mapping to labels
   manchester-parser ;; instance of manchester parse
@@ -19,6 +20,10 @@
   weakened-from ;; when creating a weakened kb, link to what it was weakened from
   default-reasoner ;; (:factpp :hermit :pellet) - can be overidden by an explicit call to check ontology or instantiate reasoner
   mapper 
+  ;; for OWLBGP
+  sparql-ontology-graph
+  sparql-engine
+  sparql-dataset
   ) 
 
 (defvar *default-reasoner* :hermit)
@@ -31,7 +36,7 @@
 
 (defvar *default-rdfxml-writing-location* "~/Desktop/")
 
-;(defvar *register-terp-once* (progn (load-time-value (#"registerFactory" 'ARQTerpParser)) t))
+
 
 (defun print-v3kb-struct (kb stream depth)
   (print-unreadable-object (kb stream)
@@ -284,6 +289,19 @@
 	(v3kb-pellet-jena-model ont) nil)
   (instantiate-reasoner ont reasoner profile))
 
+(defun get-reasoner-factory (ont)
+  (or (v3kb-reasoner-factory ont)
+      (setf (v3kb-reasoner-factory ont)
+	    (ecase (or (v3kb-default-reasoner ont) *default-reasoner*)
+	      (:hermit (new "org.semanticweb.HermiT.Reasoner$ReasonerFactory"))
+	      ((:pellet :pellet-sparql) (new 'com.clarkparsia.pellet.owlapiv3.PelletReasonerFactory))
+	      (:factpp   
+	       (#"setProperty" 'system "factpp.jni.path" *factpp-jni-path*)
+	       (new 'uk.ac.manchester.cs.factplusplus.owlapiv3.FaCTPlusPlusReasonerFactory))
+	      (:elk  (new 'org.semanticweb.elk.owlapi.ElkReasonerFactory))
+	      ))))
+	     
+    
 (defun instantiate-reasoner (ont  &optional (reasoner *default-reasoner*) (profile nil))
   (unless (null reasoner)
     (unless (v3kb-reasoner ont)

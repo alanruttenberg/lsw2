@@ -61,7 +61,7 @@
   ((:module lib 
 	    :components
 	    ((:jar-file "org.semanticweb.HermiT")
-	     (:jar-file "owlapi-3.4.5")
+	     (:jar-file "owlapi-distribution-3.4.10")
 	     (:jar-file "factplusplus-1.6.3")
 	     (:jar-file "elk-owlapi-041")
 	     (:jar-directory "jena")
