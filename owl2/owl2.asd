@@ -93,6 +93,7 @@
 	     (:file "swrl-rdf-mapping")
 	     (:file "manchester-class-expression")
 	     (:file "sparql")
+	     (:file "sparql-owlbgp")
 	     (:file "graph")
 	     (:file "axioms")
 	     (:file "weaken")
