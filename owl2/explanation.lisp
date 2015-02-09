@@ -17,6 +17,6 @@
     (setf (v3kb-default-reasoner ontology) :hermit)
     (let* ((egf (new 'InconsistentOntologyExplanationGeneratorFactory (get-reasoner-factory ontology) (new 'Long "10000"))) ;; milliseconds
 	   (eg (#"createExplanationGenerator" egf (v3kb-ont ontology))))
-      (set-to-list (#"getExplanations" eg (subclassof-axiom !owl:Thing !owl:Nothing ontology) 2))))
+      (set-to-list (#"getExplanations" eg (subclassof-axiom !owl:Thing !owl:Nothing ontology) 2)))))
 
 
