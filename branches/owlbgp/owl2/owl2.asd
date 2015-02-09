@@ -69,6 +69,8 @@
 	     (:jar-directory "pellet")
 	     (:jar-directory "pellet-support")
 	     (:jar-file "OWL-BGP-0.1.jar")
+	     (:jar-file "owlexplanation-1.1.1-SNAPSHOT")
+	     (:jar-file "telemetry-1.0.0.jar") ; should be in owlexplanation :(
 	     (:jar-directory "prefuse")
 	     ))
    (:module "basics"
@@ -97,6 +99,7 @@
 	     (:file "graph")
 	     (:file "axioms")
 	     (:file "weaken")
+	     (:file "explanation")
 	     (:file "local")
 	     (:file "module")
 	     (:file "inferred-axioms")

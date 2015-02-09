@@ -56,10 +56,16 @@
 	   :datatype)
 	  (t (error "don't know what kind of declaration for ~a" (#"toString" declaration-axiom))))))
 
-(defun remove-axiom (axiom ont)
-  (let ((changes (or (v3kb-changes ont) (setf (v3kb-changes ont) (new 'arraylist)))))
-    (#"addAll" changes (#"removeAxiom" (v3kb-manager ont) (v3kb-ont ont) axiom))))
+(defun remove-axiom (axiom kb)
+  (let ((changes (or (v3kb-changes kb) (setf (v3kb-changes kb) (new 'arraylist)))))
+    (#"addAll" changes (#"removeAxiom" (v3kb-manager kb) (v3kb-ont kb) axiom))))
 
-(defun add-axiom (axiom ont)
-  (let ((changes (or (v3kb-changes ont) (setf (v3kb-changes ont) (new 'arraylist)))))
-    (#"addAll" changes (#"addAxiom" (v3kb-manager ont) (v3kb-ont ont) axiom))))
+(defun add-axiom (axiom kb)
+  (let ((changes (or (v3kb-changes kb) (setf (v3kb-changes kb) (new 'arraylist)))))
+    (#"addAll" changes (#"addAxiom" (v3kb-manager kb) (v3kb-ont kb) axiom))))
+
+(defun subclassof-axiom (subclass-expression superclass-expression kb)
+  (#"getOWLSubClassOfAxiom"
+   (v3kb-datafactory kb) 
+   (to-class-expression subclass-expression kb)
+   (to-class-expression superclass-expression kb)))
