@@ -24,7 +24,13 @@
   sparql-ontology-graph
   sparql-engine
   sparql-dataset
-  ) 
+  )
+
+;; http://docs.oracle.com/javase/tutorial/jaxp/limits/limits.html
+;; the command line switch -DentityExpansionLimit doesn't seem to work any more.
+
+(eval-when (:execute :load-toplevel)
+  (#"setProperty" 'system "jdk.xml.entityExpansionLimit" "100000000"))
 
 (defvar *default-reasoner* :hermit)
 
