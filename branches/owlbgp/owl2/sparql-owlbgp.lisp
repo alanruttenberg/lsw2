@@ -10,6 +10,7 @@
 			    (setf (v3kb-sparql-engine kb) 
 				  (new 'OWLReasonerSPARQLEngine))))
 	 (dataset (or (v3kb-sparql-dataset kb) (setf (v3kb-sparql-dataset kb) (new 'OWLOntologyDataSet ontology-graph +NULL+)))))
+    (when (consp query) (setq query (sparql-stringify query)))
     (let ((query-object (#"create" 'QueryFactory query (if (eq syntax :terp) 
 							   (#"getInstance" 'TerpSyntax)
 							   (#"lookup" 'Syntax "SPARQL")))))
