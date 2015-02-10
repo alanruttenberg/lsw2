@@ -29,9 +29,6 @@
 ;; http://docs.oracle.com/javase/tutorial/jaxp/limits/limits.html
 ;; the command line switch -DentityExpansionLimit doesn't seem to work any more.
 
-(eval-when (:execute :load-toplevel)
-  (#"setProperty" 'system "jdk.xml.entityExpansionLimit" "100000000"))
-
 (defvar *default-reasoner* :hermit)
 
 (defvar *last-jena-model* nil) ; for the last with-ontology form
@@ -79,7 +76,8 @@
 (defun load-ontology (source &key name reasoner (silent-missing t))
 ;  (set-java-field 'OWLRDFConsumer "includeDublinCoreEvenThoughNotInSpec" nil)
 ;  (set-java-field 'ManchesterOWLSyntaxEditorParser "includeDublinCoreEvenThoughNotInSpec" nil)
-  (#"setProperty" 'system "entityExpansionLimit" "1000000") ; avoid low limit as we are not worried about security
+  (#"setProperty" 'system "jdk.xml.entityExpansionLimit" "100000000")
+  (#"setProperty" 'system "entityExpansionLimit" "100000000") ; avoid low limit as we are not worried about security
   (let ((mapper nil)
 	(uri nil))
     (setq source (if (java-object-p source) (#"toString" source) source))
@@ -271,6 +269,15 @@
 	 (#"valueOf" 'individualNodeSetPolicy "BY_SAME_AS")
 	 )))
 
+(defun jfact-reasoner-config ()
+  (let ((standard (new 'SimpleConfiguration))
+	(progressMonitor (new 'owlapi.reasoner.ConsoleProgressMonitor)))
+    (new 'org.semanticweb.owlapi.reasoner.SimpleConfiguration progressMonitor
+	 (#"getFreshEntityPolicy" standard)
+	 (new 'long "0")
+	 (#"valueOf" 'individualNodeSetPolicy "BY_SAME_AS")
+	 )))
+
 (defun hermit-reasoner-config (&optional profile ont)
   (if profile
       (let ((new (new 'org.semanticweb.HermiT.Configuration))
@@ -290,6 +297,8 @@
 	 (#"valueOf" 'individualNodeSetPolicy "BY_SAME_AS")
 	 )))
 
+
+
 (defun reset-reasoner (ont  &optional (reasoner *default-reasoner*) (profile nil))
   (setf (v3kb-reasoner ont) nil
 	(v3kb-pellet-jena-model ont) nil)
@@ -305,6 +314,7 @@
 	       (#"setProperty" 'system "factpp.jni.path" *factpp-jni-path*)
 	       (new 'uk.ac.manchester.cs.factplusplus.owlapiv3.FaCTPlusPlusReasonerFactory))
 	      (:elk  (new 'org.semanticweb.elk.owlapi.ElkReasonerFactory))
+	      (:jfact (new 'uk.ac.manchester.cs.jfact.JFactFactory))
 	      ))))
 	     
     
@@ -316,12 +326,14 @@
 		       (:hermit (hermit-reasoner-config profile ont))
 		       ((:pellet :pellet-sparql) (pellet-reasoner-config))
 		       (:factpp (factpp-reasoner-config))
-		       (:elk (elk-reasoner-config))))
+		       (:elk (elk-reasoner-config))
+		       (:jfact (jfact-reasoner-config))))
 	     (factory (ecase reasoner
 			(:hermit (new "org.semanticweb.HermiT.Reasoner$ReasonerFactory"))
 			((:pellet :pellet-sparql) (new 'com.clarkparsia.pellet.owlapiv3.PelletReasonerFactory))
 			(:factpp (new 'uk.ac.manchester.cs.factplusplus.owlapiv3.FaCTPlusPlusReasonerFactory))
 			(:elk  (new 'org.semanticweb.elk.owlapi.ElkReasonerFactory))
+			(:jfact (new 'uk.ac.manchester.cs.jfact.JFactFactory))
 			))
 	     (reasoner-instance
 	      (if (eq reasoner :pellet-sparql)
@@ -350,7 +362,7 @@
     (if classify
 	(ecase reasoner 
 	  (:hermit (#"classify" (v3kb-reasoner ont)))
-	  ((:pellet :pellet-sparql :factpp :elk) (#"precomputeInferences" 
+	  ((:pellet :pellet-sparql :factpp :elk :jfact) (#"precomputeInferences" 
 					     (v3kb-reasoner ont)
 					     (jnew-array-from-array
 					      (find-java-class 'org.semanticweb.owlapi.reasoner.InferenceType)
