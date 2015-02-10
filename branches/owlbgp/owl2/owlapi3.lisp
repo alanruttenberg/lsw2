@@ -78,6 +78,7 @@
 ;  (set-java-field 'ManchesterOWLSyntaxEditorParser "includeDublinCoreEvenThoughNotInSpec" nil)
   (#"setProperty" 'system "jdk.xml.entityExpansionLimit" "100000000")
   (#"setProperty" 'system "entityExpansionLimit" "100000000") ; avoid low limit as we are not worried about security
+  (#"setProperty" 'system "factpp.jni.path" *factpp-jni-path*)
   (let ((mapper nil)
 	(uri nil))
     (setq source (if (java-object-p source) (#"toString" source) source))
@@ -259,24 +260,20 @@
 	 (#"valueOf" 'individualNodeSetPolicy "BY_SAME_AS")
 	 )))
 
-(defun factpp-reasoner-config ()
-  (#"setProperty" 'system "factpp.jni.path" *factpp-jni-path*)
+(defun vanilla-reasoner-config ()
   (let ((standard (new 'SimpleConfiguration))
 	(progressMonitor (new 'owlapi.reasoner.ConsoleProgressMonitor)))
     (new 'org.semanticweb.owlapi.reasoner.SimpleConfiguration progressMonitor
 	 (#"getFreshEntityPolicy" standard)
-	 (new 'long "0")
+	 (new 'long "9223372036854775807")
 	 (#"valueOf" 'individualNodeSetPolicy "BY_SAME_AS")
 	 )))
 
+(defun factpp-reasoner-config ()
+  (vanilla-reasoner-config))
+
 (defun jfact-reasoner-config ()
-  (let ((standard (new 'SimpleConfiguration))
-	(progressMonitor (new 'owlapi.reasoner.ConsoleProgressMonitor)))
-    (new 'org.semanticweb.owlapi.reasoner.SimpleConfiguration progressMonitor
-	 (#"getFreshEntityPolicy" standard)
-	 (new 'long "0")
-	 (#"valueOf" 'individualNodeSetPolicy "BY_SAME_AS")
-	 )))
+  (vanilla-reasoner-config))
 
 (defun hermit-reasoner-config (&optional profile ont)
   (if profile
@@ -288,16 +285,11 @@
       (let ((it (new 'SimpleConfiguration (new 'owlapi.reasoner.ConsoleProgressMonitor) )))
 	it)))
 
-(defun elk-reasoner-config (&optional profile ont)
-  (let ((standard (new 'SimpleConfiguration))
-	(progressMonitor (new 'owlapi.reasoner.ConsoleProgressMonitor)))
-    (new 'org.semanticweb.owlapi.reasoner.SimpleConfiguration progressMonitor
-	 (#"getFreshEntityPolicy" standard)
-	 (new 'long (#"toString" (#"getTimeOut" standard)))
-	 (#"valueOf" 'individualNodeSetPolicy "BY_SAME_AS")
-	 )))
+(defun elk-reasoner-config ()
+  (vanilla-reasoner-config))
 
-
+(defun chainsaw-reasoner-config ()
+  (vanilla-reasoner-config))
 
 (defun reset-reasoner (ont  &optional (reasoner *default-reasoner*) (profile nil))
   (setf (v3kb-reasoner ont) nil
@@ -305,6 +297,7 @@
   (instantiate-reasoner ont reasoner profile))
 
 (defun get-reasoner-factory (ont)
+  (#"setProperty" 'system "factpp.jni.path" *factpp-jni-path*)
   (or (v3kb-reasoner-factory ont)
       (setf (v3kb-reasoner-factory ont)
 	    (ecase (or (v3kb-default-reasoner ont) *default-reasoner*)
@@ -315,10 +308,12 @@
 	       (new 'uk.ac.manchester.cs.factplusplus.owlapiv3.FaCTPlusPlusReasonerFactory))
 	      (:elk  (new 'org.semanticweb.elk.owlapi.ElkReasonerFactory))
 	      (:jfact (new 'uk.ac.manchester.cs.jfact.JFactFactory))
+	      (:chainsaw (new 'uk.ac.manchester.cs.chainsaw.ChainsawReasonerFactory))
 	      ))))
 	     
     
 (defun instantiate-reasoner (ont  &optional (reasoner *default-reasoner*) (profile nil))
+  (#"setProperty" 'system "factpp.jni.path" *factpp-jni-path*)
   (unless (null reasoner)
     (unless (v3kb-reasoner ont)
       (setf (v3kb-default-reasoner ont) reasoner)
@@ -327,13 +322,15 @@
 		       ((:pellet :pellet-sparql) (pellet-reasoner-config))
 		       (:factpp (factpp-reasoner-config))
 		       (:elk (elk-reasoner-config))
-		       (:jfact (jfact-reasoner-config))))
+		       (:jfact (jfact-reasoner-config))
+		       (:chainsaw (chainsaw-reasoner-config ))))
 	     (factory (ecase reasoner
 			(:hermit (new "org.semanticweb.HermiT.Reasoner$ReasonerFactory"))
 			((:pellet :pellet-sparql) (new 'com.clarkparsia.pellet.owlapiv3.PelletReasonerFactory))
 			(:factpp (new 'uk.ac.manchester.cs.factplusplus.owlapiv3.FaCTPlusPlusReasonerFactory))
 			(:elk  (new 'org.semanticweb.elk.owlapi.ElkReasonerFactory))
 			(:jfact (new 'uk.ac.manchester.cs.jfact.JFactFactory))
+			(:chainsaw (new 'uk.ac.manchester.cs.chainsaw.ChainsawReasonerFactory))
 			))
 	     (reasoner-instance
 	      (if (eq reasoner :pellet-sparql)
@@ -361,8 +358,8 @@
     ;;  (if classify (#"prepareReasoner" (v3kb-reasoner ont)))
     (if classify
 	(ecase reasoner 
-	  (:hermit (#"classify" (v3kb-reasoner ont)))
-	  ((:pellet :pellet-sparql :factpp :elk :jfact) (#"precomputeInferences" 
+	  ((:hermit) (#"classify" (v3kb-reasoner ont)))
+	  ((:pellet :pellet-sparql :factpp :elk :jfact  :chainsaw) (#"precomputeInferences" 
 					     (v3kb-reasoner ont)
 					     (jnew-array-from-array
 					      (find-java-class 'org.semanticweb.owlapi.reasoner.InferenceType)
