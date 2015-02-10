@@ -71,6 +71,10 @@
 	     (:jar-file "OWL-BGP-0.1.jar")
 	     (:jar-file "owlexplanation-1.1.1-SNAPSHOT")
 	     (:jar-file "telemetry-1.0.0.jar") ; should be in owlexplanation :(
+	     (:jar-file "owlapitools-atomicdecomposition-1.1.1.jar") ; chainsaw
+	     (:jar-file "owlapitools-concurrentimpl-1.1.1.jar") ;chainsaw
+	     (:jar-file "Chainsaw-1.0-SNAPSHOT.jar")
+	     (:jar-file "jfact-1.2.3.jar")
 	     (:jar-directory "prefuse")
 	     ))
    (:module "basics"
