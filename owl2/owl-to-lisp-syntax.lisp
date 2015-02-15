@@ -266,3 +266,26 @@
     (if comment
 	(list* (car args) (third comment) (remove comment (rest args)))
 	args)))
+
+
+;; stupid but avoids a lot of java crud
+;; if you are worried pass an eql hashtable as cache
+;; If you want to do it less stupidly follow the pattern in
+;; https://github.com/owlcs/owlapi/blob/version4/api/src/main/java/org/semanticweb/owlapi/util/SimpleRenderer.java
+
+(defun axiom-to-lisp-syntax (axiom &optional cache)
+  (let ((namespaces '(("rdfs:" "http://www.w3.org/2000/01/rdf-schema#")
+		      ("xsd:" "http://www.w3.org/2001/XMLSchema#")
+		      ("xml:" "http://www.w3.org/XML/1998/namespace")
+		      ("rdf:" "http://www.w3.org/1999/02/22-rdf-syntax-ns#")
+		      ("owl:" "http://www.w3.org/2002/07/owl#"))))
+    (or (and cache (gethash axiom cache)) 
+	(let ((parsed
+	       (car
+		(rearrange-functional-syntax-parens-for-lisp 
+		 (eval-uri-reader-macro
+		  (collapse-qnames 
+		   (with-input-from-string (s (#"render" (new 'simplerenderer) axiom))
+		     (read-and-tokenize-functional-syntax s)) namespaces))))))
+	  (when cache (setf (gethash axiom cache) parsed))
+	  parsed))))
