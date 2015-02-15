@@ -117,6 +117,7 @@
 	     (:file "violations")
 	     (:file "to-owlapi-class-expression")
 	     (:file "text-classtree")
+	     (:file "dl-query")
 	     )
 	    :depends-on (matcher basics)
 	    ))
