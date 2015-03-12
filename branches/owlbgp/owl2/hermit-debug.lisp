@@ -1,4 +1,86 @@
-OWLOntologyManager m=OWLManager.createOWLOntologyManager();
+
+(defvar *hermit-reasoning-tasks*
+  '((:concept_satisfiability "satisfiability of concept '{0}'")
+    (:consistency "ABox satisfiability")
+    (:concept_subsumption "concept subsumption '{0}' => '{1}'")
+    (:object_role_satisfiability "satisfiability of object role '{0}'")
+    (:data_role_satisfiability "satisfiability of data role '{0}'")
+    (:object_role_subsumption "object role subsumption '{0}' => '{1}'")
+    (:data_role_subsumption "data role subsumption '{0}' => '{1}'")
+    (:instance_OF "class instance '{0}'('{1}')")
+    (:object_role_instance_of "object role instance '{0}'('{1}', '{2}')")
+    (:data_role_instance_of "data role instance '{0}'('{1}', '{2}')")
+    (:entailment "entailment of '{0}'")
+    (:domain "check if {0} is domain of {1}")
+    (:range "check if {0} is range of {1}")))
+
+(defvar *hermit-debugging-types*
+  '((:none "The standard setting is no monitor, i.e., no information is
+recorded and printed about what the reasoner does.")
+
+    (:timing "The TIMING tableau monitor print information about the
+tableau (number of nodes etc) in certain time intervals.")
+
+    (:timing_with_pause "Waits at certain points (e.g., before building a
+tableau) for a keystroke by the user and is apart from that like
+TIMING.")
+
+    (:debugger_no_history "This opens a debugging application for
+HermiT. HermiT can be controlled with special commands from within the
+debugging application. Without history HermiT does not record
+information about how assertions have been derived, so one cannot see
+the derivation history for an assertion.")
+        
+    (:debugger_history_on "This opens a debugging application for
+HermiT. HermiT can be controlled with special commands from within the
+debugging application. HermiT will keep, for each derived
+fact/assertion, how the assertion was derived. This is obviously using
+a lot more memory than normal, but can be useful when debugging the
+reasoner.")))
+
+
+(defun hermit-reasoning-test-types ()
+  (mapcar (lambda(s) (intern s 'keyword))
+	  (map 'list #"name" (#"getEnumConstants" (find-java-class "org.semanticweb.HermiT.tableau.ReasoningTaskDescription$StandardTestType")))))
+
+(defun get-hermit-reasoning-test-type (key)
+  (find (string key)
+	(#"getEnumConstants" (find-java-class "org.semanticweb.HermiT.tableau.ReasoningTaskDescription$StandardTestType"))
+	:key #"name"
+	:test 'equalp))
+
+(defun hermit-debugging-types 
+  (mapcar (lambda(s) (intern s 'keyword))
+   (map 'list #"name" (#"getEnumConstants" (find-java-class "org.semanticweb.HermiT.Configuration$TableauMonitorType")))))
+
+(defun get-hermit-debugging-type (key)
+  (find (string key)
+	(#"getEnumConstants" (find-java-class "org.semanticweb.HermiT.Configuration$TableauMonitorType"))
+	:key #"name"
+	:test 'equalp))
+
+(defun debug-reasoning (ont timeout)
+  "timeout in milliseconds"
+  (let ((config (new 'org.semanticweb.HermiT.Configuration))
+	(monitor (new 'org.semanticweb.HermiT.monitor.CountingMonitor)))
+    (jss::set-java-field config "monitor" monitor)
+    (setf (v3kb-hermit-monitor ont) monitor)
+    (and timeout (set-java-field config "individualTaskTimeout" (new 'long (prin1-to-string timeout))))
+    (set-java-field config "tableauMonitorType" (get-hermit-monitor-type "TIMING"))
+    (let ((reasoner (#"createReasoner" (new "org.semanticweb.HermiT.Reasoner$ReasonerFactory") (v3kb-ont ont) config)))
+      (#"precomputeInferences" reasoner
+			       (jnew-array-from-array
+				(find-java-class 'org.semanticweb.owlapi.reasoner.InferenceType)
+				(make-array 1 :initial-contents (list (get-java-field 'inferencetype "CLASS_HIERARCHY")))))
+      reasoner)))
+
+
+
+
+
+
+
+#|OWLOntologyManager m=OWLManager.createOWLOntologyManager();
 OWLOntology o=m.loadOntologyFromOntologyDocument(...);
 CountingMonitor cm=new CountingMonitor();
 Configuration c=new Configuration();
@@ -90,4 +172,4 @@ Parks Road
 Oxford
 OX1 3QD
 United Kingdom
-+44 (0)1865 283529
++44 (0)1865 283529|#
