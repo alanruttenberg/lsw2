@@ -1,6 +1,6 @@
 ;; Call fn on each axiom in the ontology (include-imports-closure -> t to include the imports closure)
 
-(defun each-axiom (ont fn &optional include-imports-closure)
+(defun each-axiom (ont fn &optional include-imports-closure)q
   (declare (optimize (speed 3) (safety 0)))
   (let* ((ont (if (v3kb-p ont) (v3kb-ont ont) ont))
 	 (onts (if include-imports-closure
@@ -19,8 +19,21 @@
        (= (#"size" (#"getClassesInSignature" ax)) 2)
        (every (lambda(e) (jinstance-of-p e (find-java-class 'OWLClass))) (set-to-list (#"getClassExpressions" ax)))))
 
+(defun make-subclass-axioms-from-equivalents (ax kb)
+  "take an equivalentclasses expression in which there is a named class (i.e. not a GCI) and turn it into subclassof axioms for the named class"
+  (let ((elements (set-to-list (#"getClassExpressions" ax))))
+    (let ((named (find-if (lambda(el) (jinstance-of-p el (find-java-class 'OWLClass))) elements)))
+      (loop for el in elements
+	   unless (eq named el)
+	   collect (subclassof-axiom named el kb)))))
+
 ;; note bug https://sourceforge.net/tracker/index.php?func=detail&aid=2975093&group_id=90989&atid=595534
 ;; imports declarations not an axiom type and not found by get-axioms.
+
+(defun simple-equivalentclasses-axiom? (ax)
+  "check if an equivalentclasses expression has at least one named class (i.e. not a GCI)"
+  (and (jinstance-of-p ax (find-java-class 'OWLEquivalentClassesAxiom ))
+       (#"containsNamedEquivalentClass" ax)))
 
 (defmacro axiom-typecase (axiom &body clauses)
   (let ((axiomv (make-symbol "AXIOM")))
