@@ -275,12 +275,13 @@
 (defun jfact-reasoner-config ()
   (vanilla-reasoner-config))
 
-(defun hermit-reasoner-config (&optional profile ont)
+(defun hermit-reasoner-config (&optional profile ont timeout)
   (if profile
       (let ((new (new 'org.semanticweb.HermiT.Configuration))
 	    (monitor (new 'org.semanticweb.HermiT.monitor.CountingMonitor)))
 	(jss::set-java-field new "monitor" monitor)
 	(setf (v3kb-hermit-monitor ont) monitor)
+	(and timeout (set-java-field new "individualTaskTimeout" (new 'long (prin1-to-string timeout))))
 	new)
       (let ((it (new 'SimpleConfiguration (new 'owlapi.reasoner.ConsoleProgressMonitor) )))
 	it)))
@@ -312,18 +313,19 @@
 	      ))))
 	     
     
-(defun instantiate-reasoner (ont  &optional (reasoner *default-reasoner*) (profile nil))
+(defun instantiate-reasoner (ont  &optional (reasoner *default-reasoner*) (profile nil) (config nil))
   (#"setProperty" 'system "factpp.jni.path" *factpp-jni-path*)
   (unless (null reasoner)
     (unless (v3kb-reasoner ont)
       (setf (v3kb-default-reasoner ont) reasoner)
-      (let* ((config (ecase reasoner 
-		       (:hermit (hermit-reasoner-config profile ont))
-		       ((:pellet :pellet-sparql) (pellet-reasoner-config))
-		       (:factpp (factpp-reasoner-config))
-		       (:elk (elk-reasoner-config))
-		       (:jfact (jfact-reasoner-config))
-		       (:chainsaw (chainsaw-reasoner-config ))))
+      (let* ((config (or config
+			 (ecase reasoner 
+			   (:hermit (hermit-reasoner-config profile ont))
+			   ((:pellet :pellet-sparql) (pellet-reasoner-config))
+			   (:factpp (factpp-reasoner-config))
+			   (:elk (elk-reasoner-config))
+			   (:jfact (jfact-reasoner-config))
+			   (:chainsaw (chainsaw-reasoner-config )))))
 	     (factory (ecase reasoner
 			(:hermit (new "org.semanticweb.HermiT.Reasoner$ReasonerFactory"))
 			((:pellet :pellet-sparql) (new 'com.clarkparsia.pellet.owlapiv3.PelletReasonerFactory))
