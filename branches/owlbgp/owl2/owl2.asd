@@ -118,6 +118,7 @@
 	     (:file "to-owlapi-class-expression")
 	     (:file "text-classtree")
 	     (:file "dl-query")
+	     (:file "hermit-debug")
 	     )
 	    :depends-on (matcher basics)
 	    ))
