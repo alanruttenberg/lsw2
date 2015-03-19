@@ -10,8 +10,8 @@
 (defun post-url-xml (url message)
   (get-url url :post message))
 
-(defun get-url (url &key post (force-refetch  post) (dont-cache post) (persist (or (not post) to-file)) cookiestring nofetch verbose tunnel referer (follow-redirects t) 
-		(ignore-errors nil) head accept to-file extra-headers (appropriate-response (lambda(res) (and (numberp res) (>= res 200) (< res 400)))) (verb "GET")
+(defun get-url (url &key post (force-refetch  post) (dont-cache post) to-file (persist (or (not post) to-file)) cookiestring nofetch verbose tunnel referer (follow-redirects t) 
+		(ignore-errors nil) head accept  extra-headers (appropriate-response (lambda(res) (and (numberp res) (>= res 200) (< res 400)))) (verb "GET")
 		&aux headers)
   "Get the contents of a page, saving it for this session in *page-cache*, so when debugging we don't keep fetching"
   (sleep 0.0001)			; give time for control-c
