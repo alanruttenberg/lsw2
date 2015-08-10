@@ -4,6 +4,10 @@
 ;; add optional last argument t to make it partial. In which case purl must end in a "/"
 ;; returns t if successful
 
+;; MOST OF THESE METHODS NO LONGER WORK DUE TO UPDATE OF OCLC SERVERS.
+;; Working:
+;;  - purls-matching
+;;
 
 (defun create-new-purl (purl url user password maintainers &optional (partial nil))
   (let* ((answer 
@@ -95,7 +99,30 @@
 	   (list* (first (car did)) (second (car did)) (#"matches" answer "(?s).*Partial Redirection\\s*</b>Enabled.*")
 		   (split-at-regex (third (car did)) ",\\s*"))))))
 
-(defun purls-matching (string &key start (refetch nil))
+;; FIXED to work with current (2015) OCLC server
+
+;; Either you give domain and no target, in which case you can use a
+;; wild card in domain, or you can give just a target (which can use a
+;; wildcard, but will also work just domain name) and optional domain
+;; (which can't have a wild card)
+
+(defun purls-matching (&key domain target)
+  (let ((url (format nil "https://purl.org/admin/purl/?p_id=~a&target=~a&seealso=&maintainers=&explicitmaintainers=&tombstone=false"
+		     (if target "" domain) (or target ""))))
+    (let* ((result (coerce (get-url url :persist nil) 'base-string))
+	   (raw
+	     (mapcar (lambda(el) 
+		       (mapcar (lambda(el) 
+				 (#"replaceAll" (#"replaceAll" el "><" ">,<") "<(/*).*?>" "")) el))
+		     (all-matches (coerce result 'base-string) 
+				  "<id>(.*?)</id>\\s*<type>(.*?)</type>\\s*<maintainers>(.*?)\\s*</maintainers>\\s*<target>(.*?)</target>" 1 2 3 4))))
+      (if (and domain target)
+	  (remove-if-not 
+	   (lambda(el) (eql 0 (search domain (car el))))
+	   raw)
+	  raw))))
+
+
   (let* ((answer 
 	  (get-url (format nil "http://purl.org/maint/display.pl.cgi?purlreg=~a&url=&maint=&inst=&noedit=on&id=nobody&start=~a" string (or start ""))
 		   :force-refetch refetch
