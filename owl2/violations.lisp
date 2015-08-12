@@ -71,4 +71,4 @@
 	 thereis (member bareclass *owl-profile-violations-preventing-reasoning* :test 'equalp)))))
 
 (defun replace-uris-with-labels-in-report (ont report)
-  (replace-all report "((?s)<(.*?)>)" (lambda(e) (format nil "'~a'" (car (rdfs-label (make-uri (subseq e 1 (- (length e) 1 ))) b)))) 1))
+  (replace-all report "((?s)<(.*?)>)" (lambda(e) (format nil "'~a'" (car (rdfs-label (make-uri (subseq e 1 (- (length e) 1 ))) ont)))) 1))
