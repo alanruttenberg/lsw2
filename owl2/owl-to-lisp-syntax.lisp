@@ -58,6 +58,9 @@
 
 ;; do the work. 
 (defun owl-to-lisp-syntax (ontology &optional (bare? nil))
+  ;; clear prefixes so we don't accidentally have to parse ns:000201, in which case the leading 0s were lost
+  (#"clearPrefixes" (#"getOntologyFormat" (v3kb-manager ontology) (v3kb-ont ontology)))
+  (#"setDefaultPrefix" (#"getOntologyFormat" (v3kb-manager ontology) (v3kb-ont ontology)) "urn:foo:") 
   (let ((as (to-owl-syntax ontology :functional)))
 ;    (print as)
     (with-input-from-string (s (regex-replace-all "_value" as "_ value"))
