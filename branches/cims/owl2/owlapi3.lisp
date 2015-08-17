@@ -621,7 +621,8 @@
 	   (#"read" model
 		    (new 'bufferedinputstream
 			 (#"getInputStream" (#"openConnection" (new 'java.net.url source))))
-		    source)))
+		    source 
+		    (if (#"matches" source ".*ttl") "TURTLE" "RDF/XML"))))
     model))
 
 (defun write-rdfxml (ont &optional path)
