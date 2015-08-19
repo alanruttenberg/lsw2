@@ -76,7 +76,7 @@
   (setq use-reasoner (or (second (assoc use-reasoner *endpoint-abbreviations*)) use-reasoner))
   (if (stringp use-reasoner) (setq use-reasoner (make-uri use-reasoner)))
   (let ((do-trace (or *sparql-always-trace* (and trace  *sparql-allow-trace*))))
-    (if (and do-trace trace-show-query)
+    (if (and do-trace (or *sparql-always-trace* trace-show-query))
       (format t "Query: ~a~%~a~%Results:~%" (or trace "Tracing all")  query)
       (if do-trace
 	  (format t "Query: ~a~%Results:~%" (or trace "Tracing all"))))
