@@ -19,42 +19,44 @@
 			 (format nil "~{load <~a>;~%~}" (mapcar (lambda(e) (concatenate 'string folder-iri e))  files)) :command "request"))
 
 (defun sparql-endpoint-query (url query &key query-options geturl-options (command :select) format)
-  (let* ((parsed (xmls::parse
-		  (apply 'get-url (if (uri-p url) (uri-full url) url)
-			 :post (append `((,(cond ((member command '(:select :describe :ask :construct)) "query")
-						 ((member command '(:update)) "update")
-						 (t command)) ,query)
-					 ,(unless (eq command :update)
-						  (or format (unless (eq command :update) (list "format" "application/sparql-results+xml"))))
-					 ,@(if (eq command :select)
-					       '(("should-sponge" "soft"))))
-				       query-options)
-			 (append geturl-options (if (eq command :construct) 
-						    `(:accept ,(or format "application/rdf+xml"))
-						    (if (eq command :update)
-							nil
-							'(:accept "application/sparql-results+xml")) )
-				 (list :dont-cache t :force-refetch t)
-				 ))))
-	(results (find-elements-with-tag parsed "result"))
-	(variables (mapcar (lambda(e) (attribute-named e "name")) (find-elements-with-tag parsed "variable"))))
-    (loop for result in results
-	 collect
-	 (loop for binding in (find-elements-with-tag result "binding" )
-	      for name = (attribute-named binding "name")
-	      collect
-	      (cons name
-		    (cond ((equal (caar (third binding)) "uri")
-			   (make-uri (third (third binding))))
-			  ((equal (caar (third binding)) "bnode")
-			   (if (eql 0 (search "nodeID://" (third (third binding)))) 
-			       (make-uri (third (third binding))) ;; hack for virtuoso, since we can then use them in queries as is.
-			       (make-uri (format nil "~a~a" *blankprefix* (#"replaceAll" (format nil "~a~a" (uri-full url) (third (third binding))) "://" "_")))))
-			  ((member (caar (third binding)) '("literal" "string") :test 'equal)
-			   (third (third binding)))
-			  (t (read-from-string (third (third binding)))))) into bound
-	      finally (return (loop for variable in variables collect (cdr (assoc variable bound :test 'equal))))
-	      ))))
+  (let* ((result (apply 'get-url (if (uri-p url) (uri-full url) url)
+			:post (append `((,(cond ((member command '(:select :describe :ask :construct)) "query")
+						((member command '(:update)) "update")
+						(t command)) ,query)
+					,(unless (eq command :update)
+					   (or format (unless (eq command :update) (list "format" "application/sparql-results+xml"))))
+					,@(if (eq command :select)
+					      '(("should-sponge" "soft"))))
+				      query-options)
+			(append geturl-options (if (eq command :construct) 
+						   `(:accept ,(or format "application/rdf+xml"))
+						   (if (eq command :update)
+						       nil
+						       '(:accept "application/sparql-results+xml")) )
+				(list :dont-cache t :force-refetch t)
+				))))
+    (if (and (eq command :update) (equal result ""))
+	(return-from sparql-endpoint-query t)
+	(let* ((parsed (xmls:parse result))
+	       (results (find-elements-with-tag parsed "result"))
+	       (variables (mapcar (lambda(e) (attribute-named e "name")) (find-elements-with-tag parsed "variable"))))
+	  (loop for result in results
+		collect
+		(loop for binding in (find-elements-with-tag result "binding" )
+		      for name = (attribute-named binding "name")
+		      collect
+		      (cons name
+			    (cond ((equal (caar (third binding)) "uri")
+				   (make-uri (third (third binding))))
+				  ((equal (caar (third binding)) "bnode")
+				   (if (eql 0 (search "nodeID://" (third (third binding)))) 
+				       (make-uri (third (third binding))) ;; hack for virtuoso, since we can then use them in queries as is.
+				       (make-uri (format nil "~a~a" *blankprefix* (#"replaceAll" (format nil "~a~a" (uri-full url) (third (third binding))) "://" "_")))))
+				  ((member (caar (third binding)) '("literal" "string") :test 'equal)
+				   (third (third binding)))
+				  (t (read-from-string (third (third binding)))))) into bound
+		      finally (return (loop for variable in variables collect (cdr (assoc variable bound :test 'equal))))
+		      ))))))
 
 (defvar *default-reasoner* :pellet)
 
