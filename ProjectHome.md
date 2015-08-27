@@ -1,0 +1,1 @@
+This is the second version of the LSW toolkit. In this version we move to using the OWLAPI v3, and OWL 2.

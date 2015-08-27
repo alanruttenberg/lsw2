@@ -1,0 +1,1 @@
+&lt;wiki:gadget url="http://www.cse.buffalo.edu/~jpbona/test.xml" height="400" width="600" border="0" /&gt;
