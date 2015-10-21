@@ -27,7 +27,7 @@
    (:module lisp
 	    :pathname ""
 	    :components
-	    ((:file "xpath")
+	    ((:file "xpath-xalan")
 	     (:file "loop")))))
 
 ;;;; eof
