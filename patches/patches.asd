@@ -13,6 +13,7 @@
    (:file "jinterface-safe-implementation")
    (:file "abcl-jss-fix")
    (:file "defun-interactive-record-arglist")
+   (:file "jss-helper")
   ))
 
 ;;;; eof

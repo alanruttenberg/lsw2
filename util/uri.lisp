@@ -1,5 +1,8 @@
 (in-package :cl-user)
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (jss::ensure-jss))
+
 #|
 URIs are interned. 
 
