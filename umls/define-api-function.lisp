@@ -2,9 +2,11 @@
 
 (defvar *umls-username*)
 (defvar *umls-password*)
+(defvar *umls-max-results-per-call* 100)
 (defvar *last-umls-tgt*)
 (defvar *last-umls-ticket* nil)
 (defvar *umls-api-cache* (make-hash-table :test 'equalp))
+(defvar *umls-api-cache-enabled* nil)
 
 (defun get-umls-api-ticket-granting-ticket (&optional (username *umls-username*) (password *umls-password*))
   "This is like a session ticket. It is used to get a ticket, one of which is needed for each api call"
@@ -16,13 +18,26 @@
 
 (defun get-umls-api-ticket (&optional (ticket-granting-ticket *last-umls-tgt*))
   "Gets a use-once ticket to be used when calling an api function"
-  (get-url (format nil "https://utslogin.nlm.nih.gov/cas/v1/tickets/~a" ticket-granting-ticket) 
-	   :post `(("service" "http://umlsks.nlm.nih.gov"))))
+  (catch 'catch-ticket-error 
+    (handler-bind ((http-error-response 'handle-umls-ticket-error))
+      (get-url (format nil "https://utslogin.nlm.nih.gov/cas/v1/tickets/~a" ticket-granting-ticket) 
+	   :post `(("service" "http://umlsks.nlm.nih.gov"))))))
+
+
+(defun handle-umls-ticket-error (condition)
+  (let ((cleaned (caar (all-matches (slot-value condition 'message) "(?s)<h3>(.+)</h3>" 1))))
+    (if (equal cleaned "TicketGrantingTicket could not be found.")
+	(progn
+	  (format *debug-io* "Getting new UMLS ticket granting ticket")
+	  (get-umls-api-ticket-granting-ticket)))
+    (throw 'catch-ticket-error (get-umls-api-ticket))))
+
 
 (defun handle-umls-error-response (condition)
-  (let ((cleaned (caar (all-matches (slot-value condition 'message) "(?s)<u></u>.*<u>(.+)</u>" 1))))
+  (let ((cleaned (or (caar (all-matches (slot-value condition 'message) "(?s)<u></u>.*<u>(.+)</u>" 1))
+		     (caar (all-matches (slot-value condition 'message) "(?s)<h3>(.+)</h3>" 1)))))
     (throw 'catch-umls-error (values nil cleaned (slot-value condition 'response-code)))))
-
+ 
 (defun format-umls-api-function-documentation (doc parameters-doc extended-doc)
   (with-output-to-string (s)
     (format s "~a~%~%" doc)
@@ -45,13 +60,12 @@
 	  s))))
 
 (defun cache-umls-api-call (args values)
-  (setf (gethash args *umls-api-cache*) values)
+  (when *umls-api-cache-enabled*
+    (setf (gethash args *umls-api-cache*) values))
   (values-list values))
 
 (defun cached-umls-api-call (args)
-  (values-list (gethash args *umls-api-cache*)))
-
-(defun cached
+  (and *umls-api-cache-enabled* (values-list (gethash args *umls-api-cache*))))
 
 (defmacro define-umls-api-function (function-name path doc &optional extended-doc parameters-doc)
   "Defines a function to do a UMLS REST API call.  You need to call
@@ -75,8 +89,14 @@ linked from the home page, except for the 'ticket' parameter line,
 as those are managed behind the scenes.  query parameters become
 keyword arguments to the function.
 
+One doesn't need (shouldn't use) the pagenumber and pagesize parameters.
+They are a control on the number of results in a given call. The code 
+will request *umls-max-results-per-call* per call and make multiple calls
+to retrieve all results, if necessary.
+
 The return values are left alone other than that they are parsed from
-the json to sexp using cl-json"
+the json to sexp using cl-json and, for cases where there are multiple
+results, the list of results is returned directly"
 
   (let ((parameter-names (mapcar 'first (all-matches path "[{]([^}]+)}" 1))))
     (setq parameter-names (remove "version" parameter-names :test 'equal))
@@ -86,8 +106,10 @@ the json to sexp using cl-json"
 	   (query-parameter-syms (mapcar 'intern (mapcar 'string-upcase query-parameters))))
       (let ((doc (format-umls-api-function-documentation doc parameters-doc extended-doc)))
 	(let ((method
-	       `(defun ,function-symbol (,@args &key ,@query-parameter-syms &aux (path ,path) ticket)
+	       `(defun ,function-symbol (,@args &key ,@query-parameter-syms &aux (path ,path))
 		  ,doc
+		  ,@(when (member 'pagesize query-parameter-syms) 
+			  `((setq pagesize *umls-max-results-per-call*)))
 		  (let ((call-args (list ',function-symbol ,@args ,@query-parameter-syms)))
 		    (or (cached-umls-api-call call-args)
 			(cache-umls-api-call
@@ -102,15 +124,28 @@ the json to sexp using cl-json"
 				     for arg in `,args
 				     collect
 				       `(setq url (#"replaceAll" url (format nil "[{]~a[}]" ,parameter-name) ,arg)))
-				(setq url (format nil "~a?ticket~a~a" url "=" (get-ticket)))
-				(loop for param in ',query-parameters
-				   for value in (list ,@query-parameter-syms)
-				   when value do (setq url (format nil "~a&~a~a~a" url param "=" (princ-to-string value))))
-				(cl-json::decode-json (make-string-input-stream (get-url url)))))))))))))
+				(let ((page-of-results nil)
+				      (result-pages nil))
+				  (setq pagenumber (or pagenumber 1))
+				  (loop for page-url = (format nil "~a?ticket~a~a" url "=" (get-umls-api-ticket))
+				     do
+				       (loop
+					  for param in ',query-parameters
+					  for value in (list ,@query-parameter-syms)
+					  when value
+					  do (setq page-url (format nil "~a&~a~a~a" page-url param "=" (princ-to-string value))))
+				       (setq page-of-results (cl-json::decode-json (make-string-input-stream (get-url page-url))))
+				       (push page-of-results result-pages)
+				     until
+				       ,(if (member 'pagesize query-parameter-syms)
+					    '(prog1
+					      (>= pagenumber (or (cdr (assoc :page-count page-of-results)) 0))
+					      (incf pagenumber))
+					    t))
+				  (merge-result-pages result-pages)
+					     )))))))))))
 	  (setf (get function-symbol 'source-code) method)
 	  method)))))
 
-
-
-
-
+(defun merge-result-pages (pages)
+  (apply 'concatenate 'list (mapcar (lambda(r) (cdr (assoc :result r))) (reverse pages))))

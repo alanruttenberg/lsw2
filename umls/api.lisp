@@ -234,4 +234,3 @@ You may use any valid UMLS release back to 2008AA in your URI if you would like 
   "pageNumber	N	Whole number that specifies which page of results to fetch.	1,2,3, etc.	1	Most content views contain several thousand members. When retrieving members of a content view, use paging to retrieve the complete set.
 pageSize	N	Whole number that specifies the number of results to include per page.	1,2,3, etc	25	n/a"
   )
-
