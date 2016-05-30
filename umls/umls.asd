@@ -22,7 +22,8 @@
 	    :depends-on (macros)
 	    :serial t
 	    :components
-	    ((:file "api.lisp")
+	    ((:file "api")
+	     (:file "helpers")
 	     )))
   :depends-on (jss))
 
