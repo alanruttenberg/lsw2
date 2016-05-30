@@ -10,6 +10,13 @@
 (defun post-url-xml (url message)
   (get-url url :post message))
 
+(define-condition http-error-response (error) ((response-code :initarg :response-code) (message :initarg :message)) (:report format-http-error-response))
+
+(defun format-http-error-response (condition stream)
+  (print-db condition stream)
+  (format stream "Bad HTTP response ~A: ~A" (slot-value condition 'response-code) (slot-value condition 'message)))
+
+
 (defun get-url (url &key post (force-refetch  post) (dont-cache post) (to-file nil) (persist (and (not post) (not to-file))) cookiestring nofetch verbose tunnel referer (follow-redirects t) 
 		(ignore-errors nil) head accept  extra-headers (appropriate-response (lambda(res) (and (numberp res) (>= res 200) (< res 400)))) (verb "GET")
 		&aux headers)
@@ -81,7 +88,7 @@
 		   (let ((responsecode (#"getResponseCode" connection)))
 		     (if (not (funcall appropriate-response responsecode))
 			 (let ((errstream (#"getErrorStream" connection)))
-			   (error "Bad HTTP response ~A: ~A" responsecode (if errstream (stream->string errstream) "No error stream"))) 
+			   (error (make-condition 'http-error-response :response-code responsecode :message (if errstream (stream->string errstream) "No error stream"))) )
 			 (return-from get-url (unpack-headers responsecode (prog1 (#"getHeaderFields" connection) (#"disconnect" connection)))))))
 		 (setq headers (#"getHeaderFields" connection))
 		 (let ((responsecode (#"getResponseCode" connection)))
@@ -89,7 +96,7 @@
 		       (let ((errstream (#"getErrorStream" connection)))
 			 (if ignore-errors
 			     (when verbose (format t "~&;Failed to fetch ~a - got response code ~a~%" url responsecode))
-			     (error "Bad HTTP response ~A: ~A" responsecode (if errstream (stream->string errstream) "No error stream"))) )
+			     (error (make-condition 'http-error-response :response-code responsecode :message (if errstream (stream->string errstream) "No error stream"))) ))
 		       (let ((stream (ignore-errors (#"getInputStream" connection))))
 			 (if (and (member responsecode '(301 302 303)) follow-redirects)
 			     (progn (setq url (second (assoc "Location" (unpack-headers responsecode headers) :test 'equal)))
