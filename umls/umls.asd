@@ -23,8 +23,8 @@
 	    :serial t
 	    :components
 	    ((:file "api")
-	     (:file "helpers")
+	     (:file "helper")
 	     )))
-  :depends-on (jss))
+  :depends-on (jss cl-json))
 
 ;;;; eof

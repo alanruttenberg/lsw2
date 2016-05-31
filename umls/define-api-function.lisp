@@ -1,9 +1,11 @@
 (require 'cl-json) ; must do (ql:quickload "cl-json") once to install
 
+;;; YOU, yes YOU, need to set up the user and password
 (defvar *umls-username*)
 (defvar *umls-password*)
+
 (defvar *umls-max-results-per-call* 100)
-(defvar *last-umls-tgt*)
+(defvar *last-umls-tgt* nil)
 (defvar *last-umls-ticket* nil)
 (defvar *umls-api-cache* (make-hash-table :test 'equalp))
 (defvar *umls-api-cache-enabled* nil)
@@ -67,7 +69,33 @@
 (defun cached-umls-api-call (args)
   (and *umls-api-cache-enabled* (values-list (gethash args *umls-api-cache*))))
 
-(defmacro define-umls-api-function (function-name path doc &optional extended-doc parameters-doc)
+(defun persist-umls-api-call-cache ()
+  (let ((c *umls-api-cache*))
+    (ensure-directories-exist "umls:work;")
+    (with-open-file (f "umls:work;api-call-cache.lisp" :if-does-not-exist :create :if-exists :supersede :direction :output)
+      (format f "(*umls-api-cache* :test ~a :size ~a :count ~a)~%" (hash-table-test c) (hash-table-size c) (hash-table-count c))
+      (maphash (lambda(k v) (format f "~s~%~s~%;;;~%" k v)) *umls-api-cache*)
+      )))
+
+(defun restore-umls-api-call-cache ()
+  (with-open-file (f "umls:work;api-call-cache.lisp" :direction :input)
+    (let ((spec (read f)))
+      (destructuring-bind (token &key test size count) spec
+	(print-db (setq @ token) test size count)
+	(if (not (and (eq token '*umls-api-cache*) (member test '(eq equalp eql)) (integerp size) (integerp count)))
+	    (error "not a umls api call cache. Spec is ~a" spec)
+	    (let ((table (make-hash-table :test test :size size)))
+	      (loop for count from 0
+		 for key = (read f nil :eof)
+		 for value = (read f nil :eof)
+		 until (eq key :eof)
+		 do (setf (gethash key table) value)
+		   (when (zerop (mod (incf count) 1000)) (princ ".")))
+	      (assert (= (hash-table-count table) count) (table count) "Difference in number of entries saved and read")
+	      (setq *umls-api-cache* table)))))))
+
+
+(defmacro define-umls-api-function (function-name path doc &optional extended-doc parameters-doc &key one-result-only)
   "Defines a function to do a UMLS REST API call.  You need to call
 get-umls-api-ticket-granting-ticket once every 8 hours, but otherwise
 tickets (for authentication) are retrieved as needed.  Arguments are
@@ -126,7 +154,8 @@ results, the list of results is returned directly"
 				       `(setq url (#"replaceAll" url (format nil "[{]~a[}]" ,parameter-name) ,arg)))
 				(let ((page-of-results nil)
 				      (result-pages nil))
-				  (setq pagenumber (or pagenumber 1))
+				  (when (member 'pagesize ',query-parameter-syms)
+				    (setq pagenumber (or pagenumber 1)))
 				  (loop for page-url = (format nil "~a?ticket~a~a" url "=" (get-umls-api-ticket))
 				     do
 				       (loop
@@ -142,10 +171,19 @@ results, the list of results is returned directly"
 					      (>= pagenumber (or (cdr (assoc :page-count page-of-results)) 0))
 					      (incf pagenumber))
 					    t))
-				  (merge-result-pages result-pages)
+				  (merge-result-pages result-pages ,one-result-only)
 					     )))))))))))
 	  (setf (get function-symbol 'source-code) method)
 	  method)))))
 
-(defun merge-result-pages (pages)
-  (apply 'concatenate 'list (mapcar (lambda(r) (cdr (assoc :result r))) (reverse pages))))
+;; there's always something. Every function but concept-info returns a
+;; list of list of pairs. That one returns a list of pairs. Sheesh.
+
+(defun merge-result-pages (pages one-result-only)
+  (apply 'concatenate 'list (mapcar (lambda(r)
+				      (let ((result (cdr (assoc :result r))))
+					(if one-result-only (list result) result)))
+				    (reverse pages))))
+
+
+

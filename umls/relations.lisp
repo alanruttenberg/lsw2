@@ -15,3 +15,10 @@
       ("SIB" "has sibling relationship in a Metathesaurus source vocabulary.")
       ("SY" "source asserted synonymy.")
       ("XR" "Not related, no mapping")))
+
+AUI	Atom identifier
+CODE	Unique Identifier or code for string in source
+CUI	Concept unique identifier
+RUI	Relationship identifier
+SCUI	Source asserted concept unique identifier
+SDUI	Source asserted descriptor identifier

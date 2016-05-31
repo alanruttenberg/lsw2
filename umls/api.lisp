@@ -1,3 +1,4 @@
+;; see https://documentation.uts.nlm.nih.gov/rest/home.html
 
 (define-umls-api-function
  umls-search
@@ -35,7 +36,8 @@ language	N	Retrieve only atoms that have a specific language	Any 3 letter langua
 includeObsolete	N	Include content that is obsolete according to the content provider or NLM.	true or false	false	n/a
 includeSuppressible	N	Include content that is suppressible according to NLM Editors .	true or false	false	n/a
 pageNumber	N	Whole number that specifies which page of results to fetch.	1,2,3, etc	1	n/a
-pageSize	N	Whole number that specifies the number of results to include per page.	1,2,3, etc	25	n/a")
+pageSize	N	Whole number that specifies the number of results to include per page.	1,2,3, etc	25	n/a"
+ :one-result-only t)
 
 (define-umls-api-function
   umls-concept-atoms
