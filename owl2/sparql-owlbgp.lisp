@@ -1,7 +1,7 @@
 (defvar *register-terp-once* (progn (load-time-value (#"registerFactory" 'ARQTerpParser)) t))
 
-(defun sparql-with-owlbgp (query  &key (kb (and (boundp '*default-kb*) *default-kb*))
-				    (syntax :sparql)  )
+(defun sparql-with-owlbgp (query   &key (kb (and (boundp '*default-kb*) *default-kb*))
+				    (syntax :sparql) trace flatten values count trace-show-query)
   (let* ((ontology-graph 
 	  (or (v3kb-sparql-ontology-graph kb) 
 	      (setf (v3kb-sparql-ontology-graph kb)
@@ -14,11 +14,13 @@
     (let ((query-object (#"create" 'QueryFactory query (if (eq syntax :terp) 
 							   (#"getInstance" 'TerpSyntax)
 							   (#"lookup" 'Syntax "SPARQL")))))
-      (#"execQuery" sparql-engine query-object dataset))))
+      (process-sparql-results 
+       (#"execQuery" sparql-engine query-object dataset)
+       :trace trace :flatten flatten :values values :count count :trace-show-query trace-show-query  :query query))))
 
 
   
-(defun process-sparql-results (jresult &key (trace nil) (flatten nil) (values t) (count nil) (trace-show-query trace) query)
+(defun process-sparql-results (jresult &key (trace nil) (flatten nil) (values t) (count nil) (trace-show-query trace) query )
   (let ((do-trace (or *sparql-always-trace* (and trace  *sparql-allow-trace*))))
     (if (and do-trace trace-show-query)
       (format t "Query: ~a~%~a~%Results:~%" (or trace "Tracing all")  query)
@@ -55,5 +57,6 @@
 		 do (get-vars (next jresult)) finally (return (values))
 		   )
 	      ))))))
+
 
 

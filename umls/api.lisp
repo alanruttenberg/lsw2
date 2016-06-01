@@ -98,7 +98,10 @@ Retrieve immediate parents of a known source-asserted identifier.
 Retrieve immediate children of a known source-asserted identifier.
 Note that ‘current’ in the URI can always be used to search against the latest UMLS publication.
 You may use any valid UMLS release back to 2008AA in your URI if you would like to search against a particular version of the UMLS."
-  )
+    ""
+    ""
+    :one-result-only t
+    )
 
 (define-umls-api-function
     umls-source-term-atoms
