@@ -14,16 +14,18 @@
   :name "UMLS Rest API"
   :licence "BSD"
   :components
-  ((:module macros
+  ((:module api
 	    :pathname ""
 	    :components
-	    ((:file "define-api-function")))
+	    ((:file "define-api-function")
+	     (:file "api"))
+	    :serial t)
    (:module files :pathname ""
-	    :depends-on (macros)
-	    :serial t
 	    :components
-	    ((:file "api")
-	     (:file "helper")
+	    ((:file "helper")
+	     (:file "relations")
+	     (:file "sources")
+	     (:file "explore")
 	     )))
   :depends-on (jss cl-json))
 

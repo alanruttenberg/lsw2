@@ -12,8 +12,7 @@
   (flet ((has-value (r c)
 	   (and (assoc r c) (not (equalp (cdr (assoc r c)) "NONE")))))
     (with-open-file (f "/Second/Downloads/2016-05-28/disease_families.csv")
-      (loop with diseases = (make-hash-table :test 'equalp)
-	 for line = (read-line f nil :eof)
+      (loop for line = (read-line f nil :eof)
 	 until (eq line :eof) 
 	 for (familyId familyLabel numDescendants descendantId descendantLabel) = (split-at-char line #\,)
 	 for concept = (umls-concept-info descendantId)
@@ -23,6 +22,22 @@
 	   (when (has-value :definitions concept) (umls-concept-definitions descendantId) (princ #\D))
 	   (when (has-value :atoms concept) (umls-concept-atoms descendantId) (princ #\A))
 	   (terpri)))))
+
+(defun source-terms-for-initial-concepts
+    (&aux (todo (make-hash-table :test 'equalp)))
+  (with-open-file (f "/Second/Downloads/2016-05-28/disease_families.csv")
+    (loop 
+       for line = (read-line f nil :eof)
+       until (eq line :eof) 
+       for (familyId familyLabel numDescendants descendantId descendantLabel) = (split-at-char line #\,)
+       for atoms = (umls-concept-atoms descendantId)
+       do
+	 (loop for result in atoms
+	    for code = (cdr (assoc :code result))
+	    do (setf (gethash code todo) t))))
+  todo)
+	      
+
 
 (defun count-cuis ()
   (let ((table (make-hash-table :test 'equalp)))
@@ -105,22 +120,24 @@
 	 (pushnew (cdr e) them :test 'equal))))
     them)
 
-(defun cache-source-terms ()
+(defun cache-source-terms (&optional which)
   (flet ((has-value (r c)
 	   (and (assoc r c) (not (equalp (cdr (assoc r c)) "NONE")))))
     (let ((table (make-hash-table :test 'equal)))
-      (map-umls-source-terms (lambda(e) (setf (gethash e table) t)))
+      (unless which (map-umls-source-terms (lambda(e) (setf (gethash e table) t))))
       (maphash (lambda(url v)
 		 (declare (ignore v))
-		 (setq @ url)
-		 (destructuring-bind (source id) (car (all-matches url "/source/([^/]*)/([^/]*)" 1 2))
-		   (let ((term (car (umls-source-term-info source id))))
-		     (princ source) (princ "/") (princ id) (princ "/") (princ #\S)
-		     (when (has-value :relations term) (umls-source-term-relations source id) (princ #\R))
-		     (when (has-value :parents term) (umls-source-term-parents source id) (princ #\P))
-		     (when (has-value :ancestors term) (umls-source-term-ancestors source id) (princ #\A))
-		     (terpri))))
-	       table))))
+		   (destructuring-bind (source id) (car (all-matches url "/source/([^/]*)/([^/]*)" 1 2))
+		     (let ((in-cache (umls-source-term-info source id :probe t)))
+		       (let ((term (car (umls-source-term-info source id))))
+			 (if in-cache
+			     (princ ".")
+			     (progn (princ source) (princ "/") (princ id) (princ "/") (princ #\S)))
+			 (when (has-value :relations term) (umls-source-term-relations source id) (princ #\R))
+			 (when (has-value :parents term) (umls-source-term-parents source id) (princ #\P))
+			 (when (has-value :ancestors term) (umls-source-term-ancestors source id) (princ #\A))
+			 (unless in-cache (terpri))))))
+	       (or which table)))))
 
 ;(gethash '(umls-source-term-relations "MDRCZE" "10029004" NIL NIL NIL 100) *umls-api-cache*)
 
@@ -128,22 +145,8 @@
 ;(untrace)
 ;(pprint (umls-concept-atoms "C0311370"))
 
-(defun hp (CUI)
-  (let ((info (car (umls-concept-info cui)))
-	(relations (umls-concept-relations cui))
-	(definitions (umls-concept-definitions cui))
-	(atoms (umls-concept-atoms cui)))
-    (print "info")
-    (pprint info)
-    (print "relations")
-    (pprint relations)
-    (print "definitions")
-    (pprint definitions)
-    (print "atoms")
-    (pprint atoms)))
 #|
-(hp "C0393639")
-
+(dump-cui "C0393639")
 "info" 
 ((:CLASS-TYPE . "Concept") (:UI . "C0393639") (:SUPPRESSIBLE)
  (:DATE-ADDED . "01-01-1998") (:MAJOR-REVISION-DATE . "11-10-2015")
@@ -181,7 +184,7 @@
   (:VALUE
    . "Inflammation of the brain secondary to an immune response triggered by the body itself.")))
 "atoms" 
-(((:Class-TYPE . "Atom") (:UI . "A26238737")
+(((:CLASS-TYPE . "Atom") (:UI . "A26238737")
   (:SUPPRESSIBLE . "false") (:OBSOLETE . "false")
   (:ROOT-SOURCE . "MDRCZE") (:TERM-TYPE . "LLT")
   (:CODE
@@ -1457,4 +1460,5 @@
   (:RELATIONS
    . "https://uts-ws.nlm.nih.gov/rest/content/2016AA/AUI/A18426084/relations")
   (:DEFINITIONS . "NONE") (:NAME . "ﾊｼﾓﾄﾉｳｼｮｳ") (:LANGUAGE . "JPN")))
+
 |#

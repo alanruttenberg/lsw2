@@ -239,3 +239,42 @@ You may use any valid UMLS release back to 2008AA in your URI if you would like 
   "pageNumber	N	Whole number that specifies which page of results to fetch.	1,2,3, etc.	1	Most content views contain several thousand members. When retrieving members of a content view, use paging to retrieve the complete set.
 pageSize	N	Whole number that specifies the number of results to include per page.	1,2,3, etc	25	n/a"
   )
+
+;; ****************
+;; undocumented AUI relations
+
+(define-umls-api-function
+    umls-atom-info
+    "/content/{version}/AUI/{AUI}"
+  "Retrieves information about a known AUI"
+  "Retrieves information about a known AUI"
+  ""
+  :one-result-only t)
+
+(define-umls-api-function
+    umls-atom-relations
+    "/content/{version}/AUI/{AUI}/relations"
+  "Retrieves NLM-asserted relationships for a known AUI"
+  "Retrieves NLM-asserted relationships for a known AUI"
+  "")
+
+(define-umls-api-function
+    umls-atom-parents
+    "/content/{version}/AUI/{AUI}/parents"
+  "Retrieves NLM-asserted parents for a known AUI"
+  "Retrieves NLM-asserted parents for a known AUI"
+  "")
+
+(define-umls-api-function
+    umls-atom-ancestors
+    "/content/{version}/AUI/{AUI}/ancestors"
+  "Retrieves ancestors for a known AUI"
+  "Retrieves ancestors for a known AUI"
+  "")
+
+(define-umls-api-function
+    umls-atom-attributes
+    "/content/{version}/AUI/{AUI}/attributes"
+  "Retrieves NLM-asserted attributes for a known AUI"
+  "Retrieves NLM-asserted attributes for a known AUI"
+  "")

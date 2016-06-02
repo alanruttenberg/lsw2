@@ -8,7 +8,7 @@
 (defvar *last-umls-tgt* nil)
 (defvar *last-umls-ticket* nil)
 (defvar *umls-api-cache* (make-hash-table :test 'equalp))
-(defvar *umls-api-cache-enabled* nil)
+(defvar *umls-api-cache-enabled* t)
 
 (defun get-umls-api-ticket-granting-ticket (&optional (username *umls-username*) (password *umls-password*))
   "This is like a session ticket. It is used to get a ticket, one of which is needed for each api call"
@@ -95,7 +95,7 @@
 	      (setq *umls-api-cache* table)))))))
 
 
-(defmacro define-umls-api-function (function-name path doc &optional extended-doc parameters-doc &key one-result-only)
+(defmacro define-umls-api-function (function-name path doc &optional extended-doc parameters-doc &key one-result-only probe)
   "Defines a function to do a UMLS REST API call.  You need to call
 get-umls-api-ticket-granting-ticket once every 8 hours, but otherwise
 tickets (for authentication) are retrieved as needed.  Arguments are
@@ -134,45 +134,46 @@ results, the list of results is returned directly"
 	   (query-parameter-syms (mapcar 'intern (mapcar 'string-upcase query-parameters))))
       (let ((doc (format-umls-api-function-documentation doc parameters-doc extended-doc)))
 	(let ((method
-	       `(defun ,function-symbol (,@args &key ,@query-parameter-syms &aux (path ,path))
+	       `(defun ,function-symbol (,@args &key ,@query-parameter-syms probe &aux (path ,path))
 		  ,doc
 		  ,@(when (member 'pagesize query-parameter-syms) 
 			  `((setq pagesize *umls-max-results-per-call*)))
 		  (let ((call-args (list ',function-symbol ,@args ,@query-parameter-syms)))
 		    (or (cached-umls-api-call call-args)
-			(cache-umls-api-call
-			 call-args
-			 (multiple-value-list
-			  (catch 'catch-umls-error 
-			    (handler-bind ((http-error-response 'handle-umls-error-response))
-			      (let ((url (format nil "https://uts-ws.nlm.nih.gov/rest~a" path)))
-				(setq url (#"replaceAll" url "[{]version[}]" "current"))
-				,@(loop
-				     for parameter-name in `,parameter-names
-				     for arg in `,args
-				     collect
-				       `(setq url (#"replaceAll" url (format nil "[{]~a[}]" ,parameter-name) ,arg)))
-				(let ((page-of-results nil)
-				      (result-pages nil))
-				  (when (member 'pagesize ',query-parameter-syms)
-				    (setq pagenumber (or pagenumber 1)))
-				  (loop for page-url = (format nil "~a?ticket~a~a" url "=" (get-umls-api-ticket))
-				     do
-				       (loop
-					  for param in ',query-parameters
-					  for value in (list ,@query-parameter-syms)
-					  when value
-					  do (setq page-url (format nil "~a&~a~a~a" page-url param "=" (princ-to-string value))))
-				       (setq page-of-results (cl-json::decode-json (make-string-input-stream (get-url page-url))))
-				       (push page-of-results result-pages)
-				     until
-				       ,(if (member 'pagesize query-parameter-syms)
-					    '(prog1
-					      (>= pagenumber (or (cdr (assoc :page-count page-of-results)) 0))
-					      (incf pagenumber))
-					    t))
-				  (merge-result-pages result-pages ,one-result-only)
-					     )))))))))))
+			(unless probe
+			  (cache-umls-api-call
+			   call-args
+			   (multiple-value-list
+			    (catch 'catch-umls-error 
+			      (handler-bind ((http-error-response 'handle-umls-error-response))
+				(let ((url (format nil "https://uts-ws.nlm.nih.gov/rest~a" path)))
+				  (setq url (#"replaceAll" url "[{]version[}]" "current"))
+				  ,@(loop
+				       for parameter-name in `,parameter-names
+				       for arg in `,args
+				       collect
+					 `(setq url (#"replaceAll" url (format nil "[{]~a[}]" ,parameter-name) ,arg)))
+				  (let ((page-of-results nil)
+					(result-pages nil))
+				    (when (member 'pagesize ',query-parameter-syms)
+				      (setq pagenumber (or pagenumber 1)))
+				    (loop for page-url = (format nil "~a?ticket~a~a" url "=" (get-umls-api-ticket))
+				       do
+					 (loop
+					    for param in ',query-parameters
+					    for value in (list ,@query-parameter-syms)
+					    when value
+					    do (setq page-url (format nil "~a&~a~a~a" page-url param "=" (princ-to-string value))))
+					 (setq page-of-results (cl-json::decode-json (make-string-input-stream (get-url page-url))))
+					 (push page-of-results result-pages)
+				       until
+					 ,(if (member 'pagesize query-parameter-syms)
+					      '(prog1
+						(>= pagenumber (or (cdr (assoc :page-count page-of-results)) 0))
+						(incf pagenumber))
+					      t))
+				    (merge-result-pages result-pages ,one-result-only)
+				    ))))))))))))
 	  (setf (get function-symbol 'source-code) method)
 	  method)))))
 
