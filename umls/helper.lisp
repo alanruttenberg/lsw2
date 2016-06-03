@@ -23,17 +23,19 @@
 	   (when (has-value :atoms concept) (umls-concept-atoms descendantId) (princ #\A))
 	   (terpri)))))
 
-(defun source-terms-for-initial-concepts
+(defun uncached-source-terms-for-initial-concepts
     (&aux (todo (make-hash-table :test 'equalp)))
   (with-open-file (f "/Second/Downloads/2016-05-28/disease_families.csv")
     (loop 
        for line = (read-line f nil :eof)
        until (eq line :eof) 
-       for (familyId familyLabel numDescendants descendantId descendantLabel) = (split-at-char line #\,)
+       for (nil nil nil descendantId nil) = (split-at-char line #\,)
        for atoms = (umls-concept-atoms descendantId)
        do
 	 (loop for result in atoms
 	    for code = (cdr (assoc :code result))
+	    for (source id) = (source-term-source-and-id-from-url code)
+	    unless (umls-source-term-info source id :probe t)
 	    do (setf (gethash code todo) t))))
   todo)
 	      

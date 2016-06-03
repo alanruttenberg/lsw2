@@ -105,4 +105,6 @@
     ;; not in the doc, but used as a code
     ("SNMI" "SNMI" "SNMI")
     ("RCD" "Read Codes")
+    ("MSHPOL" "MeSH" "Polish translation of MeSH")
+    ("MSHSWE" "MeSH" "SWEDISH translation of MeSH")
     ))
