@@ -9,6 +9,7 @@
 (defvar *last-umls-ticket* nil)
 (defvar *umls-api-cache* (make-hash-table :test 'equalp))
 (defvar *umls-api-cache-enabled* t)
+(defvar *interned-umls-strings* (make-hash-table :test 'equal))
 
 (defun get-umls-api-ticket-granting-ticket (&optional (username *umls-username*) (password *umls-password*))
   "This is like a session ticket. It is used to get a ticket, one of which is needed for each api call"
@@ -63,7 +64,7 @@
 
 (defun cache-umls-api-call (args values)
   (when *umls-api-cache-enabled*
-    (setf (gethash args *umls-api-cache*) values))
+    (setf (gethash (intern-umls-strings args :call) *umls-api-cache*) (intern-umls-strings values :results)))
   (values-list values))
 
 (defun cached-umls-api-call (args)
@@ -72,6 +73,8 @@
 (defun persist-umls-api-call-cache ()
   (let ((c *umls-api-cache*))
     (ensure-directories-exist "umls:work;")
+    (if (probe-file "umls:work;api-call-cache.lisp")
+	(rename-file "umls:work;api-call-cache.lisp" "umls:work;api-call-cache-backup.lisp"))
     (with-open-file (f "umls:work;api-call-cache.lisp" :if-does-not-exist :create :if-exists :supersede :direction :output)
       (format f "(*umls-api-cache* :test ~a :size ~a :count ~a)~%" (hash-table-test c) (hash-table-size c) (hash-table-count c))
       (maphash (lambda(k v) (format f "~s~%~s~%;;;~%" k v)) *umls-api-cache*)
@@ -89,10 +92,33 @@
 		 for key = (read f nil :eof)
 		 for value = (read f nil :eof)
 		 until (eq key :eof)
-		 do (setf (gethash key table) value)
+		 do
+		   (intern-umls-strings key :call)
+		   (intern-umls-strings value :results)
+		   (setf (gethash key table) value)
 		   (when (zerop (mod (incf count) 1000)) (princ ".")))
 	      (assert (= (hash-table-count table) count) (table count) "Difference in number of entries saved and read")
 	      (setq *umls-api-cache* table)))))))
+
+(defun intern-umls-strings (thing type)
+  (flet ((intern-string (string)
+	   (or (gethash string *interned-umls-strings*)
+	       (setf (gethash string *interned-umls-strings*) string))))
+    (ecase type
+      (:call (loop for arg in thing for pos from 0 if (stringp arg) do (setf (nth pos thing) (intern-string arg))))
+      (:results 
+       (flet ((maybe-intern-cdr (pair)
+		(if (stringp (cdr pair))
+		    (setf (cdr pair) (intern-string (cdr pair))))))
+	 (loop for result in (car thing) ;; each result an alist
+	    do
+	      (map nil 
+		   (lambda (el)
+		     (if (eq (car el) :semantic-types)
+			 (map nil #'maybe-intern-cdr (cdr el))
+			 (maybe-intern-cdr el)))
+		   result)))))
+    thing))
 
 
 (defmacro define-umls-api-function (function-name path doc &optional extended-doc parameters-doc &key one-result-only probe)
