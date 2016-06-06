@@ -278,3 +278,11 @@ pageSize	N	Whole number that specifies the number of results to include per page
   "Retrieves NLM-asserted attributes for a known AUI"
   "Retrieves NLM-asserted attributes for a known AUI"
   "")
+
+(define-umls-api-function
+    umls-concept-preferred-atom
+    "/content/{version}/CUI/{CUI}/atoms/preferred"
+  "Retrieves NLM-asserted preferred atom for a CUI"
+  "Retrieves NLM-asserted preferred atom for a CUI"
+  ""
+  :one-result-only t)
