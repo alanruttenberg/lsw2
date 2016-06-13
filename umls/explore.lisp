@@ -119,5 +119,5 @@
 					 (list (or (second (assoc (cdr (assoc :root-source atom)) *umls-sources* :test 'equalp))
 					     `(:wtf ,(cdr (assoc :root-source atom)))))
 					 (atom-relations atom))))))
-	 (atom-relations (mapcan (lambda(atom) (atom-relations (atom-relations atom))) (umls-concept-atoms cui))))
+	 (atom-relations (mapcan (lambda(atom) (atom-relations atom)) (umls-concept-atoms cui))))
     (pprint (list name definitions relations (remove-duplicates atoms :test 'equalp) atom-relations))))
