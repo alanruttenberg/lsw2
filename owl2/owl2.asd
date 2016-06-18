@@ -47,7 +47,7 @@
   (let ((arch (#"getProperty" 'system "os.arch"))
 	(os (#"getProperty" 'system "os.name")))
     (namestring (merge-pathnames
-		 (make-pathname :directory `(:relative "lib" "factpp-native-1.6.3" ,(factpp-native-dir arch os))
+		 (make-pathname :directory `(:relative "lib" "factpp-native-1.6.4" ,(factpp-native-dir arch os))
 				:name (pathname-name (factpp-library-name arch os))
 				:type (pathname-type (factpp-library-name arch os))
 				)
@@ -60,21 +60,21 @@
   :components
   ((:module lib 
 	    :components
-	    ((:jar-file "HermiT-1.3.8")
-	     (:jar-file "owlapi-distribution-3.4.10")
-	     (:jar-file "factplusplus-1.6.3")
-	     (:jar-file "elk-owlapi-041")
-	     (:jar-directory "jena")
-	     (:jar-file "uncommons-maths-1.2.2")
-	     (:jar-directory "pellet")
-	     (:jar-directory "pellet-support")
+	    (
+	     (:jar-file "org.semanticweb.hermit-1.3.8.413.jar")
+	     (:jar-file "owlapi-distribution-4.2.5.jar")  
+	     (:jar-file "factplusplus-1.6.4-SNAPSHOT.jar")
+;	     (:jar-file "elk-owlapi-041")
+;	     (:jar-directory "jena")
+;	     (:jar-file "uncommons-maths-1.2.2")
+	     (:jar-directory "pelletcli/lib")
 	     (:jar-file "OWL-BGP-0.1.jar")
-	     (:jar-file "owlexplanation-1.1.1-SNAPSHOT")
-	     (:jar-file "telemetry-1.0.0.jar") ; should be in owlexplanation :(
-	     (:jar-file "owlapitools-atomicdecomposition-1.1.1.jar") ; chainsaw
-	     (:jar-file "owlapitools-concurrentimpl-1.1.1.jar") ;chainsaw
-	     (:jar-file "Chainsaw-1.0-SNAPSHOT.jar")
-	     (:jar-file "jfact-1.2.3.jar")
+;	     (:jar-file "owlexplanation-1.1.1-SNAPSHOT")
+;	     (:jar-file "telemetry-1.0.0.jar") ; should be in owlexplanation :(
+;	     (:jar-file "owlapitools-atomicdecomposition-1.1.1.jar") ; chainsaw
+;	     (:jar-file "owlapitools-concurrentimpl-1.1.1.jar") ;chainsaw
+;	     (:jar-file "Chainsaw-1.0-SNAPSHOT.jar")
+;	     (:jar-file "jfact-1.2.3.jar")
 	     (:jar-directory "prefuse")
 	     ))
    (:module "basics"

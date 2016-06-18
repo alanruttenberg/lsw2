@@ -17,11 +17,11 @@
 (defun simple-subclassof-axiom? (ax)
   (and (jinstance-of-p ax (find-java-class 'OWLSubClassOfAxiom ))
        (= (#"size" (#"getClassesInSignature" ax)) 2)
-       (every (lambda(e) (jinstance-of-p e (find-java-class 'OWLClass))) (set-to-list (#"getClassExpressions" ax)))))
+       (every (lambda(e) (jinstance-of-p e (find-java-class 'OWLClass))) (set-to-list (#"getNestedClassExpressions" ax)))))
 
 (defun make-subclass-axioms-from-equivalents (ax kb)
   "take an equivalentclasses expression in which there is a named class (i.e. not a GCI) and turn it into subclassof axioms for the named class"
-  (let ((elements (set-to-list (#"getClassExpressions" ax))))
+  (let ((elements (set-to-list (#"getNestedClassExpressions" ax))))
     (let ((named (find-if (lambda(el) (jinstance-of-p el (find-java-class 'OWLClass))) elements)))
       (loop for el in elements
 	   unless (eq named el)

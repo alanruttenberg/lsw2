@@ -91,7 +91,7 @@
 	  ;(list (length (set-to-list (#"getOntologyIRIs" mapper))) uri)
 	  )))
     (let* ((manager (#"createOWLOntologyManager" 'org.semanticweb.owlapi.apibinding.OWLManager)))
-      (#"setSilentMissingImportsHandling" manager silent-missing)
+;      (#"setSilentMissingImportsHandling" manager silent-missing)
       (and mapper (#"addIRIMapper" manager mapper))
       (let ((ont
 	     (if uri
@@ -515,10 +515,12 @@
 	  (#"put" prop->lang-none (get-entity prop :annotation-property kb) langs-none))
 	(let ((any-lang-provider (new 'owlapi.util.annotationvalueshortformprovider a-props prop->lang-none ontset
 				      (new 'simpleshortformprovider))))
-	  (jss::set-java-field any-lang-provider "quoteShortFormsWithSpaces" +true+)
+	  (#"setLiteralRenderer" any-lang-provider (new 'quotedStringAnnotationVisitor))
+	  ;(jss::set-java-field any-lang-provider "quoteShortFormsWithSpaces" +true+)
 	  (let ((lang-specific-provider (new 'owlapi.util.annotationvalueshortformprovider a-props prop->lang ontset any-lang-provider)))
+	    (#"setLiteralRenderer" lang-specific-provider (new 'quotedStringAnnotationVisitor))
 	    ;; next isn't working yet
-	    (jss::set-java-field lang-specific-provider "quoteShortFormsWithSpaces" +true+)
+	    ;(jss::set-java-field lang-specific-provider "quoteShortFormsWithSpaces" +true+)
 	    (setf (v3kb-short-form-provider kb) 
 		  (new 'owlapi.util.BidirectionalShortFormProviderAdapter (#"getImportsClosure" (v3kb-ont kb))
 		       lang-specific-provider)))))))
@@ -534,13 +536,14 @@
 (defun parse-manchester-expression (kb string)
   (#"parse" (manchester-parser kb) string))
 
-(defvar *owlapi-syntax-renderers*
-  '((:manchester uk.ac.manchester.cs.owl.owlapi.mansyntaxrenderer.ManchesterOWLSyntaxRenderer)
-    (:functional org.coode.owlapi.functionalrenderer.OWLFunctionalSyntaxRenderer )
-    (:xml org.coode.owlapi.owlxml.renderer.OWLXMLRenderer)
-    (:rdfxml org.coode.owlapi.rdf.rdfxml.RDFXMLRenderer)
-    (:krss de.uulm.ecs.ai.owlapi.krssrenderer.KRSS2OWLSyntaxRenderer)
-    (:turtle org.coode.owlapi.turtle.TurtleRenderer)))
+(defparameter *owlapi-syntax-renderers*
+  '((:manchester org.semanticweb.owlapi.manchestersyntax.renderer.ManchesterOWLSyntaxRenderer)
+    (:functional org.semanticweb.owlapi.functional.renderer.OWLFunctionalSyntaxRenderer )
+    (:xml org.semanticweb.owlapi.owlxml.renderer.OWLXMLRenderer)
+    (:rdfxml org.semanticweb.owlapi.rdf.rdfxml.renderer.RDFXMLRenderer)
+    (:krss org.semanticweb.owlapi.krss2.renderer.KRSS2OWLSyntaxRenderer)
+    (:turtle org.semanticweb.owlapi.rdf.turtle.renderer.TurtleRenderer)
+    ))
 
 (defun manchester-renderer (kb)
   (or (v3kb-manchester-renderer kb)
@@ -574,16 +577,16 @@
       (ecase syntax
 	((:lsw :lisp) (owl-to-lisp-syntax ont t))
 	((:turtle)
-	 (let ((format (new 'org.semanticweb.owlapi.io.RDFXMLOntologyFormat)))
+	 (let ((format (new 'org.semanticweb.owlapi.formats.RDFXMLDocumentFormat)))
 	   (#"setAddMissingTypes" format nil)
-	   (#"render" (new (second (assoc syntax *owlapi-syntax-renderers*)) ont manager writer format))))
+	   (#"render" (new (second (assoc syntax *owlapi-syntax-renderers*)) ont  writer format))))
 	((:rdfxml)
-	 (let ((format (new 'org.semanticweb.owlapi.io.RDFXMLOntologyFormat)))
+	 (let ((format (new 'org.semanticweb.owlapi.formats.RDFXMLDocumentFormat)))
 	   (#"setAddMissingTypes" format nil)
-	   (#"render" (setq @ (new (second (assoc syntax *owlapi-syntax-renderers*)) manager ont writer format)))))
-	((:manchester :functional :xml :krss)
+	   (#"render" (new (second (assoc syntax *owlapi-syntax-renderers*))  ont writer format))))
+	((:manchester :functional :xml :krss )
 	 (let ((renderer (second (assoc syntax *owlapi-syntax-renderers*))))
-	   (#"render" (new renderer manager) ont writer))))
+	   (#"render" (new renderer) ont writer))))
       (#"close" writer)
       (if (null dest)
 	  (#"toString" writer)
@@ -612,14 +615,12 @@
   (let ((model (#"createDefaultModel" 'com.hp.hpl.jena.rdf.model.ModelFactory)))
     (loop for (source) in (loaded-documents kb)
        do
-       (if (or (search "inputstream" source)
+	 (unless (search "Optional.of" source)
+	   (if (or (search "inputstream" source)
 	       (search "owlapi:" source)) ;; assume the only such one is the kb itself
 	   (#"read" model (new 'stringreader (to-owl-syntax kb :rdfxml))
 		    source)
-	   (#"read" model
-		    (new 'bufferedinputstream
-			 (#"getInputStream" (#"openConnection" (new 'java.net.url source))))
-		    source)))
+	   (#"read" model source))))
     model))
 
 (defun write-rdfxml (ont &optional path)

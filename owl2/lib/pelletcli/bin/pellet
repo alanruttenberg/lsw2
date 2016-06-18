@@ -1,0 +1,128 @@
+#!/bin/sh
+# ----------------------------------------------------------------------------
+#  Copyright 2001-2006 The Apache Software Foundation.
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+# ----------------------------------------------------------------------------
+#
+#   Copyright (c) 2001-2006 The Apache Software Foundation.  All rights
+#   reserved.
+
+
+# resolve links - $0 may be a softlink
+PRG="$0"
+
+while [ -h "$PRG" ]; do
+  ls=`ls -ld "$PRG"`
+  link=`expr "$ls" : '.*-> \(.*\)$'`
+  if expr "$link" : '/.*' > /dev/null; then
+    PRG="$link"
+  else
+    PRG=`dirname "$PRG"`/"$link"
+  fi
+done
+
+PRGDIR=`dirname "$PRG"`
+BASEDIR=`cd "$PRGDIR/.." >/dev/null; pwd`
+
+# Reset the REPO variable. If you need to influence this use the environment setup file.
+REPO=
+
+
+# OS specific support.  $var _must_ be set to either true or false.
+cygwin=false;
+darwin=false;
+case "`uname`" in
+  CYGWIN*) cygwin=true ;;
+  Darwin*) darwin=true
+           if [ -z "$JAVA_VERSION" ] ; then
+             JAVA_VERSION="CurrentJDK"
+           else
+             echo "Using Java version: $JAVA_VERSION"
+           fi
+		   if [ -z "$JAVA_HOME" ]; then
+		      if [ -x "/usr/libexec/java_home" ]; then
+			      JAVA_HOME=`/usr/libexec/java_home`
+			  else
+			      JAVA_HOME=/System/Library/Frameworks/JavaVM.framework/Versions/${JAVA_VERSION}/Home
+			  fi
+           fi       
+           ;;
+esac
+
+if [ -z "$JAVA_HOME" ] ; then
+  if [ -r /etc/gentoo-release ] ; then
+    JAVA_HOME=`java-config --jre-home`
+  fi
+fi
+
+# For Cygwin, ensure paths are in UNIX format before anything is touched
+if $cygwin ; then
+  [ -n "$JAVA_HOME" ] && JAVA_HOME=`cygpath --unix "$JAVA_HOME"`
+  [ -n "$CLASSPATH" ] && CLASSPATH=`cygpath --path --unix "$CLASSPATH"`
+fi
+
+# If a specific java binary isn't specified search for the standard 'java' binary
+if [ -z "$JAVACMD" ] ; then
+  if [ -n "$JAVA_HOME"  ] ; then
+    if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
+      # IBM's JDK on AIX uses strange locations for the executables
+      JAVACMD="$JAVA_HOME/jre/sh/java"
+    else
+      JAVACMD="$JAVA_HOME/bin/java"
+    fi
+  else
+    JAVACMD=`which java`
+  fi
+fi
+
+if [ ! -x "$JAVACMD" ] ; then
+  echo "Error: JAVA_HOME is not defined correctly." 1>&2
+  echo "  We cannot execute $JAVACMD" 1>&2
+  exit 1
+fi
+
+if [ -z "$REPO" ]
+then
+  REPO="$BASEDIR"/lib
+fi
+
+CLASSPATH="$BASEDIR"/etc:"$REPO"/pellet-owlapi-ignazio1977-2.4.0-ignazio1977.jar:"$REPO"/pellet-core-ignazio1977-2.4.0-ignazio1977.jar:"$REPO"/aterm-java-1.8.2-p1.jar:"$REPO"/jjtraveler-0.6.jar:"$REPO"/shared-objects-1.4.9-p1.jar:"$REPO"/jgrapht-jdk1.5-0.7.3.jar:"$REPO"/xercesImpl-2.11.0.jar:"$REPO"/xml-apis-1.4.01.jar:"$REPO"/jena-arq-2.10.1.jar:"$REPO"/httpclient-4.2.3.jar:"$REPO"/httpcore-4.2.2.jar:"$REPO"/commons-codec-1.6.jar:"$REPO"/pellet-query-ignazio1977-2.4.0-ignazio1977.jar:"$REPO"/antlr-runtime-3.4.jar:"$REPO"/stringtemplate-3.2.1.jar:"$REPO"/antlr-2.7.7.jar:"$REPO"/owlapi-distribution-4.1.4.jar:"$REPO"/jackson-core-2.5.1.jar:"$REPO"/jackson-databind-2.5.1.jar:"$REPO"/jackson-annotations-2.5.1.jar:"$REPO"/xz-1.5.jar:"$REPO"/sesame-model-2.7.16.jar:"$REPO"/sesame-util-2.7.16.jar:"$REPO"/sesame-rio-api-2.7.16.jar:"$REPO"/sesame-rio-languages-2.7.16.jar:"$REPO"/sesame-rio-datatypes-2.7.16.jar:"$REPO"/sesame-rio-binary-2.7.16.jar:"$REPO"/sesame-rio-n3-2.7.16.jar:"$REPO"/sesame-rio-nquads-2.7.16.jar:"$REPO"/sesame-rio-ntriples-2.7.16.jar:"$REPO"/sesame-rio-rdfjson-2.7.16.jar:"$REPO"/sesame-rio-rdfxml-2.7.16.jar:"$REPO"/sesame-rio-trix-2.7.16.jar:"$REPO"/sesame-rio-turtle-2.7.16.jar:"$REPO"/sesame-rio-trig-2.7.16.jar:"$REPO"/jsonld-java-sesame-0.5.0.jar:"$REPO"/jsonld-java-0.5.0.jar:"$REPO"/httpclient-cache-4.2.5.jar:"$REPO"/jcl-over-slf4j-1.7.7.jar:"$REPO"/semargl-sesame-0.6.1.jar:"$REPO"/semargl-core-0.6.1.jar:"$REPO"/semargl-rdfa-0.6.1.jar:"$REPO"/semargl-rdf-0.6.1.jar:"$REPO"/trove4j-3.0.3.jar:"$REPO"/guava-18.0.jar:"$REPO"/guice-4.0.jar:"$REPO"/javax.inject-1.jar:"$REPO"/aopalliance-1.0.jar:"$REPO"/guice-assistedinject-4.0.jar:"$REPO"/guice-multibindings-4.0.jar:"$REPO"/jsr305-2.0.1.jar:"$REPO"/commons-io-2.4.jar:"$REPO"/pellet-pellint-ignazio1977-2.4.0-ignazio1977.jar:"$REPO"/pellet-jena-ignazio1977-2.4.0-ignazio1977.jar:"$REPO"/jena-core-2.10.1.jar:"$REPO"/jena-iri-0.9.6.jar:"$REPO"/pellet-modularity-ignazio1977-2.4.0-ignazio1977.jar:"$REPO"/pellet-explanation-ignazio1977-2.4.0-ignazio1977.jar:"$REPO"/slf4j-simple-1.7.7.jar:"$REPO"/slf4j-api-1.7.7.jar:"$REPO"/pellet-cli-ignazio1977-2.4.0-ignazio1977.jar
+
+ENDORSED_DIR=
+if [ -n "$ENDORSED_DIR" ] ; then
+  CLASSPATH=$BASEDIR/$ENDORSED_DIR/*:$CLASSPATH
+fi
+
+if [ -n "$CLASSPATH_PREFIX" ] ; then
+  CLASSPATH=$CLASSPATH_PREFIX:$CLASSPATH
+fi
+
+# For Cygwin, switch paths to Windows format before running java
+if $cygwin; then
+  [ -n "$CLASSPATH" ] && CLASSPATH=`cygpath --path --windows "$CLASSPATH"`
+  [ -n "$JAVA_HOME" ] && JAVA_HOME=`cygpath --path --windows "$JAVA_HOME"`
+  [ -n "$HOME" ] && HOME=`cygpath --path --windows "$HOME"`
+  [ -n "$BASEDIR" ] && BASEDIR=`cygpath --path --windows "$BASEDIR"`
+  [ -n "$REPO" ] && REPO=`cygpath --path --windows "$REPO"`
+fi
+
+exec "$JAVACMD" $JAVA_OPTS  \
+  -classpath "$CLASSPATH" \
+  -Dapp.name="pellet" \
+  -Dapp.pid="$$" \
+  -Dapp.repo="$REPO" \
+  -Dapp.home="$BASEDIR" \
+  -Dbasedir="$BASEDIR" \
+  pellet.Pellet \
+  "$@"
