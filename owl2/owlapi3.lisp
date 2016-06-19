@@ -358,14 +358,12 @@
     (when (or (eq reasoner :pellet) (eq reasoner :pellet-sparql))
       (pellet-log-level (#"getKB" (v3kb-reasoner ont)) log))
     ;;  (if classify (#"prepareReasoner" (v3kb-reasoner ont)))
-    (if classify
-	(ecase reasoner 
-	  ((:hermit) (#"classify" (v3kb-reasoner ont)))
-	  ((:pellet :pellet-sparql :factpp :elk :jfact  :chainsaw) (#"precomputeInferences" 
-					     (v3kb-reasoner ont)
-					     (jnew-array-from-array
-					      (find-java-class 'org.semanticweb.owlapi.reasoner.InferenceType)
-					      (make-array 1 :initial-contents (list (get-java-field 'inferencetype "CLASS_HIERARCHY")))))))) 
+    (when classify
+      (#"precomputeInferences" 
+       (v3kb-reasoner ont)
+       (jnew-array-from-array
+	(find-java-class 'org.semanticweb.owlapi.reasoner.InferenceType)
+	(make-array 1 :initial-contents (list (get-java-field 'inferencetype "CLASS_HIERARCHY")))))) 
     (prog1
 	(#"isConsistent" (v3kb-reasoner ont))
       (when (or (eq reasoner :pellet) (eq reasoner :pellet-sparql) )
