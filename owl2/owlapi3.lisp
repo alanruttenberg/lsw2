@@ -412,7 +412,7 @@
 (defun entity-annotations (uri kb &optional prop)
   (loop for ont in (set-to-list (#"getImportsClosure" (v3kb-ont kb)))
      append
-     (let ((annots (set-to-list (#"getAnnotations" (#"getOWLNamedIndividual" (v3kb-datafactory kb) (to-iri uri)) ont))))
+     (let ((annots (set-to-list (#"getAnnotations" 'EntitySearcher (#"getOWLNamedIndividual" (v3kb-datafactory kb) (to-iri uri)) ont))))
        (loop for annot in annots
 	  for property = (#"toString" (#"getIRI" (#"getProperty" annot)))
 	  for value = (#"getValue" annot)
@@ -435,7 +435,7 @@
 (defun entity-label (uri kb)
   (loop for ont in (set-to-list (#"getImportsClosure" (v3kb-ont kb)))
      append
-     (let ((annots (set-to-list (#"getAnnotations" (#"getOWLNamedIndividual" (v3kb-datafactory kb) (to-iri uri)) ont (#"getOWLAnnotationProperty" (v3kb-datafactory kb) (to-iri !rdfs:label))))))
+     (let ((annots (set-to-list (#"getAnnotations" 'EntitySearcher (#"getOWLNamedIndividual" (v3kb-datafactory kb) (to-iri uri)) ont (#"getOWLAnnotationProperty" (v3kb-datafactory kb) (to-iri !rdfs:label))))))
        (loop for annot in annots
 	  for value = (#"getValue" annot)
 	  when value do (return-from entity-label
