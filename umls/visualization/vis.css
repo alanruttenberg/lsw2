@@ -167,7 +167,6 @@ input.vis-configuration.vis-config-range::-webkit-slider-runnable-track {
     background: -ms-linear-gradient(top,  #dedede 0%,#c8c8c8 99%); /* IE10+ */
     background: linear-gradient(to bottom,  #dedede 0%,#c8c8c8 99%); /* W3C */
     filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#dedede', endColorstr='#c8c8c8',GradientType=0 ); /* IE6-9 */
-
     border: 1px solid #999999;
     box-shadow: #aaaaaa 0px 0px 3px 0px;
     border-radius: 3px;
