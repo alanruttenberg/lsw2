@@ -121,3 +121,17 @@
 					 (atom-relations atom))))))
 	 (atom-relations (mapcan (lambda(atom) (atom-relations atom)) (umls-concept-atoms cui))))
     (pprint (list name definitions relations (remove-duplicates atoms :test 'equalp) atom-relations))))
+
+(defun snomeds-from-cui (cui)
+  (let ((atoms (umls-concept-atoms cui)))
+    (mapcar (lambda(c)
+	      (#"replaceFirst" c ".*?(\\d+)$" "$1"))
+	    (remove-duplicates  (mapcan (lambda(atom) (list (cdr (assoc :code atom))))
+					(remove-if-not (lambda(a) (equal (cdr (assoc :root-source a)) "SNOMEDCT_US")) atoms))
+				:test 'equalp))))
+
+(defun explore-snomed-superclasses (cui snomed)
+  (let ((snomeds (snomeds-from-cui cui)))
+    (and snomeds
+	 (browse-parent-hierarchy (make-uri (concatenate 'string "http://snomed.info/id/" (car snomeds))) snomed))))
+  
