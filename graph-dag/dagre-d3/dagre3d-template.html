@@ -22,7 +22,7 @@
 
 .tipsy {  position: absolute; padding: 5px; z-index: 100000; }
 
-.tipsy-inner { background-color: #FFF; color: #000; max-width: 200px; padding: 5px 5px 5px 5px; text-align: left; }
+.tipsy-inner { background-color: #FFF; color: #000; max-width: 600px; padding: 5px 5px 5px 5px; text-align: left; }
 
   /* Rounded corners */
 .tipsy-inner { border-radius: 3px; -moz-border-radius: 3px; -webkit-border-radius: 3px; }
@@ -141,7 +141,7 @@ script.onload = function()
     svgGroup.selectAll("g.node")
 	.attr("title",
 	      function(v) 
-	      {return styleTooltip(g.node(v).description)} )
+	      {return styleTooltip(g.node(v).tip)} )
 	.each(function(v)
               { $(this).tipsy({ gravity: "w", opacity: 1, html: true });  });
 

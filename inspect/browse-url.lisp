@@ -4,6 +4,16 @@
 
 (defvar *browser* "firefox")
 
+(defun list->jarray (list)
+  (let* ((wid (length list))
+	 (array (jnew-array "java.lang.String" wid))
+	 (i 0))
+    (loop for count from 0
+	 for elt in list
+	 do (setf (jarray-ref array i) elt)
+	 (incf i))
+    array))
+
 (defun browse-url (url &optional (browser *browser*))
   (if (equal browser "mac-default")
       (#"exec" (#"getRuntime" 'java.lang.Runtime) (princ (format nil "open \"~a\"" url)))

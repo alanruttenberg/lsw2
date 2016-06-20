@@ -21,7 +21,9 @@
   uri
   label
   level
-  index)
+  index
+  tooltip
+  parents)
 
 (defstruct (term-edge (:print-function print-edge))
   from
@@ -42,7 +44,10 @@
 				:label (if (eq (caar tree) !owl:Thing)
 					   "Thing"
 					   (entity-annotation-value (caar tree) kb !rdfs:label))
-				:parents (rest tree))))
+				:parents (rest tree)
+				:tooltip (if nil;(eq (caar tree) !<http://snomed.info/id/64572001>)
+					     "Not this time"
+					     (tree-tooltip kb (caar tree) :include-referencing nil)))))
 		     (setf (term-node-index new) (vector-push-extend new nodes))
 		     new))))
 	  (when last
@@ -75,8 +80,9 @@
 	 for label = (#"replaceFirst" (term-node-label node) " \\(.*" "")
 	 for level = (term-node-level node)
 	 for id = (term-node-index node)
+	   for tooltip = (term-node-tooltip node)
 	 do 
-	   (format s "g.setNode(~a,  { label: ~s });~%"  id label)
+	   (format s "g.setNode(~a,  { label: ~s , tip: ~s});~%"  id label tooltip)
 	  
 	   )
       (loop for edge in edges
@@ -94,8 +100,9 @@
 	(write-string "function initialize_data(g){" out )
 	(write-string spec out)
 	(write-string "}; window.initialize_data = initialize_data;" out))
-      (browse-url (format nil "file:///Users/alanr/repos/lsw2git/graph-dag/dagre-d3/dagre3d-template.html\\?setup=file://~a" data-path)))))
+      (browse-url (format nil "file:///Users/alanr/repos/lsw2git/graph-dag/dagre-d3/dagre3d-template.html?setup=file://~a" data-path) "safari"))))
 
+#| This for dagre-3d
 // Here we"re setting nodeclass, which is used by our custom drawNodes function
 // below.
 g.setNode(0,  { label: "TOP",       class: "type-TOP" });
@@ -138,8 +145,7 @@ g.setEdge(0, 1)
 
 	       
 
-#|
-Generate this:
+Generate this for vis:
 
 // randomly create some nodes and edges
             for (var i = 0; i < 15; i++) {
