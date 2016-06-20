@@ -643,7 +643,7 @@
   (loop for (entity etype eont) in (gethash uri (v3kb-uri2entity ont))
      append (set-to-list (#"getReferencingAxioms" eont entity))))
 
-(defun get-rendered-referencing-axioms (entity type ont)
+(defun get-rendered-referencing-axioms (entity type ont &optional direct-only)
   (loop for (entity etype eont) in (gethash entity (v3kb-uri2entity ont))
        with sw
        with sf = (short-form-provider ont)
@@ -653,7 +653,9 @@
      when (eq etype type)
      append (mapcar (lambda(ax)
 		      (list (#"render" renderer ax) ax))
-		    (set-to-list (#"getReferencingAxioms" eont entity)))))
+		    (union 
+		     (set-to-list (#"getAxioms" eont entity))
+		     (unless direct-only (set-to-list (#"getReferencingAxioms" eont entity)))))))
 
 (defun get-entity (uri type ont)
   (unless (v3kb-uri2entity ont)
