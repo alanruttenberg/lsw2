@@ -5,7 +5,9 @@
 (defvar *browser* "firefox")
 
 (defun browse-url (url)
-  (#"exec" (#"getRuntime" 'java.lang.Runtime) (format nil "~A ~A" *browser* url)))
+  (if (equal *browser* "mac-default")
+      (#"exec" (#"getRuntime" 'java.lang.Runtime) (format nil "open \"~a\"" url))
+      (#"exec" (#"getRuntime" 'java.lang.Runtime) (format nil "~A ~A" *browser* url))))
 
 (defvar *doc-base* "http://java.sun.com/javase/6/docs/api/")
 
