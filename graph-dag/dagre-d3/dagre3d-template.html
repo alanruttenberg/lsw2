@@ -1,0 +1,162 @@
+<html>
+<head>
+  <script src="js/d3/d3.js" charset="utf-8"></script>
+    <script src="js/lodash/lodash.min.js"></script>
+    <script src="js/graphlib/dist/graphlib.core.js"></script>
+    <script src="js/dagre/dist/dagre.core.js"></script>
+    <script src="js/dagre-d3/dist/dagre-d3.core.js"></script>
+    <script src="js/jquery-1.9.1.min.js"></script>
+    <!-- 
+	 Note this is the version from http://cpettitt.github.io/project/dagre-d3/latest/demo/tipsy.js
+	 The version from https://raw.githubusercontent.com/jaz303/tipsy/master/src/javascripts/jquery.tipsy.js doesn't behave the same
+	 Maybe svg adaptations?
+    -->
+    <script src="js/tipsy.js"></script>
+</head>    
+
+<svg id="svg-canvas" width=100% height=100%></svg>
+
+<style>
+/* From: http://cpettitt.github.io/project/dagre-d3/latest/demo/tipsy.css*/
+/* without this next the tooltip shows up at the top */
+
+.tipsy {  position: absolute; padding: 5px; z-index: 100000; }
+
+.tipsy-inner { background-color: #FFF; color: #000; max-width: 200px; padding: 5px 5px 5px 5px; text-align: left; }
+
+  /* Rounded corners */
+.tipsy-inner { border-radius: 3px; -moz-border-radius: 3px; -webkit-border-radius: 3px; }
+  
+/* Uncomment for shadow */
+.tipsy-inner { box-shadow: 0 0 5px #000000; -webkit-box-shadow: 0 0 5px #000000; -moz-box-shadow: 0 0 5px #000000; }
+  
+.tipsy-arrow { position: absolute; width: 0; height: 0; line-height: 0; border: 5px dashed #000; }
+  
+/* Rules to colour arrows */
+.tipsy-arrow-n { border-bottom-color: #000; }
+.tipsy-arrow-s { border-top-color: #000; }
+.tipsy-arrow-e { border-left-color: #000; }
+.tipsy-arrow-w { border-right-color: #000; }
+  
+.tipsy-n .tipsy-arrow { top: 0px; left: 50%; margin-left: -5px; border-bottom-style: solid; border-top: none; border-left-color: transparent; border-right-color: transparent; }
+.tipsy-nw .tipsy-arrow { top: 0; left: 10px; border-bottom-style: solid; border-top: none; border-left-color: transparent; border-right-color: transparent;}
+.tipsy-ne .tipsy-arrow { top: 0; right: 10px; border-bottom-style: solid; border-top: none;  border-left-color: transparent; border-right-color: transparent;}
+.tipsy-s .tipsy-arrow { bottom: 0; left: 50%; margin-left: -5px; border-top-style: solid; border-bottom: none;  border-left-color: transparent; border-right-color: transparent; }
+.tipsy-sw .tipsy-arrow { bottom: 0; left: 10px; border-top-style: solid; border-bottom: none;  border-left-color: transparent; border-right-color: transparent; }
+.tipsy-se .tipsy-arrow { bottom: 0; right: 10px; border-top-style: solid; border-bottom: none; border-left-color: transparent; border-right-color: transparent; }
+.tipsy-e .tipsy-arrow { right: 0; top: 50%; margin-top: -5px; border-left-style: solid; border-right: none; border-top-color: transparent; border-bottom-color: transparent; }
+.tipsy-w .tipsy-arrow { left: 0; top: 50%; margin-top: -5px; border-right-style: solid; border-left: none; border-top-color: transparent; border-bottom-color: transparent; }
+
+/* This styles the title of the tooltip 
+.tipsy .name {
+  font-size: 1.5em;
+  font-weight: bold;
+  color: #60b1fc;
+  margin: 0;
+}
+*/
+
+/* This styles the body of the tooltip */
+/*.tipsy .description {
+  font-size: 1.2em;
+}   */
+
+text {
+  font-weight: 300;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serf;
+  font-size: 14px;
+}
+
+.node rect {
+  stroke: #999;
+  fill: #fff;
+  stroke-width: 1.5px;
+}
+
+.edgePath path {
+  stroke: #333;
+  stroke-width: 1.5px;
+  }
+</style>
+
+
+<script type="text/javascript">
+// http://stackoverflow.com/questions/901115/how-can-i-get-query-string-values-in-javascript 
+function getParameterByName(name, url) {
+    if (!url) url = window.location.href;
+    name = name.replace(/[\[\]]/g, "\\$&");
+    var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+        results = regex.exec(url);
+    if (!results) return null;
+    if (!results[2]) return '';
+    return decodeURIComponent(results[2].replace(/\+/g, " "));
+}
+
+
+//  document.write('&lt;script type="text/javascript" src="' + getParameterByName('setup') + '&gt;"&lt;/script&gt;');
+</script>
+
+<script>
+
+// Create the input graph
+var g = new dagreD3.graphlib.Graph()
+  .setGraph({ rankdir: "BT"})
+  .setDefaultEdgeLabel(function() { return {}; });
+
+// How to load script synchronously
+// http://stackoverflow.com/questions/3248384/document-createelementscript-synchronously
+
+var script = document.createElement('script');
+
+var script = document.createElement('script');
+script.onload = function()
+{ 
+    // load up the graph
+    window.initialize_data(g);
+
+    // Create the renderer
+    var render = new dagreD3.render();
+
+    // Set up an SVG group so that we can translate the final graph.
+    var svg = d3.select("svg"),
+	svgGroup = svg.append("g");
+
+    // Set up zoom support
+    var zoom = d3.behavior.zoom().on("zoom", function() {
+	svgGroup.attr("transform", "translate(" + d3.event.translate + ")" +
+                      "scale(" + d3.event.scale + ")");
+    });
+    svg.call(zoom);
+
+    // constructor for simple tooltip
+    var styleTooltip = function(description) {
+	if (description) {
+	    return "<div class='description'>" + description + "</div>";}
+    };
+
+
+    // Run the renderer. This is what draws the final graph.
+    render(svgGroup, g);
+
+    svgGroup.selectAll("g.node")
+	.attr("title",
+	      function(v) 
+	      {return styleTooltip(g.node(v).description)} )
+	.each(function(v)
+              { $(this).tipsy({ gravity: "w", opacity: 1, html: true });  });
+
+    // Center the graph
+    var xCenterOffset = (svg.attr("width") - g.graph().width) / 2;
+    svgGroup.attr("transform", "translate(" + xCenterOffset + ", 20)");
+    svg.attr("height", g.graph().height + 40);
+};
+
+// How to load script synchronously
+// http://stackoverflow.com/questions/3248384/document-createelementscript-synchronously
+
+script.src = getParameterByName('setup');
+document.getElementsByTagName('head')[0].appendChild(script);
+
+</script>
+</html>
+    
