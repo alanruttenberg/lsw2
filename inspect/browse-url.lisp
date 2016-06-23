@@ -33,6 +33,8 @@
 		    "-e"
 		    (format nil "open location ~s"  url)
 		    "-e"
+		    "activate"
+		    "-e"
 		    "end tell")))
 	  (#"exec" (#"getRuntime" 'java.lang.Runtime) (format nil "~A ~A" browser url)))))
 
