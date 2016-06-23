@@ -445,8 +445,6 @@
 			   value
 			   ))))))
 
-
-
 (defun entity-annotations-2 (uri kb)
   (loop for ont in (set-to-list (#"getImportsClosure" (v3kb-ont kb)))
        append
@@ -532,7 +530,11 @@
 		 (new 'shortformentitychecker (short-form-provider kb))))))
 
 (defun parse-manchester-expression (kb string)
-  (#"parse" (manchester-parser kb) string))
+  (or (#"getEntity" (short-form-provider kb)
+		    (if (and (find #\space string) (not (char= (char string 0) #\')))
+			(concatenate 'string "'" string "'")
+			string))
+      (#"parse" (manchester-parser kb) string)))
 
 (defparameter *owlapi-syntax-renderers*
   '((:manchester org.semanticweb.owlapi.manchestersyntax.renderer.ManchesterOWLSyntaxRenderer)
