@@ -38,17 +38,18 @@
   (setf (key2instance ls) (remove (key ls) (key2instance ls) :key 'car))
   (push (cons (key ls) ls) (key2instance ls)))
 
+(defmethod label-from-uri ((source symbol) uri)
+  (label-from-uri (cdr (assoc source (key2instance (mop:class-prototype (find-class 'label-source)))))))
 
-(defun label-from-uri (source uri &optional)
-  (let ((label-source (if (keywordp source)
-			  (cdr (assoc source (key2instance (mop:class-prototype (find-class 'label-source)))))
-			  source)))
-    (let ((label? (car (gethash uri (uri2label label-source)))))
+(defmethod label-from-uri ((source label-source) uri)
+  (let ((label? (car (gethash uri (uri2label label-source)))))
       (when (string= label? "")
 	(warn "empty label for ~a" uri))
       (unless (eq (gethash label? (label2uri label-source)) :ambiguous)
-	label?))))
-	  
+	label?)))
+
+(defmethod label-from-uri ((source v3kb) uri)
+  (entity-label uri source))
 
 (defmethod make-uri-from-label-source (source name actual)
   (let ((instance (cdr (assoc source (key2instance (mop:class-prototype (find-class 'label-source)))))))
