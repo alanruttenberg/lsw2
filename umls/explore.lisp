@@ -130,8 +130,3 @@
 					(remove-if-not (lambda(a) (equal (cdr (assoc :root-source a)) "SNOMEDCT_US")) atoms))
 				:test 'equalp))))
 
-(defun explore-snomed-superclasses (cui snomed)
-  (let ((snomeds (snomeds-from-cui cui)))
-    (and snomeds
-	 (browse-parent-hierarchy (make-uri (concatenate 'string "http://snomed.info/id/" (car snomeds))) snomed))))
-  

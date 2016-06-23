@@ -62,6 +62,7 @@
 			(if (equal note "n/a") "" (format nil "Note: ~a. " note))))
 	  s))))
 
+
 (defun cache-umls-api-call (args values)
   (when *umls-api-cache-enabled*
     (setf (gethash (intern-umls-strings args :call) *umls-api-cache*) (intern-umls-strings values :results)))
@@ -69,6 +70,9 @@
 
 (defun cached-umls-api-call (args)
   (and *umls-api-cache-enabled* (values-list (gethash args *umls-api-cache*))))
+
+(defun is-umls-api-call-cached (args)
+  (and *umls-api-cache-enabled* (gethash args *umls-api-cache*)))
 
 (defun persist-umls-api-call-cache ()
   (let ((c *umls-api-cache*))
@@ -121,7 +125,7 @@
     thing))
 
 
-(defmacro define-umls-api-function (function-name path doc &optional extended-doc parameters-doc &key one-result-only probe)
+(defmacro define-umls-api-function (function-name path doc &optional extended-doc parameters-doc &key one-result-only )
   "Defines a function to do a UMLS REST API call.  You need to call
 get-umls-api-ticket-granting-ticket once every 8 hours, but otherwise
 tickets (for authentication) are retrieved as needed.  Arguments are
@@ -151,7 +155,6 @@ to retrieve all results, if necessary.
 The return values are left alone other than that they are parsed from
 the json to sexp using cl-json and, for cases where there are multiple
 results, the list of results is returned directly"
-
   (let ((parameter-names (mapcar 'first (all-matches path "[{]([^}]+)}" 1))))
     (setq parameter-names (remove "version" parameter-names :test 'equal))
     (let* ((args (mapcar 'intern (mapcar 'string-upcase parameter-names)))
@@ -165,7 +168,8 @@ results, the list of results is returned directly"
 		  ,@(when (member 'pagesize query-parameter-syms) 
 			  `((setq pagesize *umls-max-results-per-call*)))
 		  (let ((call-args (list ',function-symbol ,@args ,@query-parameter-syms)))
-		    (or (cached-umls-api-call call-args)
+		    (if (is-umls-api-call-cached call-args)
+			(cached-umls-api-call call-args)
 			(unless probe
 			  (cache-umls-api-call
 			   call-args

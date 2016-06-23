@@ -27,6 +27,6 @@
 	     (:file "sources")
 	     (:file "explore")
 	     )))
-  :depends-on (jss cl-json))
+  :depends-on (jss cl-json graph-dag))
 
 ;;;; eof
