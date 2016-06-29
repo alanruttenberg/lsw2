@@ -17,8 +17,8 @@
   ((:module api
 	    :pathname ""
 	    :components
-	    ((:file "explore")))
-   )
-  :depends-on (jss cl-json graph-dag umls))
+	    ((:file "setup")
+	     (:file "explore"))))
+  :depends-on (:cl-json :graph-dag :umls))
 
 ;;;; eof
