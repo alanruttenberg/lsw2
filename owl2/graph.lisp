@@ -60,9 +60,13 @@
 	  (if (equal cleaned "") nil cleaned)
 	  ))))
 
-(defun rdfs-label (uri kb)
+(defun rdfs-label (uri &optional (kb *default-kb*))
   (or (gethash (if (stringp uri) (make-uri uri) uri) (rdfs-labels kb))
       (list (#"replaceAll" (if (stringp uri) uri (uri-full uri)) ".*[/#]" ""))))
+
+(defun an-rdfs-label (uri &optional (kb *default-kb*))
+  (or (car (gethash (if (stringp uri) (make-uri uri) uri) (rdfs-labels kb)))
+      (#"replaceAll" (if (stringp uri) uri (uri-full uri)) ".*[/#]" "")))
   
   
 (defun rdfs-labels (kb &optional (ignore-obsoletes t) force-refresh)

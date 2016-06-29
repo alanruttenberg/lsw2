@@ -379,7 +379,7 @@
 ;; 	   ;(check-ontology f :classify t)
 ;; 	   )
 
-(defun to-class-expression (thing kb)
+(defun to-class-expression (thing &optional (kb *default-kb*))
   (cond ((jclass-superclass-p (load-time-value (find-java-class 'org.semanticweb.owlapi.model.owlentity)) (jobject-class thing))
 	 thing)
 	((jclass-superclass-p (load-time-value (find-java-class 'org.semanticweb.owlapi.model.OWLEntity.owlclassexpression)) (jobject-class thing))
@@ -404,6 +404,10 @@
 
 (defun is-subclass-of? (sub super kb)
   "This is faster than using parents or ancestors as you don't have to classify the ontology in order to test it"
+  (if (stringp super)
+      (setq super (make-uri (#"toString" (#"getIRI" (to-class-expression super))))))
+  (if (stringp sub)
+      (setq sub (make-uri (#"toString" (#"getIRI" (to-class-expression sub))))))
   (not (satisfiable? `(object-intersection-of (object-complement-of ,super) ,sub) kb)))
 
 (defun annotation-properties (kb)
@@ -548,8 +552,9 @@
 (defun manchester-renderer (kb)
   (or (v3kb-manchester-renderer kb)
       (setf (v3kb-manchester-renderer kb)
-	    (new 'ManchesterOWLSyntaxOWLObjectRendererImpl (v3kb-manager kb) (v3kb-ont kb) (setf (v3kb-manchester-renderer-writer kb) (new 'stringwriter))
-		 (short-form-provider kb)))))
+	    (let ((it (new 'ManchesterOWLSyntaxOWLObjectRendererImpl)))
+	      (#"setShortFormProvider" it (short-form-provider kb))
+	      it))))
 
 (defvar *owlapi-syntax-parsers*
   '((:manchester )
@@ -647,17 +652,17 @@
 
 (defun get-rendered-referencing-axioms (entity type ont &optional direct-only)
   (loop for (entity etype eont) in (gethash entity (v3kb-uri2entity ont))
-       with sw
-       with sf = (short-form-provider ont)
-     with renderer = (let ((it (new 'ManchesterOWLSyntaxOWLHTMLObjectRendererImpl)))
-		       (#"setShortFormProvider" it sf)
-		       it)
+     with renderer = (manchester-renderer ont)
      when (eq etype type)
      append (mapcar (lambda(ax)
 		      (list (#"render" renderer ax) ax))
 		    (union 
 		     (set-to-list (#"getAxioms" eont entity))
 		     (unless direct-only (set-to-list (#"getReferencingAxioms" eont entity)))))))
+
+(defun manchester-render-axiom (axiom)
+  (let ((renderer (manchester-renderer ont)))
+    (#"render" renderer axiom)))
 
 (defun get-entity (uri type ont)
   (unless (v3kb-uri2entity ont)

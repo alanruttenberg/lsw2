@@ -71,6 +71,7 @@
 	     (:jar-file "OWL-BGP-0.1.jar")
 	     (:jar-file "elk-owlapi-standalone-0.5.0-SNAPSHOT-bin.jar")
 	     (:jar-directory "jfact")
+	     (:jar-directory "explanation")
 ;	     (:jar-file "owlexplanation-1.1.1-SNAPSHOT")
 ;	     (:jar-file "telemetry-1.0.0.jar") ; should be in owlexplanation :(
 ;	     (:jar-file "owlapitools-atomicdecomposition-1.1.1.jar") ; chainsaw
