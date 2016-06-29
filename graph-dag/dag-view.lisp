@@ -78,9 +78,29 @@
 
       )))
 
+(defun emit-dagre-d3-javascript-ne (nodes edges )
+    (with-output-to-string (s)
+      (write-string "function initialize_data(g){" s )
+      (loop for node in nodes
+	 for label = (#"replaceFirst" (dag-term-node-label node) " \\(.*" "")
+	 for id = (dag-term-node-index node)
+	 for tooltip = (dag-term-node-tooltip node)
+	 do 
+	   (format s "g.setNode(~a,  { label: ~s , tip: ~s});~%"  id label tooltip)
+	  
+	   )
+      (loop for edge in edges
+	 for from = (dag-term-node-index (dag-term-edge-from edge))
+	 for to = (dag-term-node-index (dag-term-edge-to edge))
+	 do
+	   (format s "g.setEdge(~a, ~a,  {lineInterpolate: 'basis'} );~%" from to))
+      (write-string "} window.intialize_data=initialize_data;" s )
 
-(defun show-dag (datajs)
-  (BROWSE-URL (concatenate 'string *dagre-template-url* "?setup=file://" datajs)))
+      ))
+
+
+(defun show-dag (datajs &optional orientation)
+  (BROWSE-URL (concatenate 'string *dagre-template-url* "?setup=file://" datajs (if orientation (concatenate 'string "&orientation=" orientation) ""))))
   
 #| This for dagre-3d
 // Here we"re setting nodeclass, which is used by our custom drawNodes function

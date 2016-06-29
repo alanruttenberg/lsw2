@@ -100,7 +100,7 @@ function getParameterByName(name, url) {
 
 // Create the input graph
 var g = new dagreD3.graphlib.Graph()
-  .setGraph({ rankdir: "BT"})
+  .setGraph({ rankdir:  (getParameterByName('orientation'))? getParameterByName('orientation'): "BT"})
   .setDefaultEdgeLabel(function() { return {}; });
 
 // How to load script synchronously
