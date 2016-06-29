@@ -16,16 +16,16 @@
 	(list (list child ))
 	)))
 
-(defun ontology-subclass-dag (kb &key (include-referencing t))
+(defun ontology-subclass-dag (kb &key (include-referencing t) (start !owl:Thing))
   (let ((nodes-lookup (make-hash-table)) edges nodes)
-    (loop for term in (cons !owl:Thing (descendants !owl:Thing kb))
+    (loop for term in (cons start (descendants start kb))
 	 for count from 1
        for node = (make-dag-term-node
 		   :uri term
 		   :label (if (eq term !owl:Thing)
 			      "Thing"
 			      (entity-annotation-value term kb !rdfs:label))
-		   :parents (parents term kb)
+		   :parents (unless (eq term start) (parents term kb))
 		   :tooltip (tree-tooltip kb term :include-referencing include-referencing)
 		   :index count)
        do (setf (gethash term nodes-lookup) node))
@@ -37,8 +37,8 @@
     (values nodes edges)))
 
 
-(defun browse-subclass-tree (title &optional (ont *default-kb*) (orientation "RL"))
-  (multiple-value-bind (nodes edges) (ontology-subclass-dag ont)
+(defun browse-subclass-tree (title &optional (ont *default-kb*) &key (orientation "RL") (start !owl:Thing))
+  (multiple-value-bind (nodes edges) (ontology-subclass-dag ont :start start)
       (let ((spec (emit-dagre-d3-javascript-ne  nodes edges))
 	    (data-path (temp-directory-path (concatenate 'string title ".js"))))
 	(with-open-file (out data-path :direction :output :if-exists :supersede)
