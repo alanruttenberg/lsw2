@@ -9,7 +9,7 @@
   ((sources :initarg :sources :initform nil :accessor sources)
    (label2uri :initform (make-hash-table :test 'equalp) :accessor label2uri)
    (key :initarg :key :initform nil :accessor key)
-   (key2instance :initarg :key2instance :accessor key2instance :allocation :class)
+   (key2instance :initarg :key2instance :accessor key2instance :allocation :class :initform nil)
    (uri2label :initarg :uri2label :initform nil :accessor uri2label)
    (ignore-obsolete :initarg :ignore-obsolete :initform t :accessor ignore-obsolete)
    ))
@@ -41,6 +41,15 @@
 (defmethod label-from-uri ((source symbol) uri)
   (label-from-uri (cdr (assoc source (key2instance (mop:class-prototype (find-class 'label-source)))))))
 
+(defmethod new-label-source ((source v3kb) &rest args)
+  (let ((key (getf args :key))
+	(proto (mop:class-prototype (find-class 'label-source))))
+    (setf (key2instance proto) (remove key (key2instance proto) :key 'car))
+    (push (cons key source) (key2instance proto))))
+
+(defmethod new-label-source ((source symbol) &rest args)
+  (apply 'make-instance 'label-source :key source args))
+
 (defmethod label-from-uri ((source label-source) uri)
   (let ((label? (car (gethash uri (uri2label label-source)))))
       (when (string= label? "")
@@ -51,28 +60,39 @@
 (defmethod label-from-uri ((source v3kb) uri)
   (entity-label uri source))
 
-(defmethod make-uri-from-label-source (source name actual)
+(defmethod make-uri-from-label-source ((source symbol) name &optional actual)
   (let ((instance (cdr (assoc source (key2instance (mop:class-prototype (find-class 'label-source)))))))
     (unless instance
-	(error "don't know label source '~s'" () source))
-    (let ((table (label2uri instance)))
-      (let ((found (gethash name table)))
-	(when (eq found :ambiguous)
+      (error "don't know label source '~s'" () source))
+    (make-uri-from-label-source instance name actual)))
+
+(defmethod make-uri-from-label-source ((instance label-source) name &optional actual)
+  (let ((table (label2uri instance)))
+    (let ((found (gethash name table)))
+      (when (eq found :ambiguous)
+	(progn
+	  (warn "Uri label ~a in ~a is ambiguous" name instance)
+	  (setq found nil)))
+      (if found
 	  (progn
-	    (warn "Uri label ~a in ~a is ambiguous" name source)
-	    (setq found nil)))
-	(if found
-	    (progn
-	      (when actual
-		(assert (eq found (make-uri nil actual)) (found actual)
-			"Uri label lookup for '~a' - ~a doesn't match specified actual '~a'"
-			name found actual))
-	      found)
-	    (if actual
-		(progn
-		  (warn "Uri label lookup for '~a' failed - using provided actual: '~a'" name actual)
-		  (make-uri nil actual))
-		(error "Couldn't determine which URI was meant by '~a' in ~a" name source)))))))
+	    (when actual
+	      (assert (eq found (make-uri nil actual)) (found actual)
+		      "Uri label lookup for '~a' - ~a doesn't match specified actual '~a'"
+		      name found actual))
+	    found)
+	  (if actual
+	      (progn
+		(warn "Uri label lookup for '~a' failed - using provided actual: '~a'" name actual)
+		(make-uri nil actual))
+	      (error "Couldn't determine which URI was meant by '~a' in ~a" name instance))))))
+
+;; not the best method -should cache, but works.
+(defmethod make-uri-from-label-source ((instance v3kb) name &optional actual)
+  (make-uri (#"toString" (#"getIRI" (to-class-expression (if (find #\space name) (concatenate 'string "'" name "'") name) instance)))))
+
+;; well, cache here
+(defun-memo label-uri (label &optional (ont *default-kb*))
+  (make-uri-from-label-source ont label))
 
 (defun compare-ontology-rdfs-labels (ont1 ont2)
   "Compares the rdfs:labels for the uris in two ontologies, and prints to the screen the uris (and the uri's label) in which the labels of each ontology do not match."
@@ -105,3 +125,41 @@
   (let ((*print-uri-with-labels-from* (list key)))
     (loop for uri in uris do (terpri) (format t "~a ~a" (uri-full uri) uri)))
   (values))
+
+(defun rdfs-label (uri &optional (kb *default-kb*))
+  (or (gethash (if (stringp uri) (make-uri uri) uri) (rdfs-labels kb))
+      (list (#"replaceAll" (if (stringp uri) uri (uri-full uri)) ".*[/#]" ""))))
+
+(defun an-rdfs-label (uri &optional (kb *default-kb*))
+  (or (car (gethash (if (stringp uri) (make-uri uri) uri) (rdfs-labels kb)))
+      (#"replaceAll" (if (stringp uri) uri (uri-full uri)) ".*[/#]" "")))
+  
+  
+(defun rdfs-labels (kb &optional (ignore-obsoletes t) force-refresh)
+  (or (and (not force-refresh) (v3kb-uri2label kb))
+      (flet ((get-labels (clauses)
+	       (when ignore-obsoletes
+		 (setq clauses (append  clauses (list `(:optional (?uri !owl:deprecated ?dep))))))
+	       (or
+		(and *classtree-preferred-language*
+		     (sparql `(:select (?uri ?label) () ,@clauses
+				       (:filter (and (equal (lang ?label) ,*classtree-preferred-language*)
+						     (not (isblank ?uri))
+						     (not (bound ?dep))))) ;; TODO filter out obsoletes
+			     :kb kb :use-reasoner *annotation-query-reasoner*))
+		(sparql `(:select (?uri ?label) ()
+				  ,@clauses
+				  (:filter (and (not (isblank ?uri)) (not (bound ?dep)))))
+			:kb kb :use-reasoner *annotation-query-reasoner*))))
+	(setf (v3kb-uri2label kb)
+	      (loop with table = (make-hash-table)
+		 for (uri label) in 
+		 (or
+		  (get-labels '((?uri !rdfs:label ?label)))
+		  (get-labels '((?uri !foaf:name ?label)))
+		  (get-labels '((?uri !swan:title ?label))))
+		 for clean-label = (clean-label label t)
+		 when clean-label do
+		   (pushnew clean-label (gethash uri table ) :test 'equalp)
+		 finally (return table))))))
+

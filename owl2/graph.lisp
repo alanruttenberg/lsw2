@@ -60,43 +60,6 @@
 	  (if (equal cleaned "") nil cleaned)
 	  ))))
 
-(defun rdfs-label (uri &optional (kb *default-kb*))
-  (or (gethash (if (stringp uri) (make-uri uri) uri) (rdfs-labels kb))
-      (list (#"replaceAll" (if (stringp uri) uri (uri-full uri)) ".*[/#]" ""))))
-
-(defun an-rdfs-label (uri &optional (kb *default-kb*))
-  (or (car (gethash (if (stringp uri) (make-uri uri) uri) (rdfs-labels kb)))
-      (#"replaceAll" (if (stringp uri) uri (uri-full uri)) ".*[/#]" "")))
-  
-  
-(defun rdfs-labels (kb &optional (ignore-obsoletes t) force-refresh)
-  (or (and (not force-refresh) (v3kb-uri2label kb))
-      (flet ((get-labels (clauses)
-	       (when ignore-obsoletes
-		 (setq clauses (append  clauses (list `(:optional (?uri !owl:deprecated ?dep))))))
-	       (or
-		(and *classtree-preferred-language*
-		     (sparql `(:select (?uri ?label) () ,@clauses
-				       (:filter (and (equal (lang ?label) ,*classtree-preferred-language*)
-						     (not (isblank ?uri))
-						     (not (bound ?dep))))) ;; TODO filter out obsoletes
-			     :kb kb :use-reasoner *annotation-query-reasoner*))
-		(sparql `(:select (?uri ?label) ()
-				  ,@clauses
-				  (:filter (and (not (isblank ?uri)) (not (bound ?dep)))))
-			:kb kb :use-reasoner *annotation-query-reasoner*))))
-	(setf (v3kb-uri2label kb)
-	      (loop with table = (make-hash-table)
-		 for (uri label) in 
-		 (or
-		  (get-labels '((?uri !rdfs:label ?label)))
-		  (get-labels '((?uri !foaf:name ?label)))
-		  (get-labels '((?uri !swan:title ?label))))
-		 for clean-label = (clean-label label t)
-		 when clean-label do
-		   (pushnew clean-label (gethash uri table ) :test 'equalp)
-		 finally (return table))))))
-
 (defvar *temp-directory* (pathname-directory (make-temp-file)))
 
 (defun temp-directory-path (fname)
