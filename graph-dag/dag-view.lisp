@@ -77,6 +77,10 @@
       (write-string "} window.intialize_data=initialize_data;" s )
 
       )))
+
+
+(defun show-dag (datajs)
+  (BROWSE-URL (concatenate 'string *dagre-template-url* "?setup=file://" datajs)))
   
 #| This for dagre-3d
 // Here we"re setting nodeclass, which is used by our custom drawNodes function

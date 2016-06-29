@@ -17,7 +17,8 @@
   ((:module api
 	    :pathname ""
 	    :components
-	    ((:file "dag-view"))
-	    :depends-on ())))
+	    ((:file "dag-view")
+	     (:file "ontology"))))
+  :depends-on ())
 
 ;;;; eof
