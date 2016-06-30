@@ -87,12 +87,20 @@
 
 
 
-(defun prettyify-axioms (rendered-axioms &optional (ont *default-kb*))
-  (sort (mapcar (lambda(el)
-	    (let ((html el))
-	      (#"replaceAll" (#"replaceFirst" (#"replaceAll" (#"replaceAll" html "\\n" "") "<[^>]+>" "") "^.*?(SubClassOf|EquivalentTo) " "") "\\s\\([^(]+?\\)" "")))
-		rendered-axioms)
-	'string-lessp))
+(defun transform-axioms (rendered-axioms &optional (ont *default-kb*) &key (split-conjunctions t) (remove-noise-classes t) (remove-role-groups t) (remove-parenthetical t))
+ (sort (remove-duplicates
+	(remove-if 'null 
+		   (mapcan (lambda(el)
+			     (funcall (if remove-noise-classes 'remove-noise-classes 'identity)
+				      (funcall (if split-conjunctions 'split-conjunctions 'identity)
+					       (let ((html el))
+						 (funcall (if remove-role-groups 'remove-role-groups 'identity)
+							  (manchester-axiom-to-sexp
+							   (funcall (if remove-parenthetical 'remove-parenthetical 'identity)
+								    (trim-base-term html))))))))
+			   rendered-axioms)) 
+	:test 'equal)  
+	'string-lessp :key (lambda(el) (if (stringp el) el (car el)))))
 
 (defun labels-matching(regex &optional (ont *default-kb*))
   (let ((them nil))
@@ -100,8 +108,133 @@
 	       (when (#"matches" (car label) regex) (push (car label) them)))
 	     (rdfs-labels ont))
     them))
-		       
-;; (defun most-specific-axioms (class)
+
+(defun manchester-axiom-to-sexp (axiom)
+  (read (make-string-input-stream (concatenate 'string "(" (#"replaceAll" axiom "'" "\"") ")"))))
+
+(defun remove-role-groups (axiom)
+  (loop for term in axiom
+     if (and (consp term)
+	     (or (equal (car term) "Role group")
+		 (equal (car term) "Role group (attribute)")))
+     if (consp (car (third term)))
+     append (third term)
+     else
+     collect (third term)
+     else collect term))
+
+(defun remove-noise-classes (axioms)
+  (loop for axiom in axioms
+;       for dummy = (print-db axiom)
+     append
+       (if (member (remove-parenthetical (if (stringp axiom) axiom (third axiom)))
+		   '("Finding by site"
+		     "Disorder by body site"
+		     "Clinical finding" "Disease" "SNOMED CT Concept" "Body organ structure" "Body system structure" "Body region structure" "Anatomical or acquired body structure""Structure of integumentary system" "Skin AND subcutaneous tissue structure")
+		   :test 'equalp)
+	   nil
+	   (if (maybe-exclude-and-or axiom)
+	       nil
+	       (list axiom)))))
+
+(defun split-conjunctions (axiom)
+  (if (and (consp axiom) (member 'AND axiom))
+      (loop for (conjunct) on axiom by 'cddr
+	 collect conjunct)
+      (if (equal (length axiom) 1)
+	  (list (car axiom))
+	  (list axiom))))
+
+(defun trim-base-term (html)
+  (#"replaceFirst" (#"replaceAll" (#"replaceAll" html "\\n" "") "<[^>]+>" "") "^.*?(SubClassOf|EquivalentTo) " ""))
+
+(defun remove-parenthetical (string)
+  (#"replaceAll" string "\\s\\([^(]+?\\)" ""))
+
+(defun sexp-back-to-manchester(sexp)
+  (let ((*print-case* :downcase))
+    (#"replaceAll" (prin1-to-string sexp) "\"" "'")))
+
+(defun organize-as-subclasses (sexps subject)
+  (let ((pairs
+	 (loop for subject in sexps
+	    for subject-ce =  (if (consp subject) `(object-some-values-from ,(label-uri (car subject)) ,(label-uri (third subject))) (label-uri subject))
+	    append
+	      (loop for object in sexps
+		 for object-ce = (if (consp object) `(object-some-values-from ,(label-uri (car object)) ,(label-uri (third object))) (label-uri object))
+		 when (and
+		       (or (not (stringp object))
+			   (member object *dont-exclude-classes* :test 'equal))
+		       (or (not (stringp subject))
+			   (member subject *dont-exclude-classes* :test 'equal))
+		       (is-subclass-of? subject-ce object-ce))
+		 collect (print (list subject object subject-ce object-ce))))))
+    (let ((count 0))
+      (flet ((fresh-uri ()
+	       (make-uri (format nil "http://foo.com/~a" (incf count)))))
+	(let ((sexp-to-name (make-hash-table :test 'equalp)))
+	  (loop for (subject object sce oce) in pairs
+	     do
+	       (or (gethash subject sexp-to-name)
+		   (setf (gethash subject sexp-to-name)
+			 (list (name-for-expression subject) sce (fresh-uri))))
+	       (or (gethash object sexp-to-name)
+		   (setf (gethash object sexp-to-name)
+			 (list (name-for-expression object) oce (fresh-uri)))))
+	  (with-ontology reorg ()
+	      ((loop for prop in '("Has definitional manifestation (attribute)" "Finding site (attribute)" "Associated morphology (attribute)")
+		  do
+		    (as `(declaration (object-property ,(label-uri prop))))
+		    (as `(annotation-assertion !rdfs:label ,(label-uri prop) ,prop)))
+	       (maphash (lambda(exp label-ce-uri)
+			  (let ((label (car label-ce-uri))
+				(ce (second label-ce-uri))
+				(uri (third label-ce-uri)))
+			    (as `(declaration (class ,uri)))
+			    (as `(annotation-assertion !rdfs:label ,uri ,(remove-parenthetical label)))
+			    (as `(subclass-of ,subject ,uri))
+			    (as `(annotation-assertion !rdfs:label ,subject ,(label-from-uri :snomed subject)))))
+			sexp-to-name)
+	       (as (loop for (subject object sce oce) in pairs
+		      collect 
+			`(subclass-of ,(third (gethash subject sexp-to-name)) ,(third (gethash object sexp-to-name))))))
+	    (browse-subclass-tree "reorg" reorg  )))))))
+
   
+(defparameter *relation-replacements*
+  '(("Has definitional manifestation" "Manifestation")
+    ("Finding site" "Site")
+    ("Associated morphology" "Morphology")
+    ("Pathological process" "Pathological")
+    ("Causative agent" "Cause")
+    ("Clinical course" "Course")))
+
+(defparameter *and-or-override*
+  (list "Sudden onset AND/OR short duration (qualifier value)" "Sudden onset AND/OR short duration"))
+
+;; BUG: If we don't exclude a class, we need to remember to associate its axioms with it.
+;; Otherwise, for eg. (browse-simplified-snomed-parent-hierarchy !'Systemic sclerosis (disorder)'@snomed)
+;; Doesn't know that "Autoimmune disease" is equivalent to pathological process: autoimmune and shows them separately.
+(defparameter *dont-exclude-classes* nil); '("Autoimmune disease (disorder)" "Autoimmune disease"))
+
+(defun name-for-expression (sexp)
+  (if (stringp sexp)
+      sexp
+      (let ((rel (or (second (assoc (remove-parenthetical (car sexp)) *relation-replacements* :test 'equal)) (remove-parenthetical (car sexp)))))
+	(format nil "~a: ~a" rel (remove-parenthetical (third sexp))))))
+
+(defun browse-simplified-snomed-parent-hierarchy (class)
+  (organize-as-subclasses
+   (transform-axioms  (all-relevant-axioms class)  *snomed* :remove-parenthetical nil)
+   (dwim-class class)))
+
+;; (defun most-specific-axioms (class)
+
+(defun maybe-exclude-and-or (axiom)
+  (if (stringp axiom)
+       (and (not (member axiom *and-or-override* :test 'equalp))
+	    (#"matches" axiom "(?i).*and/or.*"))
+        (and (not (member (third axiom) *and-or-override* :test 'equalp))
+	    (#"matches" (third axiom) "(?i).*and/or.*"))))
        
 ;  (read-from-string  (concatenate 'string "(" (substitute #\" #\' "'Vasculitis' and ('Role group' some (('Associated morphology' some 'Inflammation') and ('Finding site' some 'Systemic vascular structure')))") ")"))
