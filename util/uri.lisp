@@ -226,7 +226,7 @@ calls, so you can get what you probably wanted: (type-of (car (eval-uri-reader-m
 
 (defvar *default-uri-label-source* nil)
 
-(defmethod make-uri-from-label-source ((source (eql :nil)) name actual) 
+(defmethod make-uri-from-label-source ((source (eql :nil)) name &optional actual) 
   (if *default-uri-label-source* 
       (make-uri-from-label-source *default-uri-label-source*   name actual)
       (error "No label source explicit and no default for ~a" name)))
