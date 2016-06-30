@@ -187,7 +187,7 @@
        (progv (mapcar 'first ,classes) (mapcar 'second ,classes)
 	 ,@body))))
 
-(defmacro with-ontology (name (&key base ontology-properties about includes rules eval collecting also-return-axioms only-return-axioms
+(defmacro with-ontology (name (&key base ontology-properties about includes rules eval (collecting t) also-return-axioms only-return-axioms
 				    ontology-iri version-iri) definitions &body body)
   (let ((axioms-var (make-symbol "AXIOMS"))
 	(oiri (make-symbol "ONTOLOGY-IRI"))
@@ -402,7 +402,7 @@
 	 for uri = (and iri (make-uri string))
 	 unless (or (null iri) (and (eq uri !owl:Nothing) (not include-nothing))) collect (make-uri string)))))
 
-(defun is-subclass-of? (sub super kb)
+(defun is-subclass-of? (sub super &optional (kb *default-kb*))
   "This is faster than using parents or ancestors as you don't have to classify the ontology in order to test it"
   (if (stringp super)
       (setq super (make-uri (#"toString" (#"getIRI" (to-class-expression super))))))
