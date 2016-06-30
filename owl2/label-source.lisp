@@ -39,7 +39,7 @@
   (push (cons (key ls) ls) (key2instance ls)))
 
 (defmethod label-from-uri ((source symbol) uri)
-  (label-from-uri (cdr (assoc source (key2instance (mop:class-prototype (find-class 'label-source)))))))
+  (label-from-uri (cdr (assoc source (key2instance (mop:class-prototype (find-class 'label-source))))) uri))
 
 (defmethod new-label-source ((source v3kb) &rest args)
   (let ((key (getf args :key))
@@ -93,6 +93,9 @@
 ;; well, cache here
 (defun-memo label-uri (label &optional (ont *default-kb*))
   (make-uri-from-label-source ont label))
+
+(defun-memo uri-label (label &optional (ont *default-kb*))
+  (label-from-uri ont label))
 
 (defun compare-ontology-rdfs-labels (ont1 ont2)
   "Compares the rdfs:labels for the uris in two ontologies, and prints to the screen the uris (and the uri's label) in which the labels of each ontology do not match."
