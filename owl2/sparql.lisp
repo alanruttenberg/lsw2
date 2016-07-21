@@ -191,6 +191,7 @@
   (let ((*sparql-using-pellet* (eq reasoner :pellet))
 	(*sparql-namespace-uses* nil)
 	(*include-reasoning-prefix* nil)
+	(*blankcounter* 0)
 	query)
     (setq form (eval-uri-reader-macro form))
     (setq query
@@ -313,7 +314,13 @@
 	   (loop for sub in (cddr clause) do
 		(emit-sparql-clause  sub s))
 	   (format s "~%}")(values))
+	  ((sparql-twerpish-class? clause)
+	   (translate-sparql-twerp clause s))
 	  (t (apply 'format s "~%~a ~a ~a . " (mapcar #'maybe-format-uri clause))))))
+
+(defun sparql-twerpish-class? (clause)
+  (and (consp clause)
+       (memq (car clause) '(:and :or :some :all :min :max :exactly :only :value :that :not))))
 
 (defparameter *sparql-function-names*
   '((is-canonical "reasoning:isCanonical")
