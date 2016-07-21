@@ -1,7 +1,12 @@
 ;; Allow lisp sparql queries to have clauses that are manchester expressions.
 ;; e.g `(:select (?foo) () (:some !ex:has-part (:and ?clone (:some !ex:has-part ?part))))
 
-(defvar *sparql-blankcounter* 0)
+;; What we're doing:
+;; Translate sparql variables into urns
+;; Use t-collect on the ontology which we wrap the expression in
+;; t-collect gives us back a list of triples
+;; remove the last triple, which is the ontology declaration
+;; translate the urns (and blanks) back so they are understood as sparql
 
 (defun translate-sparql-twerp (clause stream)
   (let ((manchester (manchester-expression clause)))
