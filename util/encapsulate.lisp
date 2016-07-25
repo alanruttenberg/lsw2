@@ -231,7 +231,7 @@
        (if (mop::std-slot-value owner 'sys::fast-function)
 	   (setf (mop::std-slot-value owner 'sys::fast-function) fn)
 	   (progn
-	     (error "Sorry, tracing methods with other than simple argument lists and no next-methods doesn't work yet")
+	     '(error "Sorry, tracing methods with other than simple argument lists and no next-methods doesn't work yet")
 	     (setf (mop::std-slot-value owner 'sys::%function) fn)))
        (mop::finalize-standard-generic-function (mop::method-generic-function owner))
 ;       (setf (mop::method-function owner) fn)
@@ -260,7 +260,7 @@
        (if (mop::std-slot-value owner 'sys::fast-function)
 	   (setf (mop::std-slot-value owner 'sys::fast-function) old-def)
 	   (progn
-	     (error "Sorry, tracing methods with other than simple argument lists and no next-methods doesn't work yet")
+	     '(error "Sorry, tracing methods with other than simple argument lists and no next-methods doesn't work yet")
 	     (setf (mop::std-slot-value owner 'sys::%function) old-def)))
        (mop::finalize-standard-generic-function (mop::method-generic-function owner))
        (remove-obsoleted-combined-methods owner)))))
@@ -751,13 +751,13 @@ functions are called."
 ;; method-p set to nil means that methods with fast functions will be
 ;; able to be traced.  However, to do this correctly it looks like we
 ;; have to trace both the fast-function, when it exists, and also the
-;; method. The code in this function does the latter, but for the CCL
-;; implementation.
-
+;; method. For now we do it for the fast-function if there is one,
+;; otherwise the method
+;; If the fast function, then called like (apply fast-function arg1 arg2..)
+;; If the method then called with (funcall method args next-empfun) 
 
 (defun trace-global-def (sym def if before-if eval-before after-if eval-after &optional method-p)
-  (let ((saved-method-var (gensym))
-        (enable (gensym))
+  (let ((enable (gensym))
         do-it)
     (setq do-it
           (cond #+old (step
@@ -770,12 +770,14 @@ functions are called."
                            ,(if (and before method-p)
                                 `(apply-with-method-context ,saved-method-var (symbol-function ',def) args)
                                 `(apply ',def args)))))
-                (t (if (and eval-before method-p)
-                     `(apply-with-method-context ,saved-method-var (symbol-function ',def) args)
-                     `(apply ',def args)))))
+                (t 
+		 (if method-p 
+		     `(funcall ',def args next-emfun)
+		     `(apply ',def args))
+		 
+		 )))
     (compile-named-function-warn
-     `(lambda (,@(and eval-before method-p `(&method ,saved-method-var))
-               &rest args) ; if methodp put &method on front of args - vs get-saved-method-var?
+     `(lambda (,@(if method-p '(args next-emfun) '(&rest args)))
        (declare (dynamic-extent args))
        (declare (ftype function ,def))
        (let ((*trace-level* (1+ *trace-level*))
@@ -805,41 +807,33 @@ functions are called."
 
 ; &method var tells compiler to bind var to contents of next-method-context
 (defun advise-global-def (def when stuff &optional method-p dynamic-extent-arglist)
-  (let* ((saved-method-var (gensym)))
-    `(lambda (,@(if (and method-p (neq when :after))
-                  `(&method ,saved-method-var))
-              &rest arglist)
-       ,@(and dynamic-extent-arglist '((declare (dynamic-extent arglist))))
+  (let* ((callit `(if ,method-p
+		      (funcall ',def args next-emfun)
+		      (apply ',def args))))
+    `(lambda ,(if method-p '(args next-emfun) '(&rest args))
+       ,@(and dynamic-extent-arglist '((declare (dynamic-extent args))))
        (declare (ftype function ,def))
-       (declare (ignorable arglist))
+       (declare (ignorable args))
        (let ()
          ,(ecase
             when
             (:before
              `(block nil
                 ,stuff                  
-                (return ,(if method-p
-                           `(apply-with-method-context ,saved-method-var (symbol-function ',def) arglist)
-                           `(apply ',def arglist)))))
+                (return ,callit)))
             (:after         
              `(block nil
-                (let ((values (multiple-value-list (apply (function ,def) arglist))))
+                (let ((values (multiple-value-list ,callit)))
                   ;(declare (dynamic-extent values))
                   ,stuff
                   (return (values-list values)))))
             (:around
-             ;; stuff is e.g. (+ 5 (:do-it))
-             (if method-p 
-               `(macrolet ((:do-it ()
-                             `(apply-with-method-context ,',saved-method-var 
-                                                         (symbol-function ',',def)
-                                                         arglist)))
+	     `(macrolet ((:do-it ()
+			   ,callit))
+		    
                   (block nil
-                    (return  ,stuff)))
-               `(macrolet ((:do-it ()
-                             `(apply (function ,',def) arglist)))
-                  (block nil
-                    (return  ,stuff))))))))))
+                    (return  ,stuff))))
+	    )))))
 
 
 (defun compile-named-function-warn (fn name &rest keys)
@@ -879,7 +873,7 @@ functions are called."
       ; make traced call advised
       (setq orig-sym
             (encapsulation-symbol (get-encapsulation advise-thing))))
-    (lfun-name newdef `(advised ',function-spec))
+    (sys::%set-lambda-name newdef `(advised ',function-spec))
     (if method-p (copy-method-function-bits (%encap-binding advise-thing) newdef))
     (encapsulate (or orig-sym advise-thing) newdef 'advice function-spec newsym advice-name when)
     newdef))
@@ -926,7 +920,7 @@ functions are called."
     val))
 
 (defmacro unadvise (function &key when name)
-  (cond ((neq function t)
+  (cond ((not (eq function t))
          `(%unadvise-1 ',function ',when ',name))
         (t `(%unadvise-all ',when ',name))))
 
