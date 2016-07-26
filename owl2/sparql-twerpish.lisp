@@ -8,14 +8,27 @@
 ;; remove the last triple, which is the ontology declaration
 ;; translate the urns (and blanks) back so they are understood as sparql
 
+(defvar *class-argument-predicates* `(,!rdf:type ,!rdfs:subClassOf))
+
 (defun translate-sparql-twerp (clause stream)
-  (let ((manchester (manchester-expression clause)))
-    (multiple-value-bind (transformed bindings) (substitute-uris-for-sparql-variables manchester)
-      (let ((triples (t-collect `(ontology ,transformed) nil)))
-	(assert (and (eq (second (car (last triples))) !rdf:type) (eq (third (car (last triples))) !owl:Ontology)) (triples) "Something's changed. Last triple should be ontology declaration!")
-	(setq triples (butlast triples))
-	(loop for triple in (unblank-uniri-vars triples)
-	     do (emit-sparql-clause triple stream))))))
+  (manchester-to-bgp (manchester-expression clause) stream))
+
+(defun translate-sparql-twerp-object (clause stream)
+  (let ((manchester (manchester-expression (third clause))))
+    (cond ((eq (second clause) !rdf:type)
+	   (setq manchester `(class-assertion ,manchester ,(first clause))))
+	  ((eq (second clause) !rdfs:subClassOf)
+	   (setq manchester `(sub-class-of ,(first clause) ,manchester)))
+	  (t (error "expected one of ~a" *class-argument-predicates*)))
+    (manchester-to-bgp manchester stream)))
+
+(defun manchester-to-bgp (manchester stream)
+  (multiple-value-bind (transformed bindings) (substitute-uris-for-sparql-variables manchester)
+    (let ((triples (t-collect `(ontology ,transformed) nil)))
+      (assert (and (eq (second (car (last triples))) !rdf:type) (eq (third (car (last triples))) !owl:Ontology)) (triples) "Something's changed. Last triple should be ontology declaration!")
+      (setq triples (butlast triples))
+      (loop for triple in (unblank-uniri-vars triples)
+	 do (emit-sparql-clause triple stream)))))
 
 (defun substitute-uris-for-sparql-variables (clause)
   (labels ((sparql-variable-p (thing) (and (symbolp thing) (char= (char (string thing) 0) #\?)))

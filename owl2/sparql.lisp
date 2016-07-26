@@ -19,6 +19,7 @@
 			 (format nil "~{load <~a>;~%~}" (mapcar (lambda(e) (concatenate 'string folder-iri e))  files)) :command "request"))
 
 (defun sparql-endpoint-query (url query &key query-options geturl-options (command :select) format)
+  (when (consp query) (setq query (sparql-stringify query)))
   (let* ((parsed (xmls::parse
 		  (apply 'get-url (if (uri-p url) (uri-full url) url)
 			 :post (append `((,(cond ((member command '(:select :describe :ask :construct)) "query")
@@ -314,8 +315,12 @@
 	   (loop for sub in (cddr clause) do
 		(emit-sparql-clause  sub s))
 	   (format s "~%}")(values))
+	  ((and (member (second clause) `(,!rdf:type ,!rdfs:subClassOf))
+		(sparql-twerpish-class? (third clause)))
+	   (translate-sparql-twerp-object clause s))
 	  ((sparql-twerpish-class? clause)
 	   (translate-sparql-twerp clause s))
+	   
 	  (t (apply 'format s "~%~a ~a ~a . " (mapcar #'maybe-format-uri clause))))))
 
 (defun sparql-twerpish-class? (clause)
