@@ -99,11 +99,13 @@
 (defun t-print (input)
   (t   (unblank-individuals (eval-uri-reader-macro input))))
 
-(defun t-collect (input)
-  (let ((*triple-collector* nil)
-	(*blankcounter* 0))
-    (reverse (t (unblank-individuals (eval-uri-reader-macro input))))
-    *triple-collector*))
+(defvar *blankcounter* 0)
+
+(defun t-collect (input &optional (zero-blankcounter t))
+  (let ((*triple-collector* nil))
+    (progv (if zero-blankcounter (list '*blankcounter*)) (if zero-blankcounter (list 0))
+      (reverse (t (unblank-individuals (eval-uri-reader-macro input))))
+      *triple-collector*)))
 
 
 (defun t-jena (input &rest prefixes)

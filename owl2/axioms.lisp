@@ -82,3 +82,8 @@
    (v3kb-datafactory kb) 
    (to-class-expression subclass-expression kb)
    (to-class-expression superclass-expression kb)))
+
+(defun count-descendants-with-axioms (term &optional (ont *default-kb*))
+  (loop for desc in (descendants term)
+     when (> (#"size" (#"getClassesInSignature" (#"next" (#"iterator" (#"getAxioms" (v3kb-ont ont) (to-class-expression desc)))))) 2)
+     sum 1))

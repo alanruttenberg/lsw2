@@ -166,3 +166,61 @@
 		   (pushnew clean-label (gethash uri table ) :test 'equalp)
 		 finally (return table))))))
 
+(defun labels-matching(regex &optional (ont *default-kb*))
+  (let ((them nil)
+	(re (#"compile" 'regex.Pattern regex)))
+    (maphash (lambda(uri label)
+	       (when (#"matches" (#"matcher" re (car label))) (push (car label) them)))
+	     (rdfs-labels ont))
+    them))
+
+(defun to-labels (uris)
+  (loop for uri in uris do (princ (car (rdfs-label uri))) (terpri)))
+
+
+
+
+#|
+
+#"hasLang
+#"getLang
+
+(defun entity-annotations (uri kb &optional prop)
+  (loop for ont in (set-to-list (#"getImportsClosure" (v3kb-ont kb)))
+     append
+     (let ((annots (set-to-list (#"getAnnotations" 'EntitySearcher (#"getOWLNamedIndividual" (v3kb-datafactory kb) (to-iri uri)) ont))))
+       (loop for annot in annots
+	  for property = (#"toString" (#"getIRI" (#"getProperty" annot)))
+	  for value = (#"getValue" annot)
+	  for prop-uri = (make-uri property)
+	  when (or (not prop) (eq prop prop-uri))
+	  collect (list  prop-uri
+			 (if (jclass-superclass-p (find-java-class "OWLLiteral") (jobject-class value))
+			     (cond ((#"isRDFPlainLiteral" value) (#"getLiteral" value))
+				   ((#"isBoolean" value) (let ((string (#"getLiteral" value)))
+							   (if (equal string "true") :true :false)))
+				   ((equal (#"toString" (#"getDatatype" value)) "xsd:string")
+				    (#"getLiteral" value))
+				   (t value))
+			     value
+			     ))))))
+
+;;;
+What do we want for a label api?
+
+Fast
+Including or not including imports
+label precedence path, including fragments
+scan labels
+all labels vs one label
+default kb
+way to augment labels
+fuzzy matching
+
+fully label info
+
+label
+language
+source
+property
+|#

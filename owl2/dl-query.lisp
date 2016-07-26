@@ -19,7 +19,12 @@
 (defun equivalents (class &optional (kb *default-kb*))
   (class-query class kb (lambda(ce reasoner) (#"getEquivalentClasses" reasoner ce)) nil t))
 
-
+(defun leaves (class &optional (kb *default-kb*))
+  (class-query class kb (lambda(ce reasoner) (#"getSubClasses" reasoner ce nil)) t nil 
+	       (lambda (cd reasoner)
+		 (#"isBottomSingleton" (#"getSubClasses" reasoner ce t))
+		 )))
+	       
 (defun same-individuals (individual &optional (kb *default-kb*))
   (loop for e in (jss::set-to-list
 		  (#"getSameIndividuals" (v3kb-reasoner kb)
