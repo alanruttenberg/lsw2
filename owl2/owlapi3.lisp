@@ -31,6 +31,8 @@
 
 (defvar *default-reasoner* :hermit)
 
+(defvar *default-kb*)
+
 (defvar *last-jena-model* nil) ; for the last with-ontology form
 
 (defmethod jena-model ((o v3kb))
@@ -263,11 +265,14 @@
 (defun vanilla-reasoner-config ()
   (let ((standard (new 'SimpleConfiguration))
 	(progressMonitor (new 'owlapi.reasoner.ConsoleProgressMonitor)))
-    (new 'org.semanticweb.owlapi.reasoner.SimpleConfiguration progressMonitor
-	 (#"getFreshEntityPolicy" standard)
-	 (new 'long "9223372036854775807")
-	 (#"valueOf" 'individualNodeSetPolicy "BY_SAME_AS")
-	 )))
+    (let ((it (new 'org.semanticweb.owlapi.reasoner.SimpleConfiguration progressMonitor
+		   (#"getFreshEntityPolicy" standard)
+		   (new 'long "9223372036854775807")
+		   (#"valueOf" 'individualNodeSetPolicy "BY_SAME_AS")
+		   )))
+;      (setq @ it)
+;      (set-java-field it "ignoreUnsupportedDatatypes" +true+ t)
+      it)))
 
 (defun factpp-reasoner-config ()
   (vanilla-reasoner-config))
@@ -393,11 +398,18 @@
 	(t (error "don't know how to turn ~s into a class expression" thing))
 	))
 
-(defun class-query (class kb fn &optional (flatten t) include-nothing)
+(defun class-query (class kb fn &optional (flatten t) include-nothing filter)
   (instantiate-reasoner kb (or (v3kb-default-reasoner kb) *default-reasoner*) nil)
-  (let ((expression (to-class-expression class kb)))
-    (let ((nodes (funcall fn expression (v3kb-reasoner kb))))
-      (loop for iri in (jss::set-to-list (if flatten (#"getFlattened" nodes) nodes))
+  (let ((expression (to-class-expression class kb))
+	(reasoner (v3kb-reasoner kb)))
+    (let ((nodes (funcall fn expression reasoner)))
+;      (print-db nodes)
+      (loop for iri in (let ((them (jss::set-to-list (if flatten (#"getFlattened" nodes) nodes))))
+			 (let ((res
+				(if filter 
+				    (remove-if-not (lambda(ce) (funcall filter ce reasoner)) them)
+				    them)))
+			   res))
 	 for string = (and iri (#"toString" (#"getIRI" iri)))
 	 for uri = (and iri (make-uri string))
 	 unless (or (null iri) (and (eq uri !owl:Nothing) (not include-nothing))) collect (make-uri string)))))
@@ -413,7 +425,7 @@
 (defun annotation-properties (kb)
   (mapcar 'make-uri (mapcar #"toString" (mapcar #"getIRI"  (set-to-list (#"getAnnotationPropertiesInSignature" (v3kb-ont o)))))))
 
-(defun entity-annotations (uri kb &optional prop)
+(defun entity-annotations (uri  &optional (kb *default-kb*) prop)
   (loop for ont in (set-to-list (#"getImportsClosure" (v3kb-ont kb)))
      append
      (let ((annots (set-to-list (#"getAnnotations" 'EntitySearcher (#"getOWLNamedIndividual" (v3kb-datafactory kb) (to-iri uri)) ont))))
