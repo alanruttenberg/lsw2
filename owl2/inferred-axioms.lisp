@@ -35,7 +35,7 @@
     (unless (v3kb-reasoner source-ont) (instantiate-reasoner source-ont))
     (check-ontology source-ont)
     (let ((filler (new 'InferredOntologyGenerator (v3kb-reasoner source-ont) generators)))
-      (#"fillOntology" filler manager inf-ont)
+      (#"fillOntology" filler (v3kb-datafactory source-ont) inf-ont)
       inf-ont)))
 
 (defun test-inferred-axioms-1 ()
@@ -46,7 +46,26 @@
 	    (equivalent-classes !c (object-union-of !a !b))))
     (check-ontology foo :classify t :reasoner :factpp)
     (each-axiom (ontology-with-inferred-axioms foo :types '(:subclasses))
-		(lambda(e) (print (#"toString" e))))))
+		(lambda(e) (print-db e (make-uri (#"toString" (#"getIRI" (#"getSubClass" e)))) (#"toString" e))))))
+
+
+(defun write-ontology-with-inferred-axioms (ont ont-iri &optional file)
+  (let* ((inf (ontology-with-inferred-axioms ont  :types '(:subclasses)))
+	 (manager (#"getOWLOntologyManager" inf))
+	 (it (make-v3kb :name ont-iri 
+			:manager manager
+			:ont  inf
+			:datafactory  (#"getOWLDataFactory" manager)
+			:default-reasoner :factpp
+			:mapper nil)))
+    (setf (v3kb-uri2entity it) (compute-uri2entity it))
+    (with-ontology foo (:ontology-iri ont-iri)
+		   ((each-axiom inf
+				(lambda(e) 
+				  (let ((sub (make-uri (#"toString" (#"getIRI" (#"getSubClass" e)))))
+					(super (make-uri (#"toString" (#"getIRI" (#"getSuperClass" e))))))
+				    (as `(subclass-of ,sub ,super))))))
+      (to-owl-syntax foo :rdfxml file))))
 
 (defun test-inferred-axioms-2 (&optional (reasoner :pellet))
   (with-ontology foo (:collecting t)

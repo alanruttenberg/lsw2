@@ -174,8 +174,8 @@
 	     (rdfs-labels ont))
     them))
 
-(defun to-labels (uris)
-  (loop for uri in uris do (princ (car (rdfs-label uri))) (terpri)))
+(defun to-labels (uris &optional kb)
+  (loop for uri in uris do (princ (car (rdfs-label uri kb))) (terpri)))
 
 
 

@@ -21,7 +21,7 @@
 
 (defun leaves (class &optional (kb *default-kb*))
   (class-query class kb (lambda(ce reasoner) (#"getSubClasses" reasoner ce nil)) t nil 
-	       (lambda (cd reasoner)
+	       (lambda (ce reasoner)
 		 (#"isBottomSingleton" (#"getSubClasses" reasoner ce t))
 		 )))
 	       
