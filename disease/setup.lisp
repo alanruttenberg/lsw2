@@ -2,7 +2,15 @@
 (defvar *snomed-path* "~/Desktop/snomed/snomedct_us.owl")
 (defun setup-disease-work ()
   (setq *snomed* (load-ontology *snomed-path*))
+  (short-form-provider
+   *snomed*
+   :properties (list !<http://snomed.info/field/Description.term.en-us.preferred>  !rdfs:label )
+   :replace t)
   (setq *default-kb* *snomed*)
+  (setq *browser* "safari")
+  (new-label-source *snomed* :key :snomed)
+  (setq *default-uri-label-source* *snomed*)
+  (register-namespace "snomed:" "http://snomed.info/id/")
   (threads:make-thread  (lambda()
 			  (check-ontology *snomed* :classify t :reasoner :factpp)
 			  (print "Classified")))
