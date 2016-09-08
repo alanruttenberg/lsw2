@@ -479,7 +479,7 @@
 (defun loaded-documents (kb)
   (let ((manager (if (v3kb-p kb) (v3kb-manager kb) (#"getOWLOntologyManager" kb)))
 	(ont (if (v3kb-p kb) (v3kb-ont kb)  kb)))
-    (mapcar (lambda(e) (list (#"toString" (#"getOntologyDocumentIRI" manager e)) (#"toString" (or (#"get" (#"getOntologyIRI" (#"getOntologyID" e))) "")) e))
+    (mapcar (lambda(e) (list (#"toString" (#"getOntologyDocumentIRI" manager e)) (#"toString" (if (#"isPresent" (#"getOntologyIRI" (#"getOntologyID" e))) (#"get" (#"getOntologyIRI" (#"getOntologyID" e))) "")) e))
 	    (set-to-list (#"getImportsClosure" ont)))))
 
 (defun unsatisfiable-classes (kb)

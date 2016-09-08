@@ -36,7 +36,7 @@
 	   (hashmap-to-hashtable
 			     (get-java-field (#"getOWLOntologyManager" ont) "ontologyIDsByImportsDeclaration" t)
 			     :invert? t
-			     :keyfun (lambda(e) (#"toString" (#"getURI" e)))
+			     :keyfun (lambda(e) (#"toString" (#"getIRI" e)))
 			     :valfun (lambda(e) (#"toString" (#"getOntologyIRI" e)))
 			     :table imported->import
 			     :test 'equal)
