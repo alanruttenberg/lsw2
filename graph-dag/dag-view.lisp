@@ -40,11 +40,11 @@
 	  (multiple-value-setq (nodes edges) (levelize (rest tree) kb (1+ level) treetop table nodes edges))))
   (values nodes edges))
 	 
-(defun emit-javascript (trees kb &optional (stream t))
+(defun emit-javascript (trees kb &optional (stream t) (label-format-fn 'remove-parenthetical))
   (multiple-value-bind (nodes edges) (levelize trees kb)
     (with-output-to-string (s)
       (loop for node across nodes
-	 for label = (#"replaceFirst" (dag-term-node-label node) " \\(.*" "")
+	 for label = (funcall (or label-format-fn 'identity) (dag-term-node-label node))
 	 for level = (dag-term-node-level node)
 	 for id = (dag-term-node-index node)
 	 do 
@@ -57,12 +57,12 @@
 	   (format s "edges.push({from: ~a, to: ~a});~%" from to))
     )))
 
-(defun emit-dagre-d3-javascript (trees kb)
+(defun emit-dagre-d3-javascript (trees kb &optional (label-format-fn 'remove-parenthetical))
   (multiple-value-bind (nodes edges) (levelize trees kb)
     (with-output-to-string (s)
       (write-string "function initialize_data(g){" s )
       (loop for node across nodes
-	 for label = (#"replaceFirst" (dag-term-node-label node) " \\(.*" "")
+	 for label = (funcall (or label-format-fn 'identity) (dag-term-node-label node))
 	 for id = (dag-term-node-index node)
 	 for tooltip = (dag-term-node-tooltip node)
 	 do 
@@ -75,15 +75,14 @@
 	 do
 	   (format s "g.setEdge(~a, ~a,  {lineInterpolate: 'basis'} );~%" from to))
       (write-string "} window.intialize_data=initialize_data;" s )
-
       )))
 
-(defun emit-dagre-d3-javascript-ne (nodes edges )
+(defun emit-dagre-d3-javascript-ne (nodes edges &optional (label-format-fn 'remove-parenthetical) )
   (with-output-to-string (s)
       (write-string "function initialize_data(g){" s )
       (loop for node in nodes
 ;	 for dummy = 	   (print-db node)
-	 for label = (#"replaceFirst" (dag-term-node-label node) " \\(.*" "")
+	 for label =  (funcall (or label-format-fn 'identity) (dag-term-node-label node))
 	 for id = (dag-term-node-index node)
 	 for tooltip = (dag-term-node-tooltip node)
 	 with props = nil
