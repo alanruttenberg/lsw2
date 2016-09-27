@@ -182,9 +182,9 @@
 	))
 
 (defvar	*accession-properties*
-  !oboinowl:id	  
-  !oboinowl:hasAlternativeId
-  !oboinowl:hasDbXref)
+  (list !oboinowl:id	  
+	!oboinowl:hasAlternativeId
+	!oboinowl:hasDbXref))
 
 (defun labels-matching(regex &optional (ont *default-kb*))
   (let ((them nil)
