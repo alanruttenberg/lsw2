@@ -166,6 +166,26 @@
 		   (pushnew clean-label (gethash uri table ) :test 'equalp)
 		 finally (return table))))))
 
+(defvar *label-properties*
+  (list !rdfs:label
+	!foaf:name
+	!swan:title
+	!skos:prefLabel
+	!skos:hiddenLabel 
+	!skos:altLabel
+	!snomed:Description.term.en-us.preferred
+	!snomed:Description.term.en-us.synonym
+	!oboinowl:hasExactSynonym
+	!oboinowl:hasRelatedSynonym
+	!oboinowl:hasBroaderSynonym
+	!oboinowl:hasNarrowSynonym
+	))
+
+(defvar	*accession-properties*
+  !oboinowl:id	  
+  !oboinowl:hasAlternativeId
+  !oboinowl:hasDbXref)
+
 (defun labels-matching(regex &optional (ont *default-kb*))
   (let ((them nil)
 	(re (#"compile" 'regex.Pattern regex)))
