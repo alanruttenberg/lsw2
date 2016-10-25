@@ -59,7 +59,8 @@
 ;; do the work. 
 (defun owl-to-lisp-syntax (ontology &optional (bare? nil))
   (let ((as (to-owl-syntax ontology :functional)))
-;    (print as)
+					;    (print as)
+    (setq as (#"replaceAll" as "\\n#.[^\\n]*" ""));; remove comments (I don't think they are part of spec)
     (with-input-from-string (s (regex-replace-all "_value" as "_ value"))
       (multiple-value-bind (axioms ontology-iri version-iri namespaces)
 	  (parse-functional-syntax (read-and-tokenize-functional-syntax s))
