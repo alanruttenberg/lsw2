@@ -141,7 +141,7 @@
 
 (defun load-kb-jena (file &key (format "RDF/XML"))    
   (let ((url (if (search "//" file :test 'equalp) file (format nil "file://~a" (namestring (truename file)))))
-	(in-model (#"createDefaultModel" 'com.hp.hpl.jena.rdf.model.ModelFactory)))
+	(in-model (#"createDefaultModel" 'hp.hpl.jena.rdf.model.ModelFactory)))
     (setq @ in-model)
     (#"read" in-model
 	     (new 'bufferedinputstream
@@ -216,6 +216,7 @@
 	       :name ',name
 	       )))
 	 (let ((*default-kb* ,name))
+	   (declare (special *default-kb*))
 	   (flet ((write-ontology (&optional (pathname (make-pathname  :name (string-downcase (string (v3kb-name *default-kb*))) :type "owl" :directory (pathname-directory "~/Desktop/"))))
 		    (jena-serialize-to-file *last-jena-model* "RDF/XML-ABBREV" pathname)))
 	     (declare (ignorable *default-kb* ))
@@ -384,19 +385,26 @@
 ;; 	   ;(check-ontology f :classify t)
 ;; 	   )
 
+;; ##FIXME## Need to handle case of mixed use, e.g. (object-intersection-of (some !p !v) (some !p (not !v)))
 (defun to-class-expression (thing &optional (kb *default-kb*))
-  (cond ((jclass-superclass-p (load-time-value (find-java-class 'org.semanticweb.owlapi.model.owlentity)) (jobject-class thing))
-	 thing)
-	((jclass-superclass-p (load-time-value (find-java-class 'org.semanticweb.owlapi.model.OWLEntity.owlclassexpression)) (jobject-class thing))
-	 thing)
-	((stringp thing)
-	 (parse-manchester-expression kb thing))
-	((uri-p thing)
-	 (#"getOWLClass" (v3kb-datafactory kb) (to-iri thing)))
-	((consp thing)
-	 (to-owlapi-class-expression (eval-uri-reader-macro thing) (v3kb-datafactory kb)))
-	(t (error "don't know how to turn ~s into a class expression" thing))
-	))
+  (let ((it
+	 (cond ((jclass-superclass-p (load-time-value (find-java-class 'org.semanticweb.owlapi.model.owlentity)) (jobject-class thing))
+		thing)
+	       ((jclass-superclass-p (load-time-value (find-java-class 'org.semanticweb.owlapi.model.OWLEntity.owlclassexpression)) (jobject-class thing))
+		thing)
+	       ((stringp thing)
+		(parse-manchester-expression kb thing))
+	       ((uri-p thing)
+		(#"getOWLClass" (v3kb-datafactory kb) (to-iri thing)))
+	       ((and (listp thing)
+		     (member (car thing) '(and or not only some)))
+		(to-class-expression (manchester-expression thing) kb))
+	       ((consp thing)
+		(to-owlapi-class-expression (eval-uri-reader-macro thing) (v3kb-datafactory kb)))
+	       (t (error "don't know how to turn ~s into a class expression" thing))
+	       )))
+    it
+    ))
 
 (defun class-query (class kb fn &optional (flatten t) include-nothing filter)
   (instantiate-reasoner kb (or (v3kb-default-reasoner kb) *default-reasoner*) nil)
@@ -414,13 +422,6 @@
 	 for uri = (and iri (make-uri string))
 	 unless (or (null iri) (and (eq uri !owl:Nothing) (not include-nothing))) collect (make-uri string)))))
 
-(defun is-subclass-of? (sub super &optional (kb *default-kb*))
-  "This is faster than using parents or ancestors as you don't have to classify the ontology in order to test it"
-  (if (stringp super)
-      (setq super (make-uri (#"toString" (#"getIRI" (to-class-expression super))))))
-  (if (stringp sub)
-      (setq sub (make-uri (#"toString" (#"getIRI" (to-class-expression sub))))))
-  (not (satisfiable? `(object-intersection-of (object-complement-of ,super) ,sub) kb)))
 
 (defun annotation-properties (kb)
   (mapcar 'make-uri (mapcar #"toString" (mapcar #"getIRI"  (set-to-list (#"getAnnotationPropertiesInSignature" (v3kb-ont o)))))))
@@ -634,7 +635,7 @@
 ;; http://sourceforge.net/tracker/?func=detail&aid=2975911&group_id=90989&atid=595534
 
 (defun to-jena-model (kb)
-  (let ((model (#"createDefaultModel" 'com.hp.hpl.jena.rdf.model.ModelFactory)))
+  (let ((model (#"createDefaultModel" 'hp.hpl.jena.rdf.model.ModelFactory)))
     (loop for (source) in (loaded-documents kb)
        do
 	 (unless (search "Optional.of" source)
@@ -663,9 +664,13 @@
     (each-node !owl:Thing 0)
     maxdepth))
 
-(defun get-referencing-axioms (uri ont)
-  (loop for (entity etype eont) in (gethash uri (v3kb-uri2entity ont))
-     append (set-to-list (#"getReferencingAxioms" eont entity))))
+(defun get-referencing-axioms (entity type ont &optional direct-only)
+  (mapcar 'manchester-expression-from-functionalish
+	  (mapcar 'axiom-to-lisp-syntax 
+		  (loop for (entity etype eont) in (gethash entity (v3kb-uri2entity ont))
+		     when (eq etype type)
+		     append (set-to-list (#"getAxioms" eont entity))
+		     unless direct-only append (set-to-list (#"getReferencingAxioms" eont entity))))))
 
 (defun get-rendered-referencing-axioms (entity type ont &optional direct-only)
   (loop for (entity etype eont) in (gethash entity (v3kb-uri2entity ont))
@@ -680,6 +685,12 @@
 (defun manchester-render-axiom (axiom)
   (let ((renderer (manchester-renderer ont)))
     (#"render" renderer axiom)))
+
+(defun functional-render-axiom (axiom &optional (ont *default-kb*))
+  (let* ((writer (new 'stringwriter))
+	 (renderer (new 'FunctionalSyntaxObjectRenderer (v3kb-ont ont) writer)))
+    (#"visit" renderer axiom)
+    (#"toString" writer)))
 
 (defun get-entity (uri type ont)
   (unless (v3kb-uri2entity ont)

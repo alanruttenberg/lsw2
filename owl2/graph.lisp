@@ -223,6 +223,9 @@
       ))
   kb)
 
+(defmethod show-classtree ((url uri) &rest stuff)
+  (apply 'show-classtree (load-ontology (uri-full url)) stuff))
+
 (defmethod show-classtree ((url string) &rest stuff)
   (apply 'show-classtree (load-ontology url) stuff))
 

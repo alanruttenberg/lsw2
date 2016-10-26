@@ -109,7 +109,7 @@
 
 
 (defun t-jena (input &rest prefixes)
-  (let ((*jena-model* (#"createDefaultModel" 'com.hp.hpl.jena.rdf.model.ModelFactory)))
+  (let ((*jena-model* (#"createDefaultModel" 'hp.hpl.jena.rdf.model.ModelFactory)))
     (#"setNsPrefix" *jena-model* "owl" (uri-full !owl:))
     (#"setNsPrefix" *jena-model* "xsd" (uri-full !xsd:))
     (#"setNsPrefix" *jena-model* "rdfs" (uri-full !rdfs:))
