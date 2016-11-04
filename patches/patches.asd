@@ -12,7 +12,7 @@
    (:file "ensure-directories-exist")
    (:file "abcl-function-doc")
    (:file "jinterface-safe-implementation")
-   (:file "abcl-jss-fix")
+;   (:file "abcl-jss-fix")
    (:file "defun-interactive-record-arglist")
   ))
 
