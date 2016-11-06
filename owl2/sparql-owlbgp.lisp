@@ -13,7 +13,7 @@
     (when (consp query) (setq query (sparql-stringify query)))
     (let ((query-object (#"create" 'QueryFactory query (if (eq syntax :terp) 
 							   (#"getInstance" 'TerpSyntax)
-							   (#"lookup" 'Syntax "SPARQL")))))
+							   (#"lookup" 'com.hp.hpl.jena.query.Syntax "SPARQL")))))
       (process-sparql-results 
        (#"execQuery" sparql-engine query-object dataset)
        :trace trace :flatten flatten :values values :count count :trace-show-query trace-show-query  :query query))))

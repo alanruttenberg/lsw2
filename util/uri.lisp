@@ -233,7 +233,7 @@ calls, so you can get what you probably wanted: (type-of (car (eval-uri-reader-m
       (make-uri-from-label-source *default-uri-label-source*   name actual)
       (error "No label source explicit and no default for ~a" name)))
 
-;; needs jena in classpath
+;; needs jena in classpath. So don't define it now. Who uses it??
 ;; (defun invalid-uri? (uri)
 ;;   (let ((violations (#"violations" (#"create" (#"semanticWebImplementation" 'IRIFactory) (uri-full uri)) nil)))
 ;;     (loop while (#"hasNext" violations)
