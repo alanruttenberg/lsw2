@@ -62,10 +62,10 @@
 	    :components
 	    (
 	     (:jar-file "org.semanticweb.hermit-1.3.8.413.jar")
-	     (:jar-file "owlapi-distribution-4.2.5.jar")  
+	     (:jar-file "owlapi-distribution-4.2.6.jar")  
 	     (:jar-file "factplusplus-1.6.4-SNAPSHOT.jar")
 ;	     (:jar-file "elk-owlapi-041")
-;	     (:jar-directory "jena")
+	     (:jar-directory "jena")
 ;	     (:jar-file "uncommons-maths-1.2.2")
 	     (:jar-directory "pelletcli/lib")
 	     (:jar-file "OWL-BGP-0.1.jar")
@@ -127,6 +127,6 @@
 	     )
 	    :depends-on (matcher basics)
 	    ))
-  :depends-on (util inspect xmls))
+  :depends-on (util xmls))
 
 ;;;; eof
