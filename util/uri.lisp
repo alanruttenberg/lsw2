@@ -234,7 +234,7 @@ calls, so you can get what you probably wanted: (type-of (car (eval-uri-reader-m
       (error "No label source explicit and no default for ~a" name)))
 
 ;; needs jena in classpath
-(defun invalid-uri? (uri)
-  (let ((violations (#"violations" (#"create" (#"semanticWebImplementation" 'IRIFactory) (uri-full uri)) nil)))
-    (loop while (#"hasNext" violations)
-       collect (#"getLongMessage" (#"next" violations)))))
+;; (defun invalid-uri? (uri)
+;;   (let ((violations (#"violations" (#"create" (#"semanticWebImplementation" 'IRIFactory) (uri-full uri)) nil)))
+;;     (loop while (#"hasNext" violations)
+;;        collect (#"getLongMessage" (#"next" violations)))))

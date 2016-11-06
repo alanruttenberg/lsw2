@@ -35,8 +35,7 @@
 	     (:file "jdbc")
 	     (:file "collections-misc")
 	     (:file "jargrep")
-	     (:file "datetime")
-	     (:file "abcl-src"))
+	     (:file "datetime"))
 	    :depends-on
 	    (macros)))
   :depends-on (xptest xmls xpath) )
