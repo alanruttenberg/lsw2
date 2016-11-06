@@ -69,12 +69,6 @@
 	((jinstance-of-p thing (find-java-class "org.semanticweb.owlapi.model.IRI")) thing)
 	(t (error "don't know how to coerce ~s to IRI" thing))))
 
-(defun t-owlapi (input name)
-  (let ((model (apply 't-jena input nil)))
-    (let ((sw (new 'StringWriter)))
-      (#"write" model sw "RDF/XML")
-      (load-ontology sw name))))
-
 (defun load-ontology (source &key name reasoner (silent-missing t))
 ;  (set-java-field 'OWLRDFConsumer "includeDublinCoreEvenThoughNotInSpec" nil)
 ;  (set-java-field 'ManchesterOWLSyntaxEditorParser "includeDublinCoreEvenThoughNotInSpec" nil)
