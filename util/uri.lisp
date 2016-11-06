@@ -170,12 +170,14 @@ Which can then be used as !material-entity
 			 'string))
 		       )))
 	    (if (find #\' string)
+		(if (#"matches" string ".*@@$")
+		    `(make-uri-from-label-source *default-label-source* ,(subseq string 1 (- (length string) 3)))
 		(let ((matched (car (all-matches string "'(.*?)'@([A-Za-z0-9-]+){0,1}(\\((.*)\\)){0,1}" 1 2 4))))
 		  (if matched
 		      (destructuring-bind (label source original) matched
 			`(make-uri-from-label-source 
 			  ,(intern (string-upcase source) 'keyword) ,label ,original))
-		      (error "Malformed label uri string: ~a" string))) 
+		      (error "Malformed label uri string: ~a" string)))) 
 		(if (find #\: string)
 		    `(make-uri nil ,string)
 		    `(get-uri-alias-or-make-uri-base-relative ,string))))))))

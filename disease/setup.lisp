@@ -2,7 +2,7 @@
 (defvar *snomed-path* "~/Desktop/snomed/snomedct_us.owl")
 (defun setup-disease-work ()
   (setq *snomed* (load-ontology *snomed-path*))
-  (short-form-provider
+  '(short-form-provider
    *snomed*
    :properties (list !<http://snomed.info/field/Description.term.en-us.preferred>  !rdfs:label )
    :replace t)
@@ -14,9 +14,9 @@
   (threads:make-thread  (lambda()
 			  (check-ontology *snomed* :classify t :reasoner :factpp)
 			  (print "Classified")))
-  (threads:make-thread  (lambda()
+  '(threads:make-thread  (lambda()
 			  (restore-umls-api-call-cache)
 			  (print "Cache restored")))
-  (threads:make-thread  (lambda()
+  '(threads:make-thread  (lambda()
 			  (rdfs-labels *snomed*)
 			  (print "Labels"))))

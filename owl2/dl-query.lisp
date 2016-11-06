@@ -38,3 +38,19 @@
 (defun satisfiable? (class-expression &optional (kb *default-kb*))
   (instantiate-reasoner kb)
   (#"isSatisfiable" (v3kb-reasoner kb) (to-class-expression class-expression kb)))
+
+(defun is-subclass-of? (sub super &optional (kb *default-kb*))
+  "This is faster than using parents or ancestors as you don't have to classify the ontology in order to test it"
+  (if (stringp super)
+      (setq super (make-uri (#"toString" (#"getIRI" (to-class-expression super))))))
+  (if (stringp sub)
+      (setq sub (make-uri (#"toString" (#"getIRI" (to-class-expression sub))))))
+  (not (satisfiable? `(and (not ,super) ,sub) kb)))
+
+(defun equivalent-classes? (class-expression-1 class-expression-2 &optional (kb *default-kb*))
+  (instantiate-reasoner kb)
+  (let ((ce1 (to-class-expression class-expression-1 kb))
+	(ce2 (to-class-expression class-expression-2 kb)))
+    (not (#"isSatisfiable" (v3kb-reasoner kb)
+			   (to-class-expression `(or (and ,ce1 (not ,ce2)) (and ,ce2 (not ,ce1))))
+			   ))))

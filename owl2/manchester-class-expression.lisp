@@ -58,3 +58,30 @@
 (defrdfm manchester-class-expression
     (:pattern (ce ?class-expression) :case :subscript-free)
   (t (eval-uri-reader-macro (manchester-expression ?class-expression))))
+
+(defun manchester-expression-from-sexp (exp)
+  (labels ((one (form)
+	   (cond ((atom form) form)
+		 ((and (consp form) (symbolp (car form)))
+		  (case (car form)
+		    (object-intersection-of
+		     `(:and ,@(mapcar #'one (cdr form))))
+		    (object-union-of
+		     `(:or ,@(mapcar #'one (cdr form))))
+		    (object-some-values-from
+		     `(:some ,(second form) ,(one (third form))))
+		    (object-all-values-from
+		     `(:all ,(second form) ,(one (third form))))
+		    (object-has-value
+		     `(:has ,(second form) ,(one (third form))))
+		    (object-min-cardinality
+		     `(:min ,(second form)  ,(one (third form))))
+		    (object-max-cardinality
+		     `(:max ,(second form)  ,(one (third form))))
+		    (object-exact-cardinality
+		     `(:exactly ,(second form)  ,(one (third form))))
+		    (object-complement-of
+		     `(not ,(one (second form))))
+		    (otherwise (mapcar #'one form))))
+		 (t form))))
+    (mapcar #'one exp)))

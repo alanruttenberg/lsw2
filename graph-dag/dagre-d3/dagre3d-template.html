@@ -22,7 +22,7 @@
 
 .tipsy {  position: absolute; padding: 5px; z-index: 100000; }
 
-.tipsy-inner { background-color: #FFF; color: #000; max-width: 600px; padding: 5px 5px 5px 5px; text-align: left; }
+.tipsy-inner { background-color: #FFF; color: #000; max-width: 40em; padding: 5px 5px 5px 5px; text-align: wrap; }
 
   /* Rounded corners */
 .tipsy-inner { border-radius: 3px; -moz-border-radius: 3px; -webkit-border-radius: 3px; }
@@ -47,24 +47,25 @@
 .tipsy-e .tipsy-arrow { right: 0; top: 50%; margin-top: -5px; border-left-style: solid; border-right: none; border-top-color: transparent; border-bottom-color: transparent; }
 .tipsy-w .tipsy-arrow { left: 0; top: 50%; margin-top: -5px; border-right-style: solid; border-left: none; border-top-color: transparent; border-bottom-color: transparent; }
 
-/* This styles the title of the tooltip 
 .tipsy .name {
   font-size: 1.5em;
   font-weight: bold;
   color: #60b1fc;
-  margin: 0;
+margin: 0;
+max-width:40em;
 }
-*/
+
 
 /* This styles the body of the tooltip */
-/*.tipsy .description {
-  font-size: 1.2em;
-}   */
+.tipsy .description {
+font-size: 1.2em;
+max-width: 40em;
+}
 
 text {
   font-weight: 300;
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serf;
-  font-size: 18px;
+  font-size: 24;
 }
 
 .node rect {

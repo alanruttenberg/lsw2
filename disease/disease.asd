@@ -18,7 +18,9 @@
 	    :pathname ""
 	    :components
 	    ((:file "setup")
-	     (:file "explore"))))
+	     (:file "expression-manipulation")
+	     (:file "simplify")
+	     (:file "metrics"))))
   :depends-on (:cl-json :graph-dag :umls))
 
 ;;;; eof

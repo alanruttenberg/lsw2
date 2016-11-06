@@ -63,23 +63,32 @@
 	    (
 	     (:jar-file "org.semanticweb.hermit-1.3.8.413.jar")
 	     (:jar-file "owlapi-distribution-4.2.6.jar")  
+	     (:jar-directory "owlapi-4.2.6-dependencies")
 	     (:jar-file "factplusplus-1.6.4-SNAPSHOT.jar")
 ;	     (:jar-file "elk-owlapi-041")
 	     (:jar-directory "jena")
 ;	     (:jar-file "uncommons-maths-1.2.2")
-	     (:jar-directory "pelletcli/lib")
-	     (:jar-file "OWL-BGP-0.1.jar")
-	     (:jar-file "elk-owlapi-standalone-0.5.0-SNAPSHOT-bin.jar")
-	     (:jar-directory "jfact")
-	     (:jar-directory "explanation")
-;	     (:jar-file "owlexplanation-1.1.1-SNAPSHOT")
-;	     (:jar-file "telemetry-1.0.0.jar") ; should be in owlexplanation :(
+;;	     (:jar-directory "pelletcli/lib")
+;;	     (:jar-file "OWL-BGP-0.1.jar")
+;;	     (:jar-file "elk-owlapi-standalone-0.5.0-SNAPSHOT-bin.jar")
+;;	     (:jar-directory "jfact")
+;;	     (:jar-directory "explanation")
+	     (:jar-file "owlexplanation-1.1.1-SNAPSHOT")
+	     (:jar-file "telemetry-1.0.0.jar") ; should be in owlexplanation :(
 ;	     (:jar-file "owlapitools-atomicdecomposition-1.1.1.jar") ; chainsaw
 ;	     (:jar-file "owlapitools-concurrentimpl-1.1.1.jar") ;chainsaw
 ;	     (:jar-file "Chainsaw-1.0-SNAPSHOT.jar")
 ;	     (:jar-file "jfact-1.2.3.jar")
 	     (:jar-directory "prefuse")
 	     ))
+   ;; only if we aren't loading pellet
+   (:module jena
+	    :pathname "lib/pelletcli/lib/"
+	    :components
+	     ((:jar-file "jena-arq-2.10.1.jar")
+	     (:jar-file "jena-core-2.10.1.jar")
+	     (:jar-file "jena-iri-0.9.6.jar"))
+	     )
    (:module "basics"
 	    :pathname ""
  	    :components
@@ -105,7 +114,7 @@
 	     (:file "sparql-owlbgp")
 	     (:file "sparql-twerpish")
 	     (:file "graph")
-	     (:file "axioms")
+;;	     (:file "axioms")
 	     (:file "weaken")
 	     (:file "explanation")
 	     (:file "local")

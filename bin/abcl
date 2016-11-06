@@ -46,10 +46,10 @@ elsif ($ENV{ABCL_CLASSLOADING})
 else
 { @cl = ("-XX:-TraceClassLoading", "-XX:-TraceClassUnloading") }
 
-if ($opt_r)
-  { $ram = "-Xmx$opt_r\m"; }
-elsif ($ENV{ABCL_RAM}) 
+if ($ENV{ABCL_RAM}) 
   { $ram = "-Xmx$ENV{ABCL_RAM}m" }
+elsif ($opt_r)
+  { $ram = "-Xmx$opt_r\m"; }
 else
   { $ram = "-Xmx1024m"; }
 
@@ -60,13 +60,12 @@ elsif ($ENV{ABCL_STACK})
 else
   { $stack = "-Xss24m";}
 
-if ($opt_p)
+if ($ENV{ABCL_PERMRAM}) 
+  { $permg = "-XX:PermSize=$ENV{ABCL_PERMRAM}m" }
+elsif ($opt_p)
 { $permg = "-XX:PermSize=$opt_p\m" }
-elsif ($ENV{ABCL_PERMRAM}) 
-  { $permg = "-XX:MaxPermSize=$ENV{ABCL_PERMRAM}m" }
 else
   { $permg = "-XX:PermSize=128m";}
-
   
 $java = $opt_j || $ENV{ABCL_JAVA} || "java";
 @version = `$java -version 2>&1 | tr -d '\n'`;

@@ -59,8 +59,7 @@
 ;; do the work. 
 (defun owl-to-lisp-syntax (ontology &optional (bare? nil))
   (let ((as (to-owl-syntax ontology :functional)))
-					;    (print as)
-    (setq as (#"replaceAll" as "\\n#.[^\\n]*" ""));; remove comments (I don't think they are part of spec)
+    (setq as (#"replaceAll" as "(#[# ].*)\\n" ""))
     (with-input-from-string (s (regex-replace-all "_value" as "_ value"))
       (multiple-value-bind (axioms ontology-iri version-iri namespaces)
 	  (parse-functional-syntax (read-and-tokenize-functional-syntax s))
@@ -253,7 +252,9 @@
 	(multiple-value-bind  (header definitions ontvar) (owl-to-lisp-syntax ontology)
 	    (let ((header-string (with-output-to-string (s) (pprint header s))))
 	      (write-string (subseq header-string 0 (1- (length header-string))) stream)
-	      (format stream "~%  ((asq~%~{    ~s~%~}  ))~%  ~a)~%" definitions ontvar)
+	      (pprint `((asq ,@definitions)))
+;	      (format stream "~%  ((asq~%~{    ~s~%~}  ))~%  ~a)~%" definitions ontvar)
+	      (format stream "~%  ~a)~%" ontvar)
 	      (decache-uri-abbreviated)
 	      (values)))))))
 
