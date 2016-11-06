@@ -21,6 +21,7 @@
                   jvm::*file-compilation*)
              `(progn
                 (fset ',name ,lambda-expression)
+		(record-source-information-for-type ',name '(:function ,name))
                 ',name))
             (t
              (when (and env (empty-environment-p env))
@@ -29,7 +30,7 @@
                (setf lambda-expression (precompiler:precompile-form lambda-expression nil)))
              `(prog1
                   (%defun ',name ,lambda-expression)
-		(record-source-information-for-type ',name `(:function ','name))
+		(record-source-information-for-type ',name '(:function ,name))
 		;; alanr
 		;; this can't be done (atm) in the abcl source because compiling abcl with it hurts
 		(%set-arglist (symbol-function ',name) ,(format nil "~{~s~^ ~}" (third lambda-expression)))
