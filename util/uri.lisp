@@ -210,6 +210,7 @@ calls, so you can get what you probably wanted: (type-of (car (eval-uri-reader-m
       collect (list (#"compile" '|java.util.regex.Pattern| (format nil "[~c]" fixme))
 		    (format nil "%~2x" (char-code fixme)) fixme))))
 
+#| defined in geturl
 (defun clean-uri (site path &optional (protocol "http" ) (fragment "") (query nil))
   (clean-string
    (#0"toString" (new 'java.net.uri protocol site path (or query +null+) (or fragment +null+)))))
@@ -221,6 +222,7 @@ calls, so you can get what you probably wanted: (type-of (car (eval-uri-reader-m
        then
        (#0"replaceAll" (#0"matcher" pattern new) replacement)
        finally (return  (#"toString" new)) ))
+|#
 
 (eval-when (:load-toplevel :execute)
   (when (boundp '*print-db-hooks*)
