@@ -1,5 +1,0 @@
-<greeting>
-  <profile uri='http://iana.org/beep/SASL/ANONYMOUS' />
-  <profile uri='http://iana.org/beep/SASL/OTP' />
-  <profile uri='http://iana.org/beep/APEX' />
-</greeting>

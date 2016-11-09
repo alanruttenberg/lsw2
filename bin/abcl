@@ -1,9 +1,5 @@
 #!/usr/bin/perl
 
-# (setenv "_JAVA_OPTIONS" "-XX:-TraceClassLoading -XX:-TraceClassUnloading -XX:+UseCompressedOops -XX:+PrintGCDetails -XX:+PrintGCTimeStamps -XX:PermSize=128m  -XX:MaxPermSize=25
-
-
-
 use Getopt::Std;
 
 # Either use ABCL_WD, or figure out where with are using $0. Latter works 
@@ -11,7 +7,7 @@ use Getopt::Std;
 
 #http://docs.oracle.com/javase/7/docs/technotes/tools/windows/java.html
 
-getopt('rsbjgc'); # r=ram, s=stack, b=bits, j=java. Environment variables if not command line args.
+getopt('rsbjgc'); # r=ram, s=stack, b=bits, j=java, g=verbose gc, c=trace class loading. Environment variables if not command line args.
 
 if ($ENV{ABCL_WD})
   { $here = $ENV{ABCL_WD} }
@@ -60,12 +56,6 @@ elsif ($ENV{ABCL_STACK})
 else
   { $stack = "-Xss24m";}
 
-if ($ENV{ABCL_PERMRAM}) 
-  { $permg = "-XX:PermSize=$ENV{ABCL_PERMRAM}m" }
-elsif ($opt_p)
-{ $permg = "-XX:PermSize=$opt_p\m" }
-else
-  { $permg = "-XX:PermSize=128m";}
   
 $java = $opt_j || $ENV{ABCL_JAVA} || "java";
 @version = `$java -version 2>&1 | tr -d '\n'`;
@@ -80,18 +70,6 @@ if ((@version[0] =~ /"1.[78]/) || (@version[1] =~ /"1.[78]/)) { $bits="-d64" } ;
 
 @libs = grep(/.jar$/,split /\n/,`find "$here/lib" -follow`);
 
-# @jar=grep(/abcl.jar/,@libs);
-# @libs = grep(!/abcl.jar/,@libs);
-
-# $ENV{DYLD_LIBRARY_PATH}="$here/lib";
-
-# flushed: map {s/$here\///} @libs;
-
-#if ($ENV{ABCL_JAR})
-#{$jar=$ENV{ABCL_JAR};
-
-#{ @libs = ($ENV{ABCL_JAR},grep(!/abcl.jar/,@libs))}
-
 $classpath = join($pathJoin,@libs);
 
 if ($ENV{ABCL_PROFILE_SHARK})
@@ -100,12 +78,11 @@ if ($ENV{ABCL_PROFILE_SHARK})
 if (`uname` =~ /Darwin/)
  { @dock = ("-Xdock:icon=$here/images/lswicon.icns","-Xdock:name='Armed Bear Common Lisp'")}
 
-@args  = ($ram,$stack,$permg,$bits,@gc,@cl,@profileargs, @dock);
+@args  = ($ram,$stack,$bits,@gc,@cl,@profileargs, @dock);
 #@args  = ($ram,$stack,$bits,@gc,@profileargs,"-Xbootclasspath/a:$classpath",@dock);
 
 if (!($ENV{OS} =~ /windows/i)) { @args = ("-server",@args);}
 print "java -version says:\n@version\n";
-print "jar: @jar[0]\n";
 print "args: @args\n";
 print "ARGV: @ARGV\n";
 
