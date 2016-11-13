@@ -69,8 +69,6 @@
 		   (eq (car query) :select)
 		   (getf (third query) :count)
 		   (member use-reasoner '(:jena :none :pellet :sparqldl))))
-  (when (typep kb 'owl-ontology)
-    (setq kb (kb kb))) 
   (when (listp query) 
     (setq command (car query))
     (setq query (sparql-stringify query use-reasoner)))
@@ -95,7 +93,7 @@
 							  (#"lookup" 'jena.query.Syntax "SPARQL"))))
 	       ;; Execute the query and obtain results
 	       ;; QueryExecution qe = QueryExecutionFactory.create(query, model);
-	       (qe (cond ((or (member use-reasoner '(:sparqldl :pellet t)))
+	       (qe (progn (cond ((or (member use-reasoner '(:sparqldl :pellet t)))
 			  (unless (v3kb-pellet-jena-model kb)
 			    (instantiate-reasoner kb :pellet-sparql nil)
 			    (unless (v3kb-pellet-jena-model kb)
@@ -120,7 +118,7 @@
 				     (#"createInfModel" 'modelfactory 
 							(#"getOWLReasoner" 'ReasonerRegistry)
 							(#"getModel" (kb-jena-reasoner kb)))))
-			 (t (error "SPARQL isn't supported with reasoner ~a. It is only supported, currently, when using reasoners :pellet, :pellet-sparql, :none" use-reasoner))))
+			 (t (error "SPARQL isn't supported with reasoner ~a. It is only supported, currently, when using reasoners :pellet, :pellet-sparql, :none" use-reasoner)))))
 	       ;; ResultSet results = qe.execSelect();
 	       (vars (set-to-list (#"getResultVars" jquery))))
 	  (unwind-protect
@@ -260,6 +258,21 @@
 	    (emit-blank-node '[] stream)
 	    (concatenate 'string "_:" name)))))
 
+;; Need to add the rest of these. As of now there's just "*"
+;; uri	A URI or a prefixed name. A path of length one.
+;; ^elt	Inverse path (object to subject).
+;; (elt)	A group path elt, brackets control precedence.
+;; elt1 / elt2	A sequence path of elt1, followed by elt2
+;; elt1 ^ elt2	Shorthand for elt1 / ^elt2, that is elt1 followed by the inverse of elt2.
+;; elt1 | elt2	A alternative path of elt1, or elt2 (all possibilities are tried).
+;; elt*	A path of zero or more occurrences of elt.
+;; elt+	A path of one or more occurrences of elt.
+;; elt?	A path of zero or one elt.
+;; elt{n,m}	A path between n and m occurrences of elt.
+;; elt{n}	Exactly n occurrences of elt. A fixed length path.
+;; elt{n,}	n or more occurrences of elt.
+;; elt{,n}	Between 0 and n occurrences of elt.
+
 (defun emit-sparql-clause (clause s)
   (labels ((maybe-format-uri (el)
 	   (cond ((eq el :a)
@@ -272,14 +285,21 @@
 		 ((equal el "")
 		  "\"\"")
 		 ((uri-p el)
-		  (multiple-value-bind (string ns) (maybe-abbreviate-namespace (uri-full el) :sparql)
-		    (if ns
-			(progn 
-			  (pushnew ns *sparql-namespace-uses* :test 'equal)
-			  string)
-			(if (search "urn:blank:" string)
-			    (concatenate 'string "_:b" (subseq string 10) )
-			    (format nil "<~a>" (uri-full el))))))
+		  (let ((star nil))
+		    ;; handle * pattern by first taking it off, formatting the URI and then adding it back.
+		    (when (#"matches" (uri-full el) ".*\\*")
+		      (setq el (make-uri (subseq (uri-full el) 0 (- (length (uri-full el)) 1))))
+		      (setq star t))
+		    (let ((almost 
+			    (multiple-value-bind (string ns) (maybe-abbreviate-namespace (uri-full el) :sparql)
+			      (if ns
+				  (progn 
+				    (pushnew ns *sparql-namespace-uses* :test 'equal)
+				    string)
+				  (if (search "urn:blank:" string)
+				      (concatenate 'string "_:b" (subseq string 10) )
+				      (format nil "<~a>" (uri-full el)))))))
+		      (if star (concatenate 'string almost "*") almost))))
 		 ((and (stringp el) (char= (char el 0) #\<)
 		       (char= (char el (1- (length el))) #\>))
 		  el)
