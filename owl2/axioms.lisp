@@ -1,6 +1,6 @@
 ;; Call fn on each axiom in the ontology (include-imports-closure -> t to include the imports closure)
 
-(defun each-axiom (ont fn &optional include-imports-closure)q
+(defun each-axiom (ont fn &optional include-imports-closure)
   (declare (optimize (speed 3) (safety 0)))
   (let* ((ont (if (v3kb-p ont) (v3kb-ont ont) ont))
 	 (onts (if include-imports-closure
