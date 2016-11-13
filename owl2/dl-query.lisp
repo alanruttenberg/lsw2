@@ -7,8 +7,14 @@
 (defun parents (class &optional (kb *default-kb*))
   (class-query class kb (lambda(ce reasoner) (#"getSuperClasses" reasoner ce t))))
 
+(defun property-parents (property &optional (kb *default-kb*))
+  (property-query property kb (lambda(pe reasoner)  (#"getSuperObjectProperties" reasoner pe t))))
+
 (defun ancestors (class &optional (kb *default-kb*))
   (class-query class kb (lambda(ce reasoner) (#"getSuperClasses" reasoner ce nil))))
+
+(defun property-ancestors (property &optional (kb *default-kb*))
+  (property-query property kb (lambda(pe reasoner)  (#"getSuperObjectProperties" reasoner pe nil))))
 
 (defun instances (class &optional (kb *default-kb*))
   (class-query class kb (lambda(ce reasoner) (#"getInstances" reasoner ce nil))))
