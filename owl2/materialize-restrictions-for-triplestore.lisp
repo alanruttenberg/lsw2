@@ -16,6 +16,10 @@
 ;; actually be doing this on the union of all the files that we are
 ;; going to have in the triple store.
 
+;; One Consequence of this is that there are now blank nodes that are
+;; subclasses of blank nodes and most queries don't expect that. Need
+;; to filter out blank nodes with !isBlank()
+
 (defun make-jena-kb (file)
   ;; makes a kb just good enough to sparql against. Don't expect anything more.
   (let ((kb (make-v3kb)))
@@ -99,10 +103,25 @@
 	    (#"write" *jena-model* w "RDF/XML")
 	    ))
 	))))
-		   
 
 
+(defun compare-reasoner-triplestore (query reasoned endpoint &key verbose)
+  (let ((from-sparql (sparql `(:select (?other) (:distinct t)  (?other !rdfs:subClassOf ,query) (:filter (not (isBlank ?other)))) :use-reasoner endpoint :flatten t))
+	(from-reasoner (descendants query reasoned))
+	(from-jena (sparql `(:select (?other) (:distinct t)  (?other !rdfs:subClassOf ,query) (:filter (not (isBlank ?other)))) :use-reasoner :none :kb reasoned :flatten t)))
+    (when verbose
+      (format t "from sparql: ~a. from reasoner: ~a. no reasoning: ~a~%" (length from-sparql) (length from-reasoner) (length from-jena)) )
+    (let ((only-in-sparql (set-difference from-sparql from-reasoner))
+	  (only-in-reasoner (set-difference from-reasoner from-sparql)))
+      (or (and (null only-in-reasoner) (null only-in-sparql)) 
+	  (values nil (length from-reasoner) only-in-reasoner (length only-in-sparql) only-in-sparql)))))
 
+
+;good: (compare-reasoner-triplestore '(:some !obo:RO_0002212 !obo:GO_0006310) go !<http://127.0.0.1:8080/graphdb-workbench-ee/repositories/GOTEST2>)
+;bad:  part of some intracellular membrane-bounded organelle. Reasoner 934 others:0 because partonomy isn't done.
+; (compare-reasoner-triplestore '(:some !obo:BFO_0000050 !obo:GO_0043231) go !<http://127.0.0.1:8080/graphdb-workbench-ee/repositories/GOTEST2> :verbose t)
+; reasoner 3 others 0
+; (compare-reasoner-triplestore '(:some !obo:BFO_0000051 !obo:GO_0043231) go !<http://127.0.0.1:8080/graphdb-workbench-ee/repositories/GOTEST2> :verbose t)
 
 ;; simple debug case
 ;; (with-ontology foo ( )
