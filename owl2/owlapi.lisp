@@ -45,7 +45,10 @@
 
 (defun print-v3kb-struct (kb stream depth)
   (print-unreadable-object (kb stream)
-    (format stream "OWLAPIv3 KB on ~a" (v3kb-name kb))))
+    (if (consp (v3kb-name kb))
+	;; hack for faking out kb with just jena model
+	(format stream "~a on ~a" (car (v3kb-name kb)) (second (v3kb-name kb)))
+	(format stream "OWLAPIv3 KB on ~a" (v3kb-name kb)))))
 
 (defun to-iri (thing)
   (cond ((and (stringp thing) (not (consp (pathname-host thing))) (probe-file thing))
@@ -415,6 +418,22 @@
 	 for string = (and iri (#"toString" (#"getIRI" iri)))
 	 for uri = (and iri (make-uri string))
 	 unless (or (null iri) (and (eq uri !owl:Nothing) (not include-nothing))) collect (make-uri string)))))
+
+(defun property-query (property kb fn &optional (flatten t) include-top filter )
+  (instantiate-reasoner kb (or (v3kb-default-reasoner kb) *default-reasoner*) nil)
+  (let ((jprop (car (find :object-property (gethash property (v3kb-uri2entity kb)) :key 'second))))
+    (when jprop
+      (let ((reasoner (v3kb-reasoner kb)))
+	(let ((nodes (funcall fn jprop reasoner)))
+	  (loop for iri in (let ((them (jss::set-to-list (if flatten (#"getFlattened" nodes) nodes))))
+			     (let ((res
+				     (if filter 
+					 (remove-if-not (lambda(ce) (funcall filter ce reasoner)) them)
+					 them)))
+			       res))
+		for string = (and iri (#"toString" (#"getIRI" iri)))
+		for uri = (and iri (make-uri string))
+		unless (or (null iri) (and (not include-top) (eq uri !owl:topObjectProperty))) collect uri))))))
 
 
 (defun annotation-properties (kb)
