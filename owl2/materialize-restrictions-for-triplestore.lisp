@@ -104,4 +104,17 @@
 
 
 
-
+;; simple debug case
+;; (with-ontology foo ( )
+;; 	       ((asq (declaration (class !a))
+;; 		     (declaration (class !b))
+;; 		     (declaration (class !c))
+;; 		     (declaration (class !d))
+;; 		     (declaration (object-property !p1))
+;; 		     (subclass-of !b !a)
+;; 		     (subclass-of !c (object-some-values-from !p1 !b))
+;; 		     (subclass-of !c (object-intersection-of !d (object-some-values-from !p1 !b)))
+;; 		     (declaration (named-individual !x))
+;; 		     (declaration (named-individual !y))
+;; 		     (class-assertion !c !x)))
+;;   (to-owl-syntax foo :turtle "/Volumes/trips/pro/owl/test.ttl"))
