@@ -70,7 +70,7 @@
 ;	     (:jar-file "uncommons-maths-1.2.2")
 	     (:jar-directory "pelletcli/lib")
 ;;	     (:jar-file "OWL-BGP-0.1")
-;;	     (:jar-file "elk-owlapi-standalone-0.5.0-SNAPSHOT-bin")
+	     (:jar-file "elk-owlapi-standalone-0.5.0-SNAPSHOT-bin")
 ;;	     (:jar-directory "jfact")
 	     (:jar-directory "explanation")
 ;	     (:jar-file "owlexplanation-1.1.1-SNAPSHOT")
