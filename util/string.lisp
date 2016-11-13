@@ -128,10 +128,10 @@
 ;;;   http://opensource.franz.com/preamble.html
 
 (defmacro print-db (&rest forms &aux)
-  `(multiple-value-prog1
-       (let ((*print-case* :downcase))
-     (progn ,@(print-db-aux forms))
-     (terpri *trace-output*))))
+  `(let ((*print-case* :downcase))
+       (multiple-value-prog1
+	 (progn ,@(print-db-aux forms))
+	 (terpri *trace-output*))))
 
 (defvar *print-db-hooks* nil)
 
