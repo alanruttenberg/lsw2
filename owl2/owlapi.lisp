@@ -394,7 +394,7 @@
 	       ((uri-p thing)
 		(#"getOWLClass" (v3kb-datafactory kb) (to-iri thing)))
 	       ((and (listp thing)
-		     (member (car thing) '(and or not only some)))
+		     (member (car thing) '(and or :or not :not only :only some :some)))
 		(to-class-expression (manchester-expression thing) kb))
 	       ((consp thing)
 		(to-owlapi-class-expression (eval-uri-reader-macro thing) (v3kb-datafactory kb)))
