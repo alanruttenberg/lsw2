@@ -120,6 +120,73 @@
 	    ))
 	))))
 
+;; in: a relonomy, out a hash of existing term to restriction
+;; baseont is a jena kb
+;; relont is an OWL kb (elk)
+;; CAN BE PARALLELIZED (across terms)
+(defun associate-relonomy (relont baseont)
+  (let* ((baseterms (sparql '(:select (?class) () (?class !rdf:type !owl:Class)) :kb baseont :use-reasoner :none :flatten t))
+	 (lookup (make-hash-table :test 'eq))
+	 (links (make-hash-table :test 'eq)))
+    (loop for term in baseterms do (setf (gethash term lookup) t))
+;    (print-db baseterms)
+    (labels ((base-term? (term)
+	       (or (eq term !owl:Thing) (gethash term lookup)))
+	     (p-c-from-uri (uri)
+	       (let ((locals (car (all-matches (uri-full uri)  ".+/([^/]+?)\\.([^/]+?)$" 1 2))))
+;		 (print-db locals)
+		 (list (make-uri nil (concatenate 'string "obo:" (first locals))) ;; somethings going to need to be fixed for non-obo. Should really get axiom.
+		       (make-uri nil (concatenate 'string "obo:" (second locals))))))
+	     (link (term relterm)
+;	       (print-db 'link term relterm)
+	       (let ((p-c (p-c-from-uri relterm)))
+		 (and p-c
+		      (push p-c (gethash term links))))))
+      (labels ((handle (terms &optional base)
+;	       (print-db terms base)
+	       (loop for term in terms
+		     for equivs = (remove term (remove-if-not #'base-term? (equivalents term relont)))
+		     for parents = (parents term relont)
+		     for rel-parents = (remove-if #'base-term? parents)
+		     do
+;			(print-db equivs  rel-parents)
+			(map nil #'(lambda(e) (link (or base term) e)) (append equivs rel-parents))
+			(handle rel-parents (or base term)))))
+	(loop for term in baseterms do (handle (list term)))))
+    links))
+
+
+#|
+
+a   \
+f1.g1 c
+f2.g2 |
+d    /
+
+result
+d -> f1.g1, f2.g2
+
+|#
+(defun test-associate-relonomy ()
+  (with-ontology relont ()
+    ((asq (subclass-of !d !f2.g2)
+	  (subclass-of !f2.g2 !f1.g1)
+	  (subclass-of !f1.g1 !a)
+	  (subclass-of !c !a)
+	  (subclass-of !d !c)))
+    (with-ontology baseont ()
+      ((asq (declaration (class !a))
+	    (declaration (class !d))
+	    (declaration (class !c))
+	    (subclass-of !d !a)
+	    (subclass-of !d !c)
+	    (subclass-of !a !c)))
+      (let ((res (associate-relonomy relont (make-jena-kb (jena-model baseont)))))
+	(swank:inspect-in-emacs res)
+	(let ((results nil))
+	  (maphash (lambda(k v) (push (list k v) res)) res)
+	  results)))))
+
 
 (defun compare-reasoner-triplestore (query reasoned endpoint &key verbose)
   (let ((from-sparql (sparql `(:select (?other) (:distinct t)  (?other !rdfs:subClassOf ,query) (:filter (not (isBlank ?other)))) :use-reasoner endpoint :flatten t))
@@ -154,6 +221,7 @@
 ;; 		     (class-assertion !c !x)))
 ;;   (to-owl-syntax foo :turtle "/Volumes/trips/pro/owl/test.ttl"))
 
+;; CAN BE PARALLELIZED (across relations)
 (defun relonomies (ont-file &rest rels)
   (let ((declared (make-hash-table))
 	(ont (make-jena-kb ont-file)))
@@ -183,7 +251,7 @@
 							 (:filter (not (Isblank ?class))))
 						       :kb ont :use-reasoner :none :flatten t )
 				  for accession = (#"replaceFirst" (uri-full class) ".*/" "")
-				  for reluri = (make-uri (concatenate 'string "http://example.com/" relaccession "_" accession))
+				  for reluri = (make-uri (concatenate 'string "http://example.com/" relaccession "." accession))
 				  do
 				     (maybe-declare class 'class t)
 				     (as `(declaration (class ,reluri)))
