@@ -20,14 +20,6 @@
 ;; subclasses of blank nodes and most queries don't expect that. Need
 ;; to filter out blank nodes with !isBlank()
 
-(defun make-jena-kb (file)
-  ;; makes a kb just good enough to sparql against. Don't expect anything more.
-  (let ((kb (make-v3kb)))
-    (let ((model (#"loadModel" 'RDFDataMgr file)))
-      (setf (v3kb-told-jena-model kb) model)
-      (setf (v3kb-name kb) '(:jena "/Users/lori/Desktop/test.rdf"))
-      kb)))
-
 ;; we use just jena since we don't need a reasoner for this
 (defun materialize (o file)
   (let ((classes (make-hash-table :test 'equalp)) ;; actually simple existential restrictions 
@@ -101,7 +93,7 @@
 			   (triple superrestriction !owl:onProperty (first super))
 			   (triple superrestriction !owl:someValuesFrom (second super)))))
 		   subclass-relations)
-	  (let ((w (new 'filewriter file)))
+	  (let ((w (new 'filewriter (namestring (translate-logical-pathname file)))))
 	    (#"write" *jena-model* w "RDF/XML")
 	    ))
 	))))
@@ -140,9 +132,10 @@
 ;; 		     (class-assertion !c !x)))
 ;;   (to-owl-syntax foo :turtle "/Volumes/trips/pro/owl/test.ttl"))
 
-(defun relonomy(ont &rest rels)
+(defun relonomy(ont-file &rest rels)
   (let ((rel-table (make-hash-table))
-	(declared (make-hash-table)))
+	(declared (make-hash-table))
+	(ont (make-jena-kb ont-file)))
     (unless rels (setq rels (sparql '(:select (?prop)  () 
 				      (?prop a !owl:ObjectProperty))
 				    :kb ont :flatten t :use-reasoner :none)))
@@ -155,7 +148,7 @@
 				      (as `(declaration (,,type ,,term)))
 				      (if ,original 
 					  (as `(annotation-assertion !original ,,term !original))))))
-			(asq (imports !<file:///Users/alanr/repos/lsw2/go.owl>))
+			(as `(imports ,(make-uri (concatenate 'string "file://" ont-file))))
 			(asq (declaration (annotation-property !original)))
 			;; if we wanted to trim it would be here.
 			;; depth first
@@ -167,7 +160,7 @@
 			      for accession = (#"replaceFirst" (uri-full class) ".*/" "")
 			      do
 				 (loop for rel in rels
-				       for relaccession = (#"replaceFirst" (uri-full class) ".*/" "")
+				       for relaccession = (#"replaceFirst" (uri-full res) ".*/" "")
 				       for reluri = (make-uri (concatenate 'string "http://example.com/" relaccession "_" accession))
 				       do
 					  (maybe-declare rel 'object-property)

@@ -39,7 +39,9 @@
 	(subclass-relations (make-hash-table :test 'equalp)) ;; either pairs of such or a named class and one
 	(seen-restrictions (make-hash-table :test 'equalp))) ;; no use doing unnecessary work.
     (flet ((parents (c o) ;; parents of a named class
-	     (sparql `(:select (?c) () (,c !rdfs:subClassOf ?c)) :use-reasoner :none :kb o :flatten t))
+	     (if (eq o source)
+		 (sparql `(:select (?c) () (,c !rdfs:subClassOf ?c)) :use-reasoner :none :kb o :flatten t)
+		 (parents c o)))
 	   (property-ancestors (p o) ;; all superproperties of a property
 	     (sparql `(:select (?p) () (,p !rdfs:subPropertyOf* ?p)) :use-reasoner :none :kb o :flatten t)))
       (labels ((intern-class (c)
@@ -67,7 +69,7 @@
 				     ;; and recurse
 				     (assert-parents c-anc p component))))))
 	;; The top level drives - existentials that are asserted as superclasses of named classes
-	(loop for component in (cons source partials)
+	(loop for component in (append partials (list source))
 	      do
 		 (format *debug-io* "Working on ~a~%" component)
 		 (clrhash seen-restrictions)
