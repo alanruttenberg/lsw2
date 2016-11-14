@@ -92,7 +92,7 @@
    (:module "basics"
 	    :pathname ""
  	    :components
-	    ((:file "owlapi3")
+	    ((:file "owlapi")
 	     (:file "debug")
 	     )
  	    :depends-on (lib))
@@ -114,8 +114,9 @@
 	     (:file "sparql-owlbgp")
 	     (:file "sparql-twerpish")
 	     (:file "graph")
-;;	     (:file "axioms")
+	     (:file "axioms")
 	     (:file "weaken")
+	     (:file "materialize-restrictions-for-triplestore")
 	     (:file "explanation")
 	     (:file "local")
 	     (:file "module")

@@ -1,14 +1,20 @@
 (defun children (class &optional (kb *default-kb*))
   (class-query class kb (lambda(ce reasoner) (#"getSubClasses" reasoner ce t))))
 
+(defun property-children (property &optional (kb *default-kb*))
+  (property-query property kb (lambda(pe reasoner)  (#"getSubObjectProperties" reasoner pe t))))
+
 (defun descendants (class &optional (kb *default-kb*))
   (class-query class kb (lambda(ce reasoner) (#"getSubClasses" reasoner ce nil))))
+
+(defun property-descendants (property &optional (kb *default-kb*))
+  (property-query property kb (lambda(pe reasoner)  (#"getSubObjectProperties" reasoner pe t))))
 
 (defun parents (class &optional (kb *default-kb*))
   (class-query class kb (lambda(ce reasoner) (#"getSuperClasses" reasoner ce t))))
 
 (defun property-parents (property &optional (kb *default-kb*))
-  (property-query property kb (lambda(pe reasoner)  (#"getSuperObjectProperties" reasoner pe t))))
+  (property-query property kb (lambda(pe reasoner)  (#"getSuperObjectProperties" reasoner pe t))))p
 
 (defun ancestors (class &optional (kb *default-kb*))
   (class-query class kb (lambda(ce reasoner) (#"getSuperClasses" reasoner ce nil))))
