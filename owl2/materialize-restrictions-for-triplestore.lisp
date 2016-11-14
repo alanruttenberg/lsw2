@@ -64,9 +64,11 @@
 	;; The top level drives - existentials that are asserted as superclasses of named classes
 	(loop for (p c x) in
 			  (sparql '(:select (?p ?c ?x) ()
+				    (?x !original !original)
 				    (?x !rdfs:subClassOf ?r)
 				    (?r !owl:onProperty ?p)
 				    (?r !owl:someValuesFrom ?c)
+				    (?c !original !original)
 				    (:filter (and (not (isblank ?x)) (not (isblank ?c)) (not (isblank ?p)))))
 				  :use-reasoner :none :kb o)
 	      do
@@ -137,3 +139,59 @@
 ;; 		     (declaration (named-individual !y))
 ;; 		     (class-assertion !c !x)))
 ;;   (to-owl-syntax foo :turtle "/Volumes/trips/pro/owl/test.ttl"))
+
+(defun relonomy(ont &rest rels)
+  (let ((rel-table (make-hash-table))
+	(declared (make-hash-table)))
+    (unless rels (setq rels (sparql '(:select (?prop)  () 
+				      (?prop a !owl:ObjectProperty))
+				    :kb ont :flatten t :use-reasoner :none)))
+    (format *debug-io* "Rels: ~{~a~^, ~}~%" rels)
+    (format *debug-io* "Constructing relonomy...")
+    (with-ontology relonomy () 
+		     ((macrolet ((maybe-declare (term type &optional original)
+				   `(unless (gethash ,term declared)
+				      (setf (gethash ,term declared) t)
+				      (as `(declaration (,,type ,,term)))
+				      (if ,original 
+					  (as `(annotation-assertion !original ,,term !original))))))
+			(asq (imports !<file:///Users/alanr/repos/lsw2/go.owl>))
+			(asq (declaration (annotation-property !original)))
+			;; if we wanted to trim it would be here.
+			;; depth first
+			(loop for class in (sparql '(:select (?class) 
+						     (:distinct t)
+						     (?class !rdf:type !owl:Class)
+						     (:filter (not (Isblank ?class))))
+						   :kb ont :use-reasoner :none :flatten t )
+			      for accession = (#"replaceFirst" (uri-full class) ".*/" "")
+			      do
+				 (loop for rel in rels
+				       for relaccession = (#"replaceFirst" (uri-full class) ".*/" "")
+				       for reluri = (make-uri (concatenate 'string "http://example.com/" relaccession "_" accession))
+				       do
+					  (maybe-declare rel 'object-property)
+					  (maybe-declare class 'class t)
+					  (as `(declaration (class ,reluri)))
+					  (as `(sub-class-of ,reluri (object-some-values-from ,rel ,class)))))))
+	(format *debug-io* "constructed relonomy. reasoning...")
+	(check-ontology relonomy :classify t :reasoner :elk)
+	(format *debug-io* "done.")
+	relonomy)))
+
+
+      ;; (sparql '(:select (?sub ?super) 
+      ;; 		(:distinct t)
+      ;; 		(?class1 !rdfs:subClassOf ?super) 
+      ;; 		(:filter (and (not (isblank ?sub)) (not (isblank ?super)))))
+      ;; 	      :kb ont :use-reasoner :none :flatten t )
+      ;; relonomy)
+
+;; relonomy will have all the superclass the the original would have and more.
+;; We procede, then, by adding superclass assertions as in materialize
+:; but: if there is a parts uri equivalent then use that class rather than the anonymous one.
+;; at the end 
+
+;; When materializing you need to add superclasses in the rel direction.
+;; really we don't need any classes for rel that have no subs that are quoted in the original.
+;; Unfortunately We don't know this beforehand
