@@ -85,7 +85,7 @@
 			  (assert-parents c p component x)
 		       )
 		 (format *debug-io* "Seen: ~a~%" seen-restrictions)
-		 (setq @ seen-restrictions) (break)
+		 (setq @ seen-restrictions) 
 	      )
 	;; now that we've collected all the information, write it out.
 	;; because we've interned classes and subclass relations we're
