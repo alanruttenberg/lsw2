@@ -20,13 +20,65 @@
 ;; subclasses of blank nodes and most queries don't expect that. Need
 ;; to filter out blank nodes with !isBlank()
 
+(defclass relonomy () 
+  ((relation :accessor relonomy-relation :initarg :relation)
+   (associations :accessor associations :initarg :associations)
+   (kb :accessor relonomy-kb :initarg :kb)
+   (name :accessor relonomy-name :initarg :name)
+   (path :accessor relonomy-path :initarg :path)))
+
+(defun relonomy-from-file (path name)
+  (let ((instance (make-instance 'relonomy :path path :name name)))
+    (setf (associations instance)
+	  (with-open-file (f path)
+	    (loop for base = (read f nil :eof)
+		  for associations = (read f nil :eof)
+		  until (eq base :eof)
+		  collect (list base associations))))
+    instance))
+
+(defmethod print-object ((r relonomy) stream)
+  (print-unreadable-object (r stream :identity t :type t)
+    (princ (relonomy-name r) stream)))
+    
+;; repeatedly call fn with args base-term, p, c where: base-term subclass-of p some c
+(defmethod each-association ((r relonomy) fn)
+  (loop for (base associations) in (associations r)
+	do (loop for (p c) in associations do (funcall fn base p c))))
+
+
+(defmethod each-somevalues-restriction ((kb v3kb) fn)
+  (loop for (p c x) in 
+		    (sparql `(:select (?p ?c ?x) ()
+			       (?x !rdfs:subClassOf ?r)
+			       (?r !owl:onProperty ?p)
+			       (?r !owl:someValuesFrom ?c)
+			       (:filter (and (not (isblank ?x)) (not (isblank ?c)) (not (isblank ?p)))))
+			    :use-reasoner :none :kb kb)
+	do (funcall fn x p c)))
+    
+(defun make-jena-kb (file-or-model)
+  ;; makes a kb just good enough to sparql against. Don't expect anything more.
+  (let ((kb (make-v3kb)))
+    (let ((model (if (java-object-p file-or-model)
+		     file-or-model
+		     (#"loadModel" 'RDFDataMgr file-or-model))))
+      (setf (v3kb-told-jena-model kb) model)
+      (setf (v3kb-name kb) `(:jena ,file-or-model))
+      kb)))
+
+(defun remove-blank-nodes (list)
+  (remove-if (lambda(e) (and (uri-p e) (search "urn:blank:" (uri-full e) :test 'char-equal))) list))
+
 ;; we use just jena since we don't need a reasoner for this
-(defun materialize (o file)
+(defun materialize2 (source partials)
   (let ((classes (make-hash-table :test 'equalp)) ;; actually simple existential restrictions 
 	(subclass-relations (make-hash-table :test 'equalp)) ;; either pairs of such or a named class and one
-	(seen (make-hash-table :test 'equalp))) ;; no use doing unnecessary work.
+	(seen-restrictions (make-hash-table :test 'equalp))) ;; no use doing unnecessary work.
     (flet ((parents (c o) ;; parents of a named class
-	     (sparql `(:select (?c) () (,c !rdfs:subClassOf ?c)) :use-reasoner :none :kb o :flatten t))
+	     (if (eq o source)
+		 (sparql `(:select (?c) () (,c !rdfs:subClassOf ?c)) :use-reasoner :none :kb o :flatten t)
+		 (parents c o)))
 	   (property-ancestors (p o) ;; all superproperties of a property
 	     (sparql `(:select (?p) () (,p !rdfs:subPropertyOf* ?p)) :use-reasoner :none :kb o :flatten t)))
       (labels ((intern-class (c)
@@ -35,72 +87,148 @@
 		 (let ((r (list sub super)))
 		   (or (gethash r subclass-relations)
 		       (setf (gethash r subclass-relations) r))))
-	       (assert-parents (c p &optional x)
+	       (assert-parents (c p component &optional x)
 		 ;; this is the business end. First call is a named class x subclass of a restriction p some c
 		 ;; we're going to create all the supers of the existential, both by property and by class
 		 ;; Do one level of class parents then recurse on that (no x for those)
-		 (unless (gethash (list c p x)  seen)
-		   (setf (gethash (list c p x)  seen) t)
-		   (loop for p-now in (cons p (property-ancestors p o))
+		 (unless (gethash (list c p x)  seen-restrictions)
+		   (setf (gethash (list c p x)  seen-restrictions) t)
+		   (loop for p-now in (cons p (property-ancestors p source))
 			 do
 			    ;; assert the first link from the named class 
 			    (and x (intern-subclass-relation x (list p-now c))) 
 			    ;; then go up the named parents
-			    (loop for c-anc in (remove-if (lambda(e) (and (uri-p e) (search "urn:blank:" (uri-full e) :test 'char-equal))) (parents c o))
+			    (loop for c-anc in (remove-blank-nodes (parents c component))
 				  do
 				     ;; and add the more general existential and the subclass relation between child and general
 				     (intern-class (list p-now c-anc))
 				     (intern-subclass-relation (list p-now c) (list p-now c-anc))
 				     ;; and recurse
-				     (assert-parents c-anc p))))))
-	;; The top level drives - existentials that are asserted as superclasses of named classes
+				     (assert-parents c-anc p component))))))
+	(loop for partial in partials
+	;; for each of the partials, intern all the class relations
+	      do (each-association partial (lambda(base p c) (intern-subclass-relation base (list p c))))
+		 (each-association partial (lambda(base p c) (assert-parents c p source base))))
 	(loop for (p c x) in
-			  (sparql '(:select (?p ?c ?x) ()
-				    (?x !original !original)
-				    (?x !rdfs:subClassOf ?r)
-				    (?r !owl:onProperty ?p)
-				    (?r !owl:someValuesFrom ?c)
-				    (?c !original !original)
-				    (:filter (and (not (isblank ?x)) (not (isblank ?c)) (not (isblank ?p)))))
-				  :use-reasoner :none :kb o)
+			  (sparql `(:select (?p ?c ?x) ()
+					    (?x !rdfs:subClassOf ?r)
+					    (?r !owl:onProperty ?p)
+					    (?r !owl:someValuesFrom ?c)
+					    (:filter (and (not (isblank ?x)) (not (isblank ?c)) (not (isblank ?p)))))
+				  :use-reasoner :none :kb source)
 	      do
-		 (assert-parents c p x))
-	;; now that we've collected all the information, write it out.
-	;; because we've interned classes and subclass relations we're
-	;; sure to not write out redundant links. That's hard to
-	;; accomplish with the owlim rul engine.
-	(let ((*jena-model* (#"createDefaultModel" 'hp.hpl.jena.rdf.model.ModelFactory)))
-	  ;; *jena-model* is dynamic scope. The calls to (triple)
-	  ;; below add the triples to it.
-	  ;; TBD - consider adding some provenance/debugging info in the form of labels
-	  (maphash (lambda(k v)
-		     (declare (ignore k))
-		     (if (atom (first v))
-			 ;; special case of named class as subclass 
-			 (let ((super (second v))
-			       (superrestriction (fresh-jena-blank *jena-model*)))
-			   (triple (first v) !rdfs:subClassOf superrestriction)
-			   (triple superrestriction !owl:onProperty (first super))
-			   (triple superrestriction !owl:someValuesFrom (second super)))
-			 ;; now the case of existential subclass of existential
-			 (let ((sub (first v))
-			       (super (second v))
-			       (subrestriction (fresh-jena-blank *jena-model*))
-			       (superrestriction (fresh-jena-blank *jena-model*)))
-			   (triple subrestriction !rdfs:subClassOf superrestriction)
-			   (triple subrestriction !owl:onProperty (first sub))
-			   (triple subrestriction !owl:someValuesFrom (second sub))
-			   (triple superrestriction !owl:onProperty (first super))
-			   (triple superrestriction !owl:someValuesFrom (second super)))))
-		   subclass-relations)
-	  (let ((w (new 'filewriter (namestring (translate-logical-pathname file)))))
-	    (#"write" *jena-model* w "RDF/XML")
-	    ))
-	))))
+		 (assert-parents c p source x)
+	      )
+	subclass-relations))))
+
+(defun save-materialization (subclass-relations file)
+  ;; now that we've collected all the information, write it out.
+  ;; because we've interned classes and subclass relations we're
+  ;; sure to not write out redundant links. That's hard to
+  ;; accomplish with the owlim rul engine.
+  (let ((*jena-model* (#"createDefaultModel" 'hp.hpl.jena.rdf.model.ModelFactory)))
+    ;; *jena-model* is dynamic scope. The calls to (triple)
+    ;; below add the triples to it.
+    ;; TBD - consider adding some provenance/debugging info in the form of labels
+    (maphash (lambda(k v)
+	       (declare (ignore k))
+	       (let ((v (eval-uri-reader-macro v)))
+		 (if (atom (first v))
+		     ;; special case of named class as subclass 
+		     (let ((super (second v))
+			   (superrestriction (fresh-jena-blank *jena-model*)))
+		       (triple (first v) !rdfs:subClassOf superrestriction)
+		       (triple superrestriction !owl:onProperty (first super))
+		       (triple superrestriction !owl:someValuesFrom (second super)))
+		     ;; now the case of existential subclass of existential
+		     (let ((sub (first v))
+			   (super (second v))
+			   (subrestriction (fresh-jena-blank *jena-model*))
+			   (superrestriction (fresh-jena-blank *jena-model*)))
+		       (triple subrestriction !rdfs:subClassOf superrestriction)
+		       (triple subrestriction !owl:onProperty (first sub))
+		       (triple subrestriction !owl:someValuesFrom (second sub))
+		       (triple superrestriction !owl:onProperty (first super))
+		       (triple superrestriction !owl:someValuesFrom (second super))))))
+	     subclass-relations)
+    (let ((w (new 'filewriter (namestring (translate-logical-pathname file)))))
+      (#"setNsPrefix" *jena-model* "l" (uri-full !owl:))
+      (#"setNsPrefix" *jena-model* "x" (uri-full !xsd:))
+      (#"setNsPrefix" *jena-model* "r" (uri-full !rdfs:))
+      (#"setNsPrefix" *jena-model* "f" (uri-full !rdf:))
+      (#"setNsPrefix" *jena-model* "o" (uri-full !obo:))
+      (#"write" 'RDFDataMgr w *jena-model* (get-java-field 'riot.rdfformat "TURTLE_BLOCKS"))
+      ))
+  )
+
+;; in: a relonomy, out a hash of existing term to restriction
+;; baseont is a jena kb
+;; relont is an OWL kb (elk)
+;; CAN BE PARALLELIZED (across terms)
+(defun associate-relonomy (relont baseont)
+  (let* ((baseterms (sparql '(:select (?class) () (?class !rdf:type !owl:Class)) :kb baseont :use-reasoner :none :flatten t))
+	 (lookup (make-hash-table :test 'eq))
+	 (links (make-hash-table :test 'eq)))
+    (loop for term in baseterms do (setf (gethash term lookup) t))
+    (labels ((base-term? (term)
+	       (or (eq term !owl:Thing) (gethash term lookup)))
+	     (p-c-from-uri (uri)
+	       (let ((locals (car (all-matches (uri-full uri)  ".+/([^/]+?)\\.([^/]+?)$" 1 2))))
+		 (list (make-uri nil (concatenate 'string "obo:" (first locals))) ;; somethings going to need to be fixed for non-obo. Should really get axiom.
+		       (make-uri nil (concatenate 'string "obo:" (second locals))))))
+	     (link (term relterm)
+	       (let ((p-c (p-c-from-uri relterm)))
+		 (and p-c
+		      (push p-c (gethash term links))))))
+      (labels ((handle (terms &optional base)
+	       (loop for term in terms
+		     for equivs = (remove term (remove-if-not #'base-term? (equivalents term relont)))
+		     for parents = (parents term relont)
+		     for rel-parents = (remove-if #'base-term? parents)
+		     do
+			(map nil #'(lambda(e) (link (or base term) e)) (append equivs rel-parents))
+			(handle rel-parents (or base term)))))
+	(loop for term in baseterms do (handle (list term)))))
+    links))
+
+
+#|
+
+a   \
+f1.g1 c
+f2.g2 |
+d    /
+
+result
+d -> f1.g1, f2.g2
+
+|#
+(defun test-associate-relonomy ()
+  (with-ontology relont ()
+    ((asq (subclass-of !d !f2.g2)
+	  (subclass-of !f2.g2 !f1.g1)
+	  (subclass-of !f1.g1 !a)
+	  (subclass-of !c !a)
+	  (subclass-of !d !c)))
+    (with-ontology baseont ()
+      ((asq (declaration (class !a))
+	    (declaration (class !d))
+	    (declaration (class !c))
+	    (subclass-of !d !a)
+	    (subclass-of !d !c)
+	    (subclass-of !a !c)))
+      (let ((res (associate-relonomy relont (make-jena-kb (jena-model baseont)))))
+	(swank:inspect-in-emacs res)
+	(let ((results nil))
+	  (maphash (lambda(k v) (push (list k v) res)) res)
+	  results)))))
 
 
 (defun compare-reasoner-triplestore (query reasoned endpoint &key verbose)
-  (let ((from-sparql (sparql `(:select (?other) (:distinct t)  (?other !rdfs:subClassOf ,query) (:filter (not (isBlank ?other)))) :use-reasoner endpoint :flatten t))
+  (let ((from-sparql 
+	  (let ((sparql-string (sparql-stringify `(:select (?other) (:distinct t)  (?other !rdfs:subClassOf ,query) (:filter (not (isBlank ?other)))))))
+	    (sparql (#"replaceAll" sparql-string "(?m)^.* rdf:type owl:Restriction"  "") ;; we don't have type owl:Restriction triples - unnecessary
+		    :use-reasoner endpoint :flatten t)))
 	(from-reasoner (descendants query reasoned))
 	(from-jena (sparql `(:select (?other) (:distinct t)  (?other !rdfs:subClassOf ,query) (:filter (not (isBlank ?other)))) :use-reasoner :none :kb reasoned :flatten t)))
     (when verbose
@@ -112,7 +240,7 @@
 
 
 ;good: (compare-reasoner-triplestore '(:some !obo:RO_0002212 !obo:GO_0006310) go !<http://127.0.0.1:8080/graphdb-workbench-ee/repositories/GOTEST2>)
-;bad:  part of some intracellular membrane-bounded organelle. Reasoner 934 others:0 because partonomy isn't done.
+;good (was bad):  part of some intracellular membrane-bounded organelle. Reasoner 934 others:934 (was 0) because partonomy isn't done.
 ; (compare-reasoner-triplestore '(:some !obo:BFO_0000050 !obo:GO_0043231) go !<http://127.0.0.1:8080/graphdb-workbench-ee/repositories/GOTEST2> :verbose t)
 ; reasoner 3 others 0
 ; (compare-reasoner-triplestore '(:some !obo:BFO_0000051 !obo:GO_0043231) go !<http://127.0.0.1:8080/graphdb-workbench-ee/repositories/GOTEST2> :verbose t)
@@ -132,45 +260,47 @@
 ;; 		     (class-assertion !c !x)))
 ;;   (to-owl-syntax foo :turtle "/Volumes/trips/pro/owl/test.ttl"))
 
-(defun relonomy(ont-file &rest rels)
-  (let ((rel-table (make-hash-table))
-	(declared (make-hash-table))
+;; CAN BE PARALLELIZED (across relations)
+(defun relonomies (ont-file &rest rels)
+  (let ((declared (make-hash-table))
 	(ont (make-jena-kb ont-file)))
     (unless rels (setq rels (sparql '(:select (?prop)  () 
 				      (?prop a !owl:ObjectProperty))
 				    :kb ont :flatten t :use-reasoner :none)))
     (format *debug-io* "Rels: ~{~a~^, ~}~%" rels)
-    (format *debug-io* "Constructing relonomy...")
-    (with-ontology relonomy () 
-		     ((macrolet ((maybe-declare (term type &optional original)
-				   `(unless (gethash ,term declared)
-				      (setf (gethash ,term declared) t)
-				      (as `(declaration (,,type ,,term)))
-				      (if ,original 
-					  (as `(annotation-assertion !original ,,term !original))))))
-			(as `(imports ,(make-uri (concatenate 'string "file://" ont-file))))
-			(asq (declaration (annotation-property !original)))
-			;; if we wanted to trim it would be here.
-			;; depth first
-			(loop for class in (sparql '(:select (?class) 
-						     (:distinct t)
-						     (?class !rdf:type !owl:Class)
-						     (:filter (not (Isblank ?class))))
-						   :kb ont :use-reasoner :none :flatten t )
-			      for accession = (#"replaceFirst" (uri-full class) ".*/" "")
-			      do
-				 (loop for rel in rels
-				       for relaccession = (#"replaceFirst" (uri-full res) ".*/" "")
-				       for reluri = (make-uri (concatenate 'string "http://example.com/" relaccession "_" accession))
-				       do
-					  (maybe-declare rel 'object-property)
-					  (maybe-declare class 'class t)
-					  (as `(declaration (class ,reluri)))
-					  (as `(sub-class-of ,reluri (object-some-values-from ,rel ,class)))))))
-	(format *debug-io* "constructed relonomy. reasoning...")
-	(check-ontology relonomy :classify t :reasoner :elk)
-	(format *debug-io* "done.")
-	relonomy)))
+    (loop for rel in rels
+	  for relaccession = (#"replaceFirst" (uri-full rel) ".*/" "")
+	  do (format *debug-io* "Constructing ~a relonomy..." rel)
+	  collect
+	  (with-ontology relonomy () 
+			 ((macrolet ((maybe-declare (term type &optional original)
+				       `(unless (gethash ,term declared)
+					  (setf (gethash ,term declared) t)
+					  (as `(declaration (,,type ,,term)))
+					  (if ,original 
+					      (as `(annotation-assertion !original ,,term !original))))))
+			    (as `(imports ,(make-uri (concatenate 'string "file://" ont-file))))
+			    (asq (declaration (annotation-property !original)))
+			    (maybe-declare rel 'object-property)
+			    ;; if we wanted to trim it would be here.
+			    ;; depth first
+			    (loop for class in (sparql '(:select (?class) 
+							 (:distinct t)
+							 (?class !rdf:type !owl:Class)
+							 (:filter (not (Isblank ?class))))
+						       :kb ont :use-reasoner :none :flatten t )
+				  for accession = (#"replaceFirst" (uri-full class) ".*/" "")
+				  for reluri = (make-uri (concatenate 'string "http://example.com/" relaccession "." accession))
+				  do
+				     (maybe-declare class 'class t)
+				     (as `(declaration (class ,reluri)))
+				     (as `(equivalentClasses ,reluri (object-some-values-from ,rel ,class))))))
+	    (setf (v3kb-name relonomy) (list 'relonomy relaccession))
+	    (format *debug-io* "constructed relonomy ~a. reasoning..." rel)
+	    (check-ontology relonomy :classify t :reasoner :elk)
+	    (format *debug-io* "done.~%")
+	    relonomy)
+	  do  (clrhash declared))))
 
 
       ;; (sparql '(:select (?sub ?super) 
