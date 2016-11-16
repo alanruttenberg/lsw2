@@ -75,6 +75,7 @@
 (defun load-ontology (source &key name reasoner (silent-missing t))
 ;  (set-java-field 'OWLRDFConsumer "includeDublinCoreEvenThoughNotInSpec" nil)
 ;  (set-java-field 'ManchesterOWLSyntaxEditorParser "includeDublinCoreEvenThoughNotInSpec" nil)
+  (if (uri-p source) (setq source (uri-full source)))
   (#"setProperty" 'system "jdk.xml.entityExpansionLimit" "100000000")
   (#"setProperty" 'system "entityExpansionLimit" "100000000") ; avoid low limit as we are not worried about security
   (#"setProperty" 'system "factpp.jni.path" *factpp-jni-path*)
