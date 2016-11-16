@@ -340,6 +340,12 @@
 	   (loop for sub in (cddr clause) do
 		(emit-sparql-clause  sub s))
 	   (format s "~%}")(values))
+	  ((member (car clause) '(:minus :exists :not-exists))
+	   (format s "~%~a {"
+		   (string (car clause)))
+	   (loop for sub in (cdr clause) do
+	     (emit-sparql-clause  sub s))
+	   (format s "~%}.")(values))
 	  ((and (member (second clause) `(,!rdf:type ,!rdfs:subClassOf))
 		(sparql-twerpish-class? (third clause)))
 	   (translate-sparql-twerp-object clause s))

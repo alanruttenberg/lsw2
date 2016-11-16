@@ -5,7 +5,8 @@
 (defparameter *blankprefix* "urn:blank:")
 
 (defparameter *namespace-replacements* 
-  `(("http://xmlns.com/wordnet/1.6/" "wordnet:") ; used in foaf
+  `(("http://www.openrdf.org/schema/sesame#" "sesame:")
+    ("http://xmlns.com/wordnet/1.6/" "wordnet:") ; used in foaf
     ("http://www.inoh.org/owl#" "inoh:")
     ("http://purl.obolibrary.org/obo/FBbt_" "fb:")
     ("http://www.ebi.ac.uk/experimentalfactors.owl#" "efo:")
