@@ -87,3 +87,82 @@
   (loop for desc in (descendants term)
      when (> (#"size" (#"getClassesInSignature" (#"next" (#"iterator" (#"getAxioms" (v3kb-ont ont) (to-class-expression desc)))))) 2)
      sum 1))
+
+;; get each axiom in ont. Canonicalize blank nodes. canonicalize any url that isn't a reserved term. canonicalize literals
+;; canonicalize blank nodes: find the different blank nodes in the expression. change them to blank1, blank2...
+;; canonicalize urls: any uri that isn't in owl: rdf: rdfs: xsd: or sesame: gets changed to :term
+;; canonicalize literal: any literal gets changed to: :literal
+;; ignore annotations
+
+(defun tree-remove-if (test tree)
+  "create new tree without any expressions that match test"
+  (cond ((atom tree) tree)
+        (t (let ((tree (remove-if test tree)))
+	     (let ((car (tree-remove-if test (car tree)))
+		   (cdr (tree-remove-if test (cdr tree))))
+	       (if (and (eq car (car tree))
+			(eq cdr (cdr tree)))
+		   tree
+		   (cons car cdr)))))))
+
+(defun tree-replace (replace-fn tree)
+  "create new tree replacing each element with the result of calling replace-fn on it"
+  (labels ((tr-internal (tree)
+	   (cond ((atom tree) (funcall replace-fn tree))
+		 (t (mapcar #'tr-internal (funcall replace-fn tree))))))
+    (tr-internal tree)))
+
+
+(defun obo-axiom-element-normalizer (e)
+  "Normalize an axiom by replacing some terms with constants, e.g. all non-foundry terms with the token :external. This normalizer gives a token for the obo ontology the term is from, with anything outside of obo becoming :external"
+  (declare (optimize (speed 3) (safety 0)))
+  (if (uri-p e) 
+      (let ((obo-namespace (all-matches (uri-full e) "http://purl.obolibrary.org/obo/([^_]+)_.+$" 1)))
+	(if obo-namespace 
+	    (intern (caar obo-namespace) 'keyword)
+	    :external))
+      e))
+  
+(defun property-axiom-terms ()
+  "owl terms related to properties"
+  (let ((them nil))
+    (maphash (lambda(k v)
+	       (declare (ignore k))
+	       (when (and (search "PROPERTY" (string (second v)))
+			  (not (search "ANNOTATION" (string (second v)))))
+		 (push (second v) them)))
+	     *owl2-vocabulary-forms*)
+    them))
+
+(defun axiom-shape(ax look-for &optional (normalizer 'obo-axiom-element-normalizer))
+  "Returns either nil, if non-logical axiom, otherwise result of applying normalizer to each of the symbols/uris in the axiom"
+  (let ((sexp (axiom-to-lisp-syntax ax )))
+    (and (member (car sexp) look-for :test 'eq)
+	 (let ((fixed (tree-remove-if (lambda(el) (and (consp el) (member (car el) '(annotation)))) sexp)))
+	   (and fixed (tree-replace normalizer fixed))))))
+		   
+(defun axiom-shapes (kb &key (which '(:class :property)) (normalizer 'obo-axiom-element-normalizer) &aux shapes)
+  "goes through all axioms in ontology collecting distinct shapes"
+  (let ((look-for (append (if (member :class which) '(sub-class-of equivalent-classes disjoint-classes))
+			  (if (member :property which) (property-axiom-terms)))))
+    (each-axiom kb
+      (lambda(ax)
+	;; filter out annotations early
+	(unless (jinstance-of-p ax (load-time-value (find-java-class 'org.semanticweb.owlapi.model.OWLAnnotationAssertionAxiom)))
+	  (pushnew (axiom-shape ax look-for normalizer) shapes :test 'equalp))))
+    (sort (remove nil shapes) 'string< :key (compose 'string 'car))))
+
+(defun examples-of-shape (kb shape &optional normalizer (howmany 5) )
+  "Given a shape, give some examples of axioms that fit it"
+  (unless normalizer (setq normalizer 'obo-axiom-element-normalizer))
+  (let ((look-for (append '(sub-class-of equivalent-classes disjoint-classes) (property-axiom-terms))))
+    (let ((count 0))
+      (each-axiom kb
+	  (lambda(ax)
+	    (when (equalp (axiom-shape ax look-for normalizer) shape)
+	      (pprint (axiom-to-lisp-syntax ax))
+	      (when (>= count howmany)
+		(return-from examples-of-shape nil))
+	      (incf count)))))))
+
+  
