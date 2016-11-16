@@ -218,7 +218,7 @@ d -> f1.g1, f2.g2
 	    (subclass-of !d !c)
 	    (subclass-of !a !c)))
       (let ((res (associate-relonomy relont (make-jena-kb (jena-model baseont)))))
-	(swank:inspect-in-emacs res)
+	(funcall (intern "INSPECT-IN-EMACS" 'swank) res)
 	(let ((results nil))
 	  (maphash (lambda(k v) (push (list k v) res)) res)
 	  results)))))
