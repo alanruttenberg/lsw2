@@ -116,12 +116,30 @@
 (defun obo-axiom-element-normalizer (e)
   "Normalize an axiom by replacing some terms with constants, e.g. all non-foundry terms with the token :external. This normalizer gives a token for the obo ontology the term is from, with anything outside of obo becoming :external"
   (declare (optimize (speed 3) (safety 0)))
-  (if (uri-p e) 
-      (let ((obo-namespace (all-matches (uri-full e) "http://purl.obolibrary.org/obo/([^_]+)_.+$" 1)))
-	(if obo-namespace 
-	    (intern (caar obo-namespace) 'keyword)
-	    :external))
-      e))
+  (cond ((consp e) e)
+	((uri-p e) 
+	 (let ((obo-namespace (caar (all-matches (uri-full e) "http://purl.obolibrary.org/obo/([^#_]+)[#_].+" 1))))
+	   (if obo-namespace 
+	       (intern (string-upcase  obo-namespace) 'keyword)
+	       :external)))
+	((numberp e) '|#|)
+	((eq e 'object-some-values-from) 'some)
+	((eq e 'object-intersection-of) 'and)
+	((eq e 'object-union-of) 'or)
+	((eq e 'object-exact-cardinality) 'exactly)
+	(t e)))
+
+(defun simple-axiom-element-normalizer (e)
+  "Normalize an axiom by replacing some terms with constants, e.g. all non-foundry terms with the token :external. This normalizer gives a token for the obo ontology the term is from, with anything outside of obo becoming :external"
+  (declare (optimize (speed 3) (safety 0)))
+  (cond ((consp e) e)
+	((uri-p e)  :term)
+	((numberp e) '|#|)
+	((eq e 'object-some-values-from) 'some)
+	((eq e 'object-intersection-of) 'and)
+	((eq e 'object-union-of) 'or)
+	((eq e 'object-exact-cardinality) 'exactly)
+	(t e)))
   
 (defun property-axiom-terms ()
   "owl terms related to properties"
@@ -134,12 +152,17 @@
 	     *owl2-vocabulary-forms*)
     them))
 
+(defvar *ax-sexp-cache*  (make-hash-table))
+
+(defvar *shape-to-axiom*)
+
 (defun axiom-shape(ax look-for &optional (normalizer 'obo-axiom-element-normalizer))
   "Returns either nil, if non-logical axiom, otherwise result of applying normalizer to each of the symbols/uris in the axiom"
-  (let ((sexp (axiom-to-lisp-syntax ax )))
+  (let ((sexp (axiom-to-lisp-syntax ax)))
     (and (member (car sexp) look-for :test 'eq)
-	 (let ((fixed (tree-remove-if (lambda(el) (and (consp el) (member (car el) '(annotation)))) sexp)))
-	   (and fixed (tree-replace normalizer fixed))))))
+	 (let* ((fixed (tree-remove-if (lambda(el) (and (consp el) (member (car el) '(annotation)))) sexp))
+	       (normed (and fixed (tree-replace normalizer fixed))))
+	   (values normed sexp)))))
 		   
 (defun axiom-shapes (kb &key (which '(:class :property)) (normalizer 'obo-axiom-element-normalizer) &aux shapes)
   "goes through all axioms in ontology collecting distinct shapes"
@@ -150,19 +173,24 @@
 	;; filter out annotations early
 	(unless (jinstance-of-p ax (load-time-value (find-java-class 'org.semanticweb.owlapi.model.OWLAnnotationAssertionAxiom)))
 	  (pushnew (axiom-shape ax look-for normalizer) shapes :test 'equalp))))
-    (sort (remove nil shapes) 'string< :key (compose 'string 'car))))
+    (sort (remove nil shapes) 'string< :key (compose 'string 'car)))) 
 
 (defun examples-of-shape (kb shape &optional normalizer (howmany 5) )
   "Given a shape, give some examples of axioms that fit it"
-  (unless normalizer (setq normalizer 'obo-axiom-element-normalizer))
-  (let ((look-for (append '(sub-class-of equivalent-classes disjoint-classes) (property-axiom-terms))))
-    (let ((count 0))
-      (each-axiom kb
-	  (lambda(ax)
-	    (when (equalp (axiom-shape ax look-for normalizer) shape)
-	      (pprint (axiom-to-lisp-syntax ax))
-	      (when (>= count howmany)
-		(return-from examples-of-shape nil))
-	      (incf count)))))))
+  (if (and (boundp '*shape-to-axiom*) (gethash shape *shape-to-axiom*) (>= (length (gethash shape *shape-to-axiom*)) howmany))
+      (map nil 'pprint (subseq (gethash shape *shape-to-axiom*) 0 howmany))
+	  (let ((look-for (append '(sub-class-of equivalent-classes disjoint-classes) (property-axiom-terms))))
+	    (let ((count 0))
+	      (unless normalizer (setq normalizer 'obo-axiom-element-normalizer))
+	      (each-axiom kb
+		  (lambda(ax)
+		    (multiple-value-bind (ax-shape expression) (axiom-shape ax look-for normalizer)
+		      (when (boundp '*shape-to-axiom*)
+			(push  expression (gethash ax-shape *shape-to-axiom*)))
+		      (when (equalp ax-shape shape)
+			(pprint (axiom-to-lisp-syntax ax))
+			(when (>= count howmany)
+			  (return-from examples-of-shape nil))
+			(incf count)))))))))
 
   
