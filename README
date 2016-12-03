@@ -7,9 +7,9 @@ To get going:
 - Set up ABCL:
 -- Have Java 8
 -- Get a recent Armed Bear Common Lisp, e.g. using svn:
-```svn co http://abcl.org/svn/trunk/abcl/```
-Note: LSW currently assumes that ```abcl``` and ```lsw2`` ("<lsw2 trunk>" below) directories have the same parent directory. Some people put them both in ```~``` to satisfy that requirement.
--- Build ABCL "all in one" jar by running ```ant abcl-aio.jar``` in the ```abcl``` directory
+`svn co http://abcl.org/svn/trunk/abcl/`
+Note: LSW currently assumes that `abcl` and `lsw2` ("<lsw2 trunk>" below) directories have the same parent directory. Some people put them both in ```~``` to satisfy that requirement.
+-- Build ABCL "all in one" jar by running `ant abcl-aio.jar` in the `abcl` directory
 
 Check out the current version of slime from github
 cd <repositories>
@@ -24,7 +24,7 @@ Then add to your .emacs
 (setq slime-contribs '(slime-repl slime-fancy slime-asdf))
 
 (setq slime-lisp-implementations
- '((lsw ("<lsw2 trunk>") :init slime-init-command)
+ '((lsw ("<lsw2 trunk>/bin/lsw") :init slime-init-command)
    (abcl ("<lsw2 trunk>/bin/abcl --noinit") :init slime-init-command)))
 
 The slime contribs settings are documented at 
