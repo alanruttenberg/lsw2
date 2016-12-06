@@ -7,12 +7,8 @@
   :serial t
   :components
   (
-;   (:file "abcl-trace")
-;   (:file "abcl-src")
-;   (:file "ensure-directories-exist")
    (:file "abcl-function-doc")
    (:file "jinterface-safe-implementation")
-;   (:file "abcl-jss-fix")
    (:file "defun-interactive-record-arglist")
   ))
 

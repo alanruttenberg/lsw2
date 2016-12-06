@@ -14,10 +14,17 @@
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
 
+;;; Adapted for ABCL by Alan Ruttenberg (alanruttenberg@gmail.com)
+;;; Differs from CCL version in that trace will search across packages
+;;; for symbols with the same name, if the symbol doesn't exist in the
+;;; current package
+
 (defpackage "ENCAPSULATE" (:USE "CL" "SYSTEM")
 	    (:export "TRACE" "UNTRACE" "ADVISE" "UNADVISE" "ARGLIST"))
 
 (in-package "ENCAPSULATE")
+
+(shadowing-import '(trace untrace advise unadvise arglist) 'cl-user)
 
 (defvar *loading-removes-encapsulation* nil
   "If true, loading a new method definition from a file will remove any tracing and advice on the method")
@@ -37,9 +44,9 @@
 ;;;
 ;;;  We support encapsulating three types of objects, i.e. modifying their definition
 ;;;  without changing their identity:
-;;;    1. symbol - via the symbol-function slot
-;;;    2. method - via the %method-function slot
-;;;    3. standard-generic-function - via the %gf-dcode slot
+;;;    1. symbol - via symbol-function 
+;;;    2. method - via %method-function 
+;;;    3. standard-generic-function - via the mop::funcallable-instance-function
 ;;;
 ;;; Encapsulation is effected by creating a new compiled function and storing it in the
 ;;; slot above. The new function references a gensym fbound to the original definition
@@ -47,8 +54,6 @@
 ;;; turn contains the original dcode, since we can't invoke the dcode directly).
 ;;; In addition, an ENCAPSULATION struct describing the encapsulation is created and
 ;;; stored in the *encapsulation-table* with the new compiled function as the key.
-;;;
-;;; 
 
 (defparameter *encapsulation-table*
   (make-hash-table :test #'eq :rehash-size 2 :size 2 :weakness :key-and-value))
@@ -82,15 +87,11 @@
 (defun copy-method-function-bits (el new) t)
 (defun remove-obsoleted-combined-methods (el) t)
 
-(defun %gf-dcode (gf)
-  (mop::funcallable-instance-function gf)
-  )
-
 (defun method-function (method)
   (or (slot-value method 'sys::fast-function)
       (mop::method-function method)))
 
-(defsetf %gf-dcode set-fif)
+(defsetf mop::funcallable-instance-function set-fif)
 
 (defun set-fif (gf f) (mop::set-funcallable-instance-function gf f))
 
@@ -196,15 +197,15 @@
   (let* ((key (typecase spec
                 (symbol (let* ((def (and (fboundp spec) (symbol-function spec))))
 			  (if (mop::std-generic-function-p def)
-			      (%gf-dcode def)
+			      (mop::funcallable-instance-function def)
 			      def)))
 		(method (method-function spec))
-		(standard-generic-function (%gf-dcode spec))
+		(standard-generic-function (mop::funcallable-instance-function spec))
 		(function spec)))
 	 (cap (gethash key *encapsulation-table*)))
     #+gz (assert (or (null cap)
 		     (let ((fn (%encap-binding (encapsulation-owner cap))))
-		       (eq (if (standard-generic-function-p fn) (%gf-dcode fn) fn) key))))
+		       (eq (if (standard-generic-function-p fn) (mop::funcallable-instance-function fn) fn) key))))
     cap))
 
 (defun set-encapsulation-owner (fn owner)
@@ -222,19 +223,20 @@
       (symbol
        (cond ((mop::std-generic-function-p old-def)
               (%fhave newsym (%copy-function old-def))
-              (setf (%gf-dcode old-def) fn))
+              (setf (mop::funcallable-instance-function old-def) fn))
              (t
               (%fhave newsym old-def)
               (%fhave owner fn))))
       (method
        (%fhave newsym old-def)
+       #-abcl
        (if (mop::std-slot-value owner 'sys::fast-function)
 	   (setf (mop::std-slot-value owner 'sys::fast-function) fn)
 	   (progn
 	     '(error "Sorry, tracing methods with other than simple argument lists and no next-methods doesn't work yet")
 	     (setf (mop::std-slot-value owner 'sys::%function) fn)))
        (mop::finalize-standard-generic-function (mop::method-generic-function owner))
-;       (setf (mop::method-function owner) fn)
+#-abcl (setf (mop::method-function owner) fn)
        (remove-obsoleted-combined-methods owner)))))
 
 (defun remove-encapsulation (cap)
@@ -248,9 +250,9 @@
               ;; rebound behind our back, oh well.
               nil)
              ((mop::std-generic-function-p cur-def)
-              (remhash (%gf-dcode cur-def) *encapsulation-table*)
+              (remhash (mop::funcallable-instance-function cur-def) *encapsulation-table*)
               (set-encapsulation-owner old-def owner)
-              (setf (%gf-dcode cur-def) (%gf-dcode old-def)))
+              (setf (mop::funcallable-instance-function cur-def) (mop::funcallable-instance-function old-def)))
              (t (remhash cur-def *encapsulation-table*)
 		(set-encapsulation-owner old-def owner)
 		(%fhave owner old-def))))
@@ -935,34 +937,48 @@ functions are called."
               (encapsulation-advice-spec cap))))
 
 ;;; ****************************************************************
+;; NOT YET IMPLEMENTED IN ABCL
 ;;; Interaction with the rest of the system to make sure advise and trace stick
 
-;; Called from %defun. Return t if we defined it, nil otherwise
-(defun %defun-encapsulated-maybe (name newdef)
-  (assert (not (get-encapsulation newdef)))
-  (let ((old-def (and (fboundp name) (symbol-function name)))  cap))
-    (when (and old-def (setq cap (get-encapsulation name)))
-      (cond ((or (and *loading-files* *loading-removes-encapsulation*)
-                 ;; redefining a gf as a fn.
-                 (typep old-def 'standard-generic-function))
-             (forget-encapsulations name)
-             nil)
-            (t (set-unencapsulated-definition cap newdef)
-               T))))
 
+(in-package :system)
+
+(defun get-encapsulated-by-name (name)
+  (maphash (lambda(k v) 
+	     (when (eq (encapsulate::encapsulation-spec v) name)
+	       (return-from get-encapsulated-by-name k)))
+	   encapsulate::*encapsulation-table*))
+
+
+;; Called from fset, after the new symbol function has been set
+(defun trace-redefined-update (name newdef)
+  (assert (not (get-encapsulation newdef)))
+  (let ((old-def (get-encapsulated-by-name name)) cap)
+    (when (and old-def (setq cap (encapsulate::get-encapsulation old-def)))
+      (cond ((or (and *load-truename* *loading-removes-encapsulation*)
+                 ;; redefining a gf as a fn.
+                 (typep *load-truename* 'standard-generic-function))
+             (encapsulate::forget-encapsulations old-def)
+             nil)
+            (t (encapsulate::set-unencapsulated-definition cap newdef)
+	       (setf (symbol-function name) old-def)
+               T)))))
+
+#-abcl
 ;; Called from clos when change dcode
-(defun %set-encapsulated-gf-dcode (gf new-dcode)
+(defun sys::%set-encapsulated-gf-dcode (gf new-dcode)
   (loop with cap = (get-encapsulation gf)
     for gf-copy = (encapsulation-old-def cap)
-    as cur-dcode = (%gf-dcode gf-copy)
+    as cur-dcode = (mop::funcallable-instance-function gf-copy)
     do (setq cap (get-encapsulation cur-dcode))
     ;; refresh all the gf copies, in case other info in gf changed
     do (%copy-function gf gf-copy)
-    do (setf (%gf-dcode gf-copy) (if cap cur-dcode new-dcode))
+    do (setf (mop::funcallable-instance-function gf-copy) (if cap cur-dcode new-dcode))
     while cap))
 
+#-abcl
 ;; Called from clos when oldmethod is being replaced by newmethod in a gf.
-(defun %move-method-encapsulations-maybe (oldmethod newmethod &aux cap)
+(defun sys::%move-method-encapsulations-maybe (oldmethod newmethod &aux cap)
   (unless (eq oldmethod newmethod)
     (cond ((and *loading-removes-encapsulation* *loading-files*)
            (when (%traced-p oldmethod)
