@@ -13,7 +13,6 @@
 (define-condition http-error-response (error) ((response-code :initarg :response-code) (message :initarg :message)) (:report format-http-error-response))
 
 (defun format-http-error-response (condition stream)
-  (print-db condition stream)
   (format stream "Bad HTTP response ~A: ~A" (slot-value condition 'response-code) (slot-value condition 'message)))
 
 (defvar *http-stream*)

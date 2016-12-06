@@ -185,7 +185,9 @@
 		(progn
 		  (setq *namespace-replacements* 
 			(remove-if (lambda(el) (equal (second el) abbreviation)) *namespace-replacements*))
-		  (push (list expanded abbreviation) *namespace-replacements*))
+		  (push (list expanded abbreviation) *namespace-replacements*)
+		  (remhash abbreviation *namespace-regexes*)
+		  (decache-uri-abbreviated))
 		(error "~a is already an abbreviation for ~a"
 		       abbreviation
 		       (car existing))))
