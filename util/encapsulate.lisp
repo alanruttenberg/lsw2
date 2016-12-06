@@ -310,7 +310,8 @@
 	     spec
 	     (let ((maybe-elsewhere (loop for pkg in (list-all-packages)
 					  when (and (find-symbol (symbol-name spec) pkg)
-						    (fboundp (find-symbol (symbol-name spec) pkg)))
+						    (fboundp (find-symbol (symbol-name spec) pkg))
+						    (eq (symbol-package spec) pkg))
 					    collect (find-symbol (symbol-name spec) pkg))))
 	       (let ((*print-case* :downcase)
 		     (*print-escape* t))

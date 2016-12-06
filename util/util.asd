@@ -15,7 +15,7 @@
   ((:module macros
 	    :pathname ""
 	    :components ((:file "string")
-			 ;(:file "encapsulate")
+			 (:file "encapsulate")
 			 )) 
    (:module utils :pathname ""
 	    :components
