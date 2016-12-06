@@ -29,7 +29,7 @@
 (defvar *loading-removes-encapsulation* nil
   "If true, loading a new method definition from a file will remove any tracing and advice on the method")
 
-(defvar *trace-pfun-list* nil)
+#-abcl(defvar *trace-pfun-list* nil)
 (defvar *trace-enable* t)
 (defvar *trace-level* 0)
 (defparameter *trace-max-indent* 40)
@@ -218,6 +218,7 @@
          (old-def (%encap-binding owner))
          (newsym (encapsulation-symbol cap)))
     (setf (gethash fn *encapsulation-table*) cap)
+    (sys::set-loaded-from fn cap)
     (set-encapsulation-owner old-def newsym)
     (etypecase owner
       (symbol
@@ -570,7 +571,8 @@
         ;;
         ;; see if we're a callback
         ;;
-        (when (and (typep spec 'symbol)
+        #-abcl
+	(when (and (typep spec 'symbol)
                    (boundp spec)
                    (macptrp (symbol-value spec)))
           (let ((len (length %pascal-functions%))
@@ -582,7 +584,7 @@
                            (string= sym-name (symbol-name (pfe.sym pfe))))
                   (when backtrace
                     (if (null before)
-                      (setq before :print)))
+			(setq before :print)))
                   (setf (pfe.trace-p pfe)
                         `(,@(if before `((:before . ,before)))
                           ,@(if after `((:after . ,after)))
@@ -646,6 +648,7 @@
     val))
 
 (defun %untrace-all ()
+  #-abcl
   (dolist (pfun *trace-pfun-list*)
     (%untrace pfun)
     (when *untrace-hook*
@@ -662,7 +665,7 @@
   (when (and (consp sym)(consp (car sym)))
     (setq sym (car sym)))
   (cond
-   ((and (typep sym 'symbol)
+   #-abcl((and (typep sym 'symbol)
          (boundp sym)
          (macptrp (symbol-value sym)))
     (%untrace-pfun sym))
@@ -693,6 +696,7 @@
       (remove-encapsulation cap)
       (encapsulation-spec cap))))
 
+#-abcl
 (defun %untrace-pfun (sym)
   (let ((len (length %pascal-functions%))
         (sym-name (symbol-name sym)))
@@ -735,7 +739,7 @@ functions are called."
     (loop for x being the hash-value of *encapsulation-table*
 	 when (eq (encapsulation-type x) 'trace)
 	 do (push (encapsulation-spec x) res))
-    (dolist (x *trace-pfun-list*)
+    #-abcl(dolist (x *trace-pfun-list*)
       (push x res))
     res))
 
@@ -952,7 +956,7 @@ functions are called."
 
 ;; Called from fset, after the new symbol function has been set
 (defun trace-redefined-update (name newdef)
-  (assert (not (get-encapsulation newdef)))
+  (assert (not (encapsulate::get-encapsulation newdef)))
   (let ((old-def (get-encapsulated-by-name name)) cap)
     (when (and old-def (setq cap (encapsulate::get-encapsulation old-def)))
       (cond ((or (and *load-truename* *loading-removes-encapsulation*)
@@ -964,6 +968,42 @@ functions are called."
 	       (setf (symbol-function name) old-def)
                T)))))
 
+(defvar *inside-set-funcallable-instance-function* nil)
+  
+;; (advise set-funcallable-instance-function :around
+;; 	(let ((instance (car args))
+;; 	      (new-fn (cdr args)))
+	  
+	
+;(defun trace-generic-function-redefined-update ()
+;(defun trace-method-redefined-update ()
+
+(defun move-funcallable-instance-encapsulations-maybe (instance new-fn &aux cap)
+  (let ((old-fn (mop::funcallable-instance-function instance)))
+    (unless (eq old-fn new-fn)
+    (cond ((and *loading-removes-encapsulation* *load-truename*)
+           (when (%traced-p old-fn)
+             (warn "~%... Untracing ~s" (%untrace-1 old-fn)))
+           (when (%advised-p old-fn)
+             (format t "~%... Unadvising ~s" (%unadvise-1 old-fn))))
+          (t (when (setq cap (get-encapsulation old-fn))
+               (let* ((old-inner-def (find-unencapsulated-definition oldmethod))
+                      )
+                 ;; make last encapsulation call new definition
+                 (set-unencapsulated-definition cap new-fn)
+
+                 (setf (%method-function newmethod) olddef)
+                 (set-encapsulation-owner olddef newmethod)
+                 (setf (%method-function oldmethod) old-inner-def)
+                 (loop
+                   for def = olddef then (encapsulation-old-def cap)
+                   for cap = (get-encapsulation def) while cap
+                   do (copy-method-function-bits newdef def)))))))))
+
+
+;  whenever we set-funcallable-instance-function
+;  check if the current instance is encapsulated and fix as necesary
+  
 #-abcl
 ;; Called from clos when change dcode
 (defun sys::%set-encapsulated-gf-dcode (gf new-dcode)
