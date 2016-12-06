@@ -318,3 +318,11 @@ d -> f1.g1, f2.g2
 ;; When materializing you need to add superclasses in the rel direction.
 ;; really we don't need any classes for rel that have no subs that are quoted in the original.
 ;; Unfortunately We don't know this beforehand
+
+
+(defun which-targets-for-relation (kb r)
+  (let ((kb (make-jena-kb ont-file)))
+    (sparql `(:select (?prop) (:distinct t) (:_res !owl:onProperty ,r)  (:_res !owl:someValuesFrom ?prop))
+	    :kb kb :use-reasoner :none)))
+
+  
