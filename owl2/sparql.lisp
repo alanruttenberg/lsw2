@@ -374,7 +374,8 @@
     (not-exists "NOT EXISTS")
     (sameterm "sameTerm")
     (datatype "DATATYPE")
-    ))
+    (str "STR")
+    (regex "REGEX")))
  
 (defun emit-sparql-filter (expression s)
   (let ((*print-case* :downcase))
