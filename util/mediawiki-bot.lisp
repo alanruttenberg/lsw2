@@ -8,7 +8,8 @@
    (cookie :accessor cookie :initarg :cookie)
    (pages :accessor pages :initarg :pages )
    (users :accessor users :initarg :users )
-   (login-result :accessor login-result)))
+   (login-result :accessor login-result)
+   (api-token :accessor api-token)))
 
 (defmethod print-object ((b mediawiki-bot) stream)
   (let ((*print-case* :downcase))
@@ -24,12 +25,22 @@
 (defmethod login-via-api ((b mediawiki-bot) url user pass)
   (multiple-value-bind (result headers)
       (get-url (api-url b)
-	       :post `(("action" "login") ("lgname" ,user) ("lgpassword" ,pass) ("format" "xml"))
+	       :post `(("action" "login") ("lgname" ,user) ("lgpassword" ,pass) ("format" "xml") ,@(if (slot-boundp b 'api-token) `(("lgtoken" ,(api-token b)))))
 	       :force-refetch t)
     (setf (cookie b)
 	  (mapcar (lambda(e) (#"replaceAll" e ";.*" "")) (cdr (assoc "Set-Cookie" headers :test 'equal))))
     (let ((returned (attribute-named (find-element-with-tag (nastybot-xml-parse result) "login") "result")))
-      (assert (equalp returned "Success") () (format nil "Failed to log in: ~a" result)))))
+      (if (equalp returned "NeedToken")
+	  (progn
+	    (assert (not (boundp '*mediawiki-getting-token*)) () "Login token acquisition loop")
+	    (let ((*mediawiki-getting-token* t)
+		  (*cookies* (cookie b)))
+	      (declare (special *mediawiki-getting-token*))
+	      (let ((token (attribute-named (find-element-with-tag (nastybot-xml-parse result) "login") "token")))
+		(assert token () "Didn't get a token!")
+		(setf (api-token b) token)
+		(login-via-api b url user pass))))
+	  (assert (equalp returned "Success") () (format nil "Failed to log in: ~a" result))))))
 
 
 ;; backup
@@ -95,10 +106,17 @@
     (nastybot-xml-parse (get-url-update-session b (api-url b) 
 					:post `(("action" "edit") ("title" ,page) ("appendtext" ,text) ("token"  ,token) ("format" "xml"))))))
 
-(defmethod raw-page-content ((b mediawiki-bot) page)
-  (let ((result (query b "prop" "revisions" "titles" page "rvprop" "content")))
+(defmethod delete-page ((b mediawiki-bot) page)
+  (let ((token (get-edit-token b page)))
+    (nastybot-xml-parse (get-url-update-session b (api-url b) 
+						:post `(("action" "delete") ("title" ,page) ("token"  ,token) ("format" "xml"))))))
+
+(defmethod raw-page-content ((b mediawiki-bot) page &key follow-redirects)
+  (let ((result (apply 'query b "prop" "revisions" "titles" page "rvprop" "content"
+		       (and follow-redirects (list "redirects" "")))))
     (third (find-element-with-tag result "rev"))))
 
 
 (defun nastybot-xml-parse (s)
   (if (not (char= (char s 0) #\<)) (xmls:parse (subseq s (position #\< s))) (xmls:parse s)))
+

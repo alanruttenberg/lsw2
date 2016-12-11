@@ -62,13 +62,15 @@
   (let* ((profiler (new (intern (format nil "OWL2~aPROFILE" profile))))
 	 (report (#"checkOntology" profiler (v3kb-ont ont)))
 	 (violations (set-to-list (#"getViolations" report)))
-	 (axioms (mapcar #"getAxiom"  violations)))
+	 ;(axioms (mapcar #"getAxiom"  violations))
+	 )
+    (print-db violations)
     (values
     violations
-    (loop for v in violations 
+    (not (loop for v in violations 
 	 for vname = (jclass-name (jobject-class v))
 	 for bareclass = (subseq vname (print (length "org.semanticweb.owlapi.profiles.")))
-	 thereis (member bareclass *owl-profile-violations-preventing-reasoning* :test 'equalp)))))
+	 thereis (member bareclass *owl-profile-violations-preventing-reasoning* :test 'equalp))))))
 
 (defun replace-uris-with-labels-in-report (ont report)
-  (replace-all report "((?s)<(.*?)>)" (lambda(e) (format nil "'~a'" (car (rdfs-label (make-uri (subseq e 1 (- (length e) 1 ))) b)))) 1))
+  (replace-all report "((?s)<(.*?)>)" (lambda(e) (format nil "'~a'" (car (rdfs-label (make-uri (subseq e 1 (- (length e) 1 ))) ont)))) 1))

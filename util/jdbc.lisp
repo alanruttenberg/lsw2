@@ -187,7 +187,7 @@ ORDER BY schema_name, table_name;" table-match  column-match) connection))
 (defun table-names-matching (connection regex)
   (loop for (table comment) in (table-names connection) when (all-matches table regex 0) collect (list table comment)))
 
-;; return a list of triples of tables, commment, and comment on comment where the column name matches regex
+;; return a list of triples of tables, column, and comment on column where the column name matches regex
 (defun column-names-matching (connection regex)
   (let ((them nil))
     (maphash 
@@ -196,6 +196,17 @@ ORDER BY schema_name, table_name;" table-match  column-match) connection))
 	 (when matched (setq them (append matched them)))))
      (get-all-tables-and-columns connection))
     them))
+
+;; return a list of triples of tables, column, and comment on column where the comment matches regex
+(defun columns-with-comment-matching (connection regex)
+  (let ((them nil))
+    (maphash 
+     (lambda(table columns)
+       (let ((matched (loop for (column comment) in columns when (all-matches comment regex 0) collect (list table column comment))))
+	 (when matched (setq them (append matched them)))))
+     (get-all-tables-and-columns connection))
+    them))
+
 
 (defun table-counts (connection tables &optional (threshold 1) &rest fields)
   (loop for table in tables 

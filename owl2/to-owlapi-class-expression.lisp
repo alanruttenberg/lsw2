@@ -1,3 +1,4 @@
+
 ;; Alan Ruttenberg
 ;; 2013-12-10
 ;;
@@ -40,46 +41,51 @@
 ;; named as the class expression heads with "getOWL" prepended.
 
 (defun to-owlapi-class-expression (class-expression data-factory)
-  (let ((patterns (find 'class-expression *class-expression-syntax* :key 'car)))
-    (flet ((circular (list) (let ((list (copy-list list))) (setf (cdr (last list)) list))))
-      (if (atom class-expression)
-	  (#"getOWLClass" data-factory (to-iri class-expression))
-	  (destructuring-bind (expression-type . argtypes)
-	      (find (third (gethash (car class-expression) *owl2-vocabulary-forms*))
-		    (rest patterns)
-		    :test 'equalp
-		    :key 'car)
+  (cond ((jclass-superclass-p (load-time-value (find-java-class 'org.semanticweb.owlapi.model.owlentity)) (jobject-class class-expression))
+	 class-expression)
+	((jclass-superclass-p (load-time-value (find-java-class 'org.semanticweb.owlapi.model.OWLEntity.owlclassexpression)) (jobject-class class-expression))
+	 class-expression)
+	(t
+	 (let ((patterns (find 'class-expression *class-expression-syntax* :key 'car)))
+	   (flet ((circular (list) (let ((list (copy-list list))) (setf (cdr (last list)) list))))
+	     (if (atom class-expression)
+		 (#"getOWLClass" data-factory (to-iri class-expression))
+		 (destructuring-bind (expression-type . argtypes)
+		     (find (third (gethash (car class-expression) *owl2-vocabulary-forms*))
+			   (rest patterns)
+			   :test 'equalp
+			   :key 'car)
 
-	    ;; this loop is complicated because
-	    ;; a) There can be repeated arguments written as (* x)
-	    ;; b) If there are repeated arguments they need to be
-	    ;;    packaged up into a java set to pass to the constructor
-	    (loop for arg in (rest class-expression)
-	       with accumulate-set = nil
-	       for argtype = (progn (when (consp (car argtypes))
-				      (setq argtypes (circular (rest (car argtypes))))
-				      (setq accumulate-set t))
-				    (prog1 (car argtypes) (setq argtypes (cdr argtypes))))
-	       for processed-arg = (ecase argtype
-				       (literal (to-owlapi-literal arg data-factory))
-				       (number (to-owlapi-number arg data-factory))
-				       (individual (to-owlapi-individual arg data-factory))
-				       (object-property-expression (to-owlapi-object-property-expression arg data-factory))
-				       (class-expression (to-owlapi-class-expression arg data-factory))
-				       (data-range (to-owlapi-data-range arg data-factory))
-				       (data-property (#"getOWLDataProperty" data-factory (to-iri arg)))
-				       (object-property (#"getOWLObjectProperty" data-factory (to-iri arg))))
-	       if accumulate-set collect processed-arg into last-arg-set 
-	       else collect processed-arg into leading-args
-	       finally
-		 (return 
-		 (if accumulate-set 
-		     (apply (data-factory-constructor expression-type)
-			    data-factory
-			    (append leading-args (list (list-to-java-set last-arg-set))))
-		     (apply (data-factory-constructor expression-type)
-			    data-factory leading-args)))
-		 ))))))
+		   ;; this loop is complicated because
+		   ;; a) There can be repeated arguments written as (* x)
+		   ;; b) If there are repeated arguments they need to be
+		   ;;    packaged up into a java set to pass to the constructor
+		   (loop for arg in (rest class-expression)
+		      with accumulate-set = nil
+		      for argtype = (progn (when (consp (car argtypes))
+					     (setq argtypes (circular (rest (car argtypes))))
+					     (setq accumulate-set t))
+					   (prog1 (car argtypes) (setq argtypes (cdr argtypes))))
+		      for processed-arg = (ecase argtype
+					    (literal (to-owlapi-literal arg data-factory))
+					    (number (to-owlapi-number arg data-factory))
+					    (individual (to-owlapi-individual arg data-factory))
+					    (object-property-expression (to-owlapi-object-property-expression arg data-factory))
+					    (class-expression (to-owlapi-class-expression arg data-factory))
+					    (data-range (to-owlapi-data-range arg data-factory))
+					    (data-property (#"getOWLDataProperty" data-factory (to-iri arg)))
+					    (object-property (#"getOWLObjectProperty" data-factory (to-iri arg))))
+		      if accumulate-set collect processed-arg into last-arg-set 
+		      else collect processed-arg into leading-args
+		      finally
+			(return 
+			  (if accumulate-set 
+			      (apply (data-factory-constructor expression-type)
+				     data-factory
+				     (append leading-args (list (list-to-java-set last-arg-set))))
+			      (apply (data-factory-constructor expression-type)
+				     data-factory leading-args)))
+			))))))))
 
 (defun to-owlapi-object-property-expression (arg data-factory)
   (if (and (consp arg)

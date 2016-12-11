@@ -10,7 +10,43 @@
 (defun post-url-xml (url message)
   (get-url url :post message))
 
-(defun get-url (url &key post (force-refetch  post) (dont-cache post) to-file (persist (or (not post) to-file)) cookiestring nofetch verbose tunnel referer (follow-redirects t) 
+(define-condition http-error-response (error) ((response-code :initarg :response-code) (message :initarg :message)) (:report format-http-error-response))
+
+(defun format-http-error-response (condition stream)
+  (format stream "Bad HTTP response ~A: ~A" (slot-value condition 'response-code) (slot-value condition 'message)))
+
+(defvar *http-stream*)
+
+(defun get-url (url &key post (force-refetch  post) (dont-cache post) (to-file nil) (persist (and (not post) (not to-file))) cookiestring nofetch verbose tunnel referer (follow-redirects t) when-done  
+		      (ignore-errors nil) head accept  extra-headers (appropriate-response (lambda(res) (and (numberp res) (>= res 200) (< res 400)))) (verb "GET")
+		&aux it done)
+    (declare (special *http-stream))
+    (unwind-protect
+	 (progn 
+	   (setq it (threads:make-thread 
+		     (lambda()
+		       (catch 'abort
+			 (flet ((doit ()
+				  (get-url-1 url :post post :force-refetch force-refetch :dont-cache dont-cache
+						 :to-file to-file :persist persist :cookiestring cookiestring :nofetch nofetch
+						 :verbose verbose :tunnel tunnel :referer referer :follow-redirects follow-redirects
+						 :ignore-errors ignore-errors :head head :accept accept :extra-headers extra-headers
+						 :appropriate-response appropriate-response :verb verb
+						 )))
+			   (prog1
+			       (if when-done
+				   (funcall when-done (multiple-value-list (doit)))
+				   (multiple-value-list (doit)))
+			     (setq done t)))))))
+	   (unless when-done (values-list (threads:thread-join it))))
+      (unless done
+	(threads::destroy-thread it))
+      (when *http-stream* (#"disconnect" *http-stream*) (setq *http-stream* nil))
+      (unless done
+	(abort))
+      ))
+
+(defun get-url-1 (url &key post (force-refetch  post) (dont-cache post) (to-file nil) (persist (and (not post) (not to-file))) cookiestring nofetch verbose tunnel referer (follow-redirects t) 
 		(ignore-errors nil) head accept  extra-headers (appropriate-response (lambda(res) (and (numberp res) (>= res 200) (< res 400)))) (verb "GET")
 		&aux headers)
   "Get the contents of a page, saving it for this session in *page-cache*, so when debugging we don't keep fetching"
@@ -20,13 +56,11 @@
   (and head
        (setq force-refetch t dont-cache t persist nil follow-redirects nil))
   (or (and (not force-refetch) (gethash url *page-cache*))
-      (if (config-maybe :web-cache nil)
-          (progn 
-            (and (not force-refetch) (probe-file (url-cached-file-name url))
-                 (get-url-from-cache url))
-            (and nofetch
-                 (error "Didn't find cached version of ~a" url)))
-          (setf persist nil))
+      (when (config :web-cache)
+	(and (not force-refetch) (probe-file (url-cached-file-name url))
+	     (get-url-from-cache url))
+	(and nofetch
+	     (error "Didn't find cached version of ~a" url)))
       (labels ((stream->string (stream)
 		 (let ((buffer (jnew-array "byte" 4096)))
 		   (apply 'concatenate 'string
@@ -48,7 +82,7 @@
 		     (#"close" ostream))))
 	     (doit()
 	       (when verbose (format t "~&;Fetching ~s~%" url))
-	       (let ((connection (#"openConnection" (new 'java.net.url (maybe-rewrite-for-tunnel url tunnel))))
+	       (let ((connection (setq *http-stream* (#"openConnection" (new 'java.net.url (maybe-rewrite-for-tunnel url tunnel)))))
 		     )
 		 (if follow-redirects
 		   (#"setInstanceFollowRedirects" connection t)
@@ -57,7 +91,7 @@
 		   (#"setRequestProperty" connection "Cookie" (join-with-char (append *cookies* cookiestring) #\;)))
 		 (when referer
 		   (#"setRequestProperty" connection "Referer" referer))
-		 (#"setRequestProperty" connection "User-Agent" "Mozilla/4.0 (compatible)")
+		 (#"setRequestProperty" connection "User-Agent" "Mozilla/4.0")
 		 (when verb (#"setRequestMethod" connection verb))
 		 (when accept
 		   (#"setRequestProperty" connection "Accept" accept))
@@ -80,28 +114,33 @@
 		       (#"close" out)))
 		 (when head
 		   ;(#"setRequestMethod" connection "HEAD")
-		   (let ((responsecode (#"getResponseCode" connection)))
-		     (if (not (funcall appropriate-response responsecode))
-			 (let ((errstream (#"getErrorStream" connection)))
-			   (error "Bad HTTP response ~A: ~A" responsecode (if errstream (stream->string errstream) "No error stream"))) 
-			 (return-from get-url (unpack-headers responsecode (prog1 (#"getHeaderFields" connection) (#"disconnect" connection)))))))
+		   (unwind-protect
+			(let ((responsecode (#"getResponseCode" connection)))
+			  (if (not (funcall appropriate-response responsecode))
+			      (let ((errstream (#"getErrorStream" connection)))
+				(error (make-condition 'http-error-response :response-code responsecode :message (if errstream (stream->string errstream) "No error stream"))) )
+			      (return-from get-url-1 (unpack-headers responsecode (#"getHeaderFields" connection)))))
+		     (#"disconnect" connection)
+		     (setq *http-stream* nil)))
 		 (setq headers (#"getHeaderFields" connection))
-		 (let ((responsecode (#"getResponseCode" connection)))
-		   (if (not (funcall appropriate-response responsecode))
-		       (let ((errstream (#"getErrorStream" connection)))
-			 (if ignore-errors
-			     (when verbose (format t "~&;Failed to fetch ~a - got response code ~a~%" url responsecode))
-			     (error "Bad HTTP response ~A: ~A" responsecode (if errstream (stream->string errstream) "No error stream"))) )
-		       (let ((stream (ignore-errors (#"getInputStream" connection))))
-			 (if (and (member responsecode '(301 302 303)) follow-redirects)
-			     (progn (setq url (second (assoc "Location" (unpack-headers responsecode headers) :test 'equal)))
-				    (doit))
-			     (ignore-errors
-			       (if to-file 
-				   (stream->file stream to-file)
-				   (stream->string stream)))))
-
-			 )))))
+		 (unwind-protect
+		      (let ((responsecode (#"getResponseCode" connection)))
+			(if (not (funcall appropriate-response responsecode))
+			    (let ((errstream (#"getErrorStream" connection)))
+			      (if ignore-errors
+				  (when verbose (format t "~&;Failed to fetch ~a - got response code ~a~%" url responsecode))
+				  (error (make-condition 'http-error-response :response-code responsecode :message (if errstream (stream->string errstream) "No error stream"))) ))
+			    (let ((stream (ignore-errors (#"getInputStream" connection))))
+			      (if (and (member responsecode '(301 302 303)) follow-redirects)
+				  (progn (setq url (second (assoc "Location" (unpack-headers responsecode headers) :test 'equal)))
+					 (doit))
+				  (ignore-errors
+				   (if to-file 
+				       (stream->file stream to-file)
+				       (stream->string stream)))))
+			    ))
+		   (#"disconnect" connection)
+		   (setq *http-stream* nil)))))
 	(if ignore-errors
 	    (multiple-value-bind (value errorp) (ignore-errors (doit))
 	      (if errorp
@@ -140,9 +179,7 @@
 	(concatenate 'string protocol "://" tunnel path))
       url))
 
-
-
-(defun unpack-headers (response headers)
+ (defun unpack-headers (response headers)
   (append
    (if response
        (list (list "response-code" response))

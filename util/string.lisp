@@ -128,14 +128,16 @@
 ;;;   http://opensource.franz.com/preamble.html
 
 (defmacro print-db (&rest forms &aux)
-  `(multiple-value-prog1
-       (let ((*print-case* :downcase))
-     (progn ,@(print-db-aux forms))
-     (terpri *trace-output*))))
+  `(let ((*print-case* :downcase))
+       (multiple-value-prog1
+	 (progn ,@(print-db-aux forms))
+	 (terpri *trace-output*))))
 
 (defvar *print-db-hooks* nil)
 
 (defun print-db-aux (forms)
+  (and (fboundp 'eval-uri-reader-macro)
+       (setq forms (eval-uri-reader-macro forms)))
   (loop for hook in *print-db-hooks*
      do (setq forms (funcall hook forms)))
   (when forms
@@ -158,16 +160,18 @@
 	       (prin1 ,(car forms) *trace-output*)
 	       ,@(print-db-aux (cdr forms)))))))
 
+;; ## FIXME. Whay is function called twice when the with-constant-signature is used
 (defun replace-all (string regex function &rest which)
   (let ((matcher (#"matcher" (if (java-object-p regex) regex (#"compile" 'java.util.regex.pattern regex)) string))
 	(sb (new 'stringbuffer)))
-    (with-constant-signature ((append "appendReplacement")) ; workaround abcl bug
+;    (with-constant-signature ((append "appendReplacement")) ; workaround abcl bug
       (loop for found = (#"find" matcher)
 	 while found 
 	 do
-	 (append matcher sb (apply function  
+	 (#"appendReplacement" matcher sb (apply function  
 				   (loop for g in which collect
-					(#"group" matcher g))))))
+					(#"group" matcher g)))))
+      ;)
     (#"appendTail" matcher sb)
     (#"toString" sb)))
 

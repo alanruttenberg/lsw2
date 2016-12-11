@@ -65,21 +65,18 @@
       (list (#"replaceAll" (if (stringp uri) uri (uri-full uri)) ".*[/#]" ""))))
   
   
-(defun rdfs-labels (kb &optional (ignore-obsoletes t) force-refresh)
-  (or (and (not force-refresh) (v3kb-uri2label kb))
+(defun rdfs-labels (kb)
+  (or (v3kb-uri2label kb)
       (flet ((get-labels (clauses)
-	       (when ignore-obsoletes
-		 (setq clauses (append  clauses (list `(:optional (?uri !owl:deprecated ?dep))))))
 	       (or
 		(and *classtree-preferred-language*
 		     (sparql `(:select (?uri ?label) () ,@clauses
 				       (:filter (and (equal (lang ?label) ,*classtree-preferred-language*)
-						     (not (isblank ?uri))
-						     (not (bound ?dep))))) ;; TODO filter out obsoletes
+						     (not (isblank ?uri)))))
 			     :kb kb :use-reasoner *annotation-query-reasoner*))
 		(sparql `(:select (?uri ?label) ()
 				  ,@clauses
-				  (:filter (and (not (isblank ?uri)) (not (bound ?dep)))))
+				  (:filter (not (isblank ?uri))))
 			:kb kb :use-reasoner *annotation-query-reasoner*))))
 	(setf (v3kb-uri2label kb)
 	      (loop with table = (make-hash-table)
@@ -256,6 +253,9 @@
       ))
   kb)
 
+(defmethod show-classtree ((url uri) &rest stuff)
+  (apply 'show-classtree (load-ontology (uri-full url)) stuff))
+
 (defmethod show-classtree ((url string) &rest stuff)
   (apply 'show-classtree (load-ontology url) stuff))
 
@@ -400,12 +400,12 @@
 		  ))
 	"<i><font color=\"red\">Thing</font></i>")))
 
-(defun html-for-class (entity kb)
+(defun html-for-class (entity kb include-referencing)
   (let ((parents (html-for-class-parents (make-uri entity) kb)))
     (with-output-to-string (s)
       (unless (equal entity (uri-full !owl:Nothing))
 	(format s "<b>~a:  ~a</b><br>" *super-label* parents))
-      (loop for sentence in (manchester-logical-axioms-for-class entity kb)
+      (loop for sentence in (manchester-logical-axioms-for-class entity kb include-referencing)
 	   do (format s "&nbsp;&nbsp;<span class=\"logical\">~a</span><br>" sentence))
       (let* ((apv (annotation-property-values-or-labels entity kb)))
 	(loop for (p val) in apv
@@ -444,7 +444,7 @@
 	(#"replaceAll" text "(?s)<span class=\"logical\">(.*?)</span>" "<font color=\"#151b8d\">$1</font>"))
       tex))
 
-(defun tree-tooltip (kb entity &key (width 600) (type :class))
+(defun tree-tooltip (kb entity &key (width 600) (type :class) (include-referencing t))
   (setq @ (make-uri entity))
   (let* ((*default-kb* kb)
 	 (comment (html-quote (rdfs-comment entity kb)))
@@ -463,7 +463,7 @@
 			   (format nil "<div style=\"margin-left:5px;margin-top:2px;margin-bottom:2px\">~a</div>" comment)
 			   (if labels  "<br>" "")))
 		   (cond ((eq type :class)
-			  (html-for-class entity kb))
+			  (html-for-class entity kb include-referencing))
 			 ((eq type :individual)
 			  (html-for-individual entity kb)
 			  )
@@ -484,7 +484,7 @@
    "(?s)\\n(\\n)" "$1")
   )
 
-(defun manchester-logical-axioms-for-class (class ont)
+(defun manchester-logical-axioms-for-class (class ont &optional (include-referencing nil))
   (setq ont (or (v3kb-weakened-from ont) ont))
   (if (stringp class) (setq class (make-uri class)))
   (if (or (not (get-entity class :class ont)) (equal class !owl:Nothing))
@@ -492,21 +492,27 @@
       (remove-duplicates
        (let* ((class-shortform (quote-for-regex (#"getShortForm" (short-form-provider ont) (get-entity class :class ont))))
 	      (this-axiom-header (format nil "~a <[^>]*?>SubClassOf<[^>]*?>\\s+" class-shortform))
-	      (equivalent-classes-axiom (format nil "~a <[^>]*?>EquivalentTo.*" class-shortform)))
-	 (loop for (sentence ax) in (get-rendered-referencing-axioms class :class ont)
+	      (equivalent-classes-axiom (format nil "~a <[^>]*?>EquivalentTo.*" class-shortform))
+	      (direct-axioms (get-rendered-referencing-axioms class :class ont t))
+	      (referenced-axioms (and include-referencing (set-difference (get-rendered-referencing-axioms class :class ont) direct-axioms :key 'second))))
+	 (loop for (sentence ax) in (append direct-axioms referenced-axioms)
 	    unless (or (simple-subclassof-axiom? ax)
 		       (jinstance-of-p ax (find-java-class 'OWLDeclarationAxiom )))
-	    do (setq sentence (#"replaceAll" sentence "\\n" "<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"))
-	    (if (#"matches" sentence equivalent-classes-axiom)
-		(setq sentence (#"replaceFirst" sentence class-shortform ""))
-		(setq sentence (#"replaceFirst" sentence "EquivalentTo" "EquivalentTo<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"))
-
-		)
+	    do
+	      (setq sentence (#"replaceAll" sentence "\\n" "<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"))
+	      (if (#"matches" sentence equivalent-classes-axiom)
+		  (#"replaceFirst" sentence class-shortform "")
+		  (setq sentence (#"replaceFirst" sentence "EquivalentTo" "EquivalentTo<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"))
+		  )
+	      (setq sentence 
+		    (if (#"matches" sentence (format nil "~a.*" this-axiom-header))
+			(#"replaceFirst" sentence this-axiom-header "")
+			(#"replaceFirst" sentence "SubClassOf" "SubClassOf<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")))
+	      '(print sentence)
+	      '(print-db (or (simple-subclassof-axiom? ax)
+		       (jinstance-of-p ax (find-java-class 'OWLDeclarationAxiom ))))
 	    and collect
-	    (string-trim " " 
-			 (if (#"matches" sentence (format nil "~a.*" this-axiom-header))
-			     (#"replaceFirst" sentence this-axiom-header "")
-			     (#"replaceFirst" sentence "SubClassOf" "SubClassOf<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")))))
+	    (string-trim " " sentence)))
        :test 'equal)))
 	     
        

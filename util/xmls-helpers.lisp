@@ -27,7 +27,10 @@
 	    else do (when (listp children) (setq q (nconc q (remove-if-not 'consp children))))
 	    while q)))
     (if (and found more-tags)
-	(apply 'find-element-with-tag found more-tags)
+	(if (equal tag (car more-tags))
+	     ;; don't find the top node if you are looking for the same tag again
+	    (apply 'find-element-with-tag (list nil nil (third found)) more-tags)
+	    (apply 'find-element-with-tag found more-tags))
 	found)))
 
 ; return all elements with tag  (except don't look within such tagged elements for more)

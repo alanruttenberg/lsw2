@@ -99,15 +99,17 @@
 (defun t-print (input)
   (t   (unblank-individuals (eval-uri-reader-macro input))))
 
-(defun t-collect (input)
-  (let ((*triple-collector* nil)
-	(*blankcounter* 0))
-    (reverse (t (unblank-individuals (eval-uri-reader-macro input))))
-    *triple-collector*))
+(defvar *blankcounter* 0)
+
+(defun t-collect (input &optional (zero-blankcounter t))
+  (let ((*triple-collector* nil))
+    (progv (if zero-blankcounter (list '*blankcounter*)) (if zero-blankcounter (list 0))
+      (reverse (t (unblank-individuals (eval-uri-reader-macro input))))
+      *triple-collector*)))
 
 
 (defun t-jena (input &rest prefixes)
-  (let ((*jena-model* (#"createDefaultModel" 'com.hp.hpl.jena.rdf.model.ModelFactory)))
+  (let ((*jena-model* (#"createDefaultModel" 'hp.hpl.jena.rdf.model.ModelFactory)))
     (#"setNsPrefix" *jena-model* "owl" (uri-full !owl:))
     (#"setNsPrefix" *jena-model* "xsd" (uri-full !xsd:))
     (#"setNsPrefix" *jena-model* "rdfs" (uri-full !rdfs:))

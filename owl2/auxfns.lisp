@@ -281,6 +281,7 @@
 (defconstant fail nil)
 (defconstant no-bindings '((t . t)))
 
+#|
 (defun pat-match (pattern input &optional (bindings no-bindings))
   "Match pattern against input in the context of the bindings"
   (cond ((eq bindings fail) fail)
@@ -290,6 +291,7 @@
          (pat-match (rest pattern) (rest input)
                     (pat-match (first pattern) (first input) bindings)))
         (t fail)))
+|#
 
 (defun match-variable (var input bindings)
   "Does VAR match input?  Uses (or updates) and returns bindings."
@@ -325,9 +327,9 @@
             nil
             bindings)))
 
-(defun variable-p (x)
+#|(defun variable-p (x)
   "Is x a variable (a symbol beginning with `?')?"
-  (and (symbolp x) (equal (elt (symbol-name x) 0) #\?)))
+  (and (symbolp x) (equal (elt (symbol-name x) 0) #\?)))|#
 
 ;;; ==============================
 

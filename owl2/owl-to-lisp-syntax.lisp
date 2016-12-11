@@ -58,11 +58,8 @@
 
 ;; do the work. 
 (defun owl-to-lisp-syntax (ontology &optional (bare? nil))
-  ;; clear prefixes so we don't accidentally have to parse ns:000201, in which case the leading 0s were lost
-  (#"clearPrefixes" (#"getOntologyFormat" (v3kb-manager ontology) (v3kb-ont ontology)))
-  (#"setDefaultPrefix" (#"getOntologyFormat" (v3kb-manager ontology) (v3kb-ont ontology)) "urn:foo:") 
   (let ((as (to-owl-syntax ontology :functional)))
-;    (print as)
+    (setq as (#"replaceAll" as "(#[# ].*)\\n" ""))
     (with-input-from-string (s (regex-replace-all "_value" as "_ value"))
       (multiple-value-bind (axioms ontology-iri version-iri namespaces)
 	  (parse-functional-syntax (read-and-tokenize-functional-syntax s))
@@ -255,7 +252,9 @@
 	(multiple-value-bind  (header definitions ontvar) (owl-to-lisp-syntax ontology)
 	    (let ((header-string (with-output-to-string (s) (pprint header s))))
 	      (write-string (subseq header-string 0 (1- (length header-string))) stream)
-	      (format stream "~%  ((asq~%~{    ~s~%~}  ))~%  ~a)~%" definitions ontvar)
+	      (pprint `((asq ,@definitions)))
+;	      (format stream "~%  ((asq~%~{    ~s~%~}  ))~%  ~a)~%" definitions ontvar)
+	      (format stream "~%  ~a)~%" ontvar)
 	      (decache-uri-abbreviated)
 	      (values)))))))
 
@@ -269,3 +268,26 @@
     (if comment
 	(list* (car args) (third comment) (remove comment (rest args)))
 	args)))
+
+
+;; stupid but avoids a lot of java crud
+;; if you are worried pass an eql hashtable as cache
+;; If you want to do it less stupidly follow the pattern in
+;; https://github.com/owlcs/owlapi/blob/version4/api/src/main/java/org/semanticweb/owlapi/util/SimpleRenderer.java
+
+(defun axiom-to-lisp-syntax (axiom &optional cache)
+  (let ((namespaces '(("rdfs:" "http://www.w3.org/2000/01/rdf-schema#")
+		      ("xsd:" "http://www.w3.org/2001/XMLSchema#")
+		      ("xml:" "http://www.w3.org/XML/1998/namespace")
+		      ("rdf:" "http://www.w3.org/1999/02/22-rdf-syntax-ns#")
+		      ("owl:" "http://www.w3.org/2002/07/owl#"))))
+    (or (and cache (gethash axiom cache)) 
+	(let ((parsed
+	       (car
+		(rearrange-functional-syntax-parens-for-lisp 
+		 (eval-uri-reader-macro
+		  (collapse-qnames 
+		   (with-input-from-string (s (#"render" (new 'simplerenderer) axiom))
+		     (read-and-tokenize-functional-syntax s)) namespaces))))))
+	  (when cache (setf (gethash axiom cache) parsed))
+	  parsed))))

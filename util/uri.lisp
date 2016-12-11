@@ -174,12 +174,14 @@ Which can then be used as !material-entity
 			 'string))
 		       )))
 	    (if (find #\' string)
+		(if (#"matches" string ".*@@$")
+		    `(make-uri-from-label-source *default-label-source* ,(subseq string 1 (- (length string) 3)))
 		(let ((matched (car (all-matches string "'(.*?)'@([A-Za-z0-9-]+){0,1}(\\((.*)\\)){0,1}" 1 2 4))))
 		  (if matched
 		      (destructuring-bind (label source original) matched
 			`(make-uri-from-label-source 
 			  ,(intern (string-upcase source) 'keyword) ,label ,original))
-		      (error "Malformed label uri string: ~a" string))) 
+		      (error "Malformed label uri string: ~a" string)))) 
 		(if (find #\: string)
 		    `(make-uri nil ,string)
 		    `(get-uri-alias-or-make-uri-base-relative ,string))))))))
@@ -212,6 +214,7 @@ calls, so you can get what you probably wanted: (type-of (car (eval-uri-reader-m
       collect (list (#"compile" '|java.util.regex.Pattern| (format nil "[~c]" fixme))
 		    (format nil "%~2x" (char-code fixme)) fixme))))
 
+#| defined in geturl
 (defun clean-uri (site path &optional (protocol "http" ) (fragment "") (query nil))
   (clean-string
    (#0"toString" (new 'java.net.uri protocol site path (or query +null+) (or fragment +null+)))))
@@ -223,6 +226,7 @@ calls, so you can get what you probably wanted: (type-of (car (eval-uri-reader-m
        then
        (#0"replaceAll" (#0"matcher" pattern new) replacement)
        finally (return  (#"toString" new)) ))
+|#
 
 (eval-when (:load-toplevel :execute)
   (when (boundp '*print-db-hooks*)
@@ -230,13 +234,13 @@ calls, so you can get what you probably wanted: (type-of (car (eval-uri-reader-m
 
 (defvar *default-uri-label-source* nil)
 
-(defmethod make-uri-from-label-source ((source (eql :nil)) name actual) 
+(defmethod make-uri-from-label-source ((source (eql :nil)) name &optional actual) 
   (if *default-uri-label-source* 
       (make-uri-from-label-source *default-uri-label-source*   name actual)
       (error "No label source explicit and no default for ~a" name)))
 
-;; needs jena in classpath
-(defun invalid-uri? (uri)
-  (let ((violations (#"violations" (#"create" (#"semanticWebImplementation" 'IRIFactory) (uri-full uri)) nil)))
-    (loop while (#"hasNext" violations)
-       collect (#"getLongMessage" (#"next" violations)))))
+;; needs jena in classpath. So don't define it now. Who uses it??
+;; (defun invalid-uri? (uri)
+;;   (let ((violations (#"violations" (#"create" (#"semanticWebImplementation" 'IRIFactory) (uri-full uri)) nil)))
+;;     (loop while (#"hasNext" violations)
+;;        collect (#"getLongMessage" (#"next" violations)))))
