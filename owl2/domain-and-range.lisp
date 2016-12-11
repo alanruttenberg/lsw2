@@ -16,3 +16,4 @@
 				    (mapcar #"getEntities"
 					    (set-to-list
 					     (#"getObjectPropertyRanges" reasoner expression direct)))))))))
+

@@ -1,0 +1,6 @@
+~/repos/sbcl-1.1.0-x86-64-darwin/run-sbcl.sh < compile >& compile.out
+~/repos/sbcl-1.1.0-x86-64-darwin/run-sbcl.sh << ENDOFSTDIN
+(load "snark-system.lisp")
+(make-snark-system)
+(save-snark-system :name "snark64" :executable t)
+ENDOFSTDIN

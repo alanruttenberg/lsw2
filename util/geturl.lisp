@@ -179,8 +179,6 @@
 	(concatenate 'string protocol "://" tunnel path))
       url))
 
-
-
  (defun unpack-headers (response headers)
   (append
    (if response
