@@ -1,7 +1,8 @@
 (in-package :cl-user)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (jss::ensure-jss))
+  (require :abcl-contrib)
+  (require :jss))
 
 #|
 URIs are interned. 

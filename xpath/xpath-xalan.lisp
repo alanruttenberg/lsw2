@@ -2,7 +2,8 @@
 (in-package :xpath-xalan)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (jss::ensure-jss))
+  (require :abcl-contrib)
+  (require :jss))
 
 (defun make-xpath-namespace-context ()
   (let ((wrapped (cl-user::new 'org.apache.xalan.extensions.ExtensionNamespaceContext))
