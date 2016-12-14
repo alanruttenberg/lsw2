@@ -156,7 +156,7 @@ TODO: Add filtering by path name, so we can look only in, say, the XML files"
    (lambda(doc entry)
      (let ((forms
 	    (loop for node being the cloned-nodeset-nodes of
-                 (xpath-xalan:query doc "//Form")
+                 (xpath:query doc "//Form")
 	       for id = (#"getAttribute" node "id")
 	       for name = (#"getAttribute" node "name")
 	       collect (list name id))))

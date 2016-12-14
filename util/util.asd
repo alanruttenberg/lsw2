@@ -14,7 +14,7 @@
 (asdf:defsystem util
   :name "LSW2 utilities"
   :author "Alan Ruttenberg" :version "2.0.0"
-  :depends-on (xpath-xalan xmls xptest)
+  :depends-on (xpath xmls xptest)
   :components
   ((:module macros
 	    :pathname ""
