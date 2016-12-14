@@ -41,5 +41,4 @@
 	     (:file "jargrep")
 	     (:file "datetime")))))
 
-;;;; eof
 
