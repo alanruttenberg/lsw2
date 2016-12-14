@@ -7,6 +7,16 @@
     (#"setNsPrefix" model "obo" "http://purl.obolibrary.org/obo/")
     model))
 
+(defun make-jena-kb (file-or-model)
+  "Make a kb just good enough to sparql against. Don't expect any reasoning."
+  (let ((kb (make-v3kb)))
+    (let ((model (if (java-object-p file-or-model)
+		     file-or-model
+		     (#"loadModel" 'RDFDataMgr file-or-model))))
+      (setf (v3kb-told-jena-model kb) model)
+      (setf (v3kb-name kb) `(:jena ,file-or-model))
+      kb)))
+
 (defun write-jena-model (model to)
   (let ((jfile (new 'java.io.file (namestring (translate-logical-pathname to)))))
     (when (not (#"exists" jfile))
@@ -14,7 +24,15 @@
     (let ((stream (new 'java.io.fileoutputstream jfile)))
       (#"write" stream (#"getBytes" (format nil "<?xml version=\"1.0\" encoding=\"UTF-8\"?>~%")))
       (#"write" model stream "RDF/XML-ABBREV"))))
-    
+
+(defun write-jena-model-turtle (model to &optional (prefixes *namespace-replacements*))
+  (let ((w (new 'filewriter (namestring (translate-logical-pathname to)))))
+    (loop for (uri-string prefix-colon) in prefixes
+	  for prefix = (#"replaceFirst" prefix-colon ":$" "")
+	  do (#"setNsPrefix" *jena-model* prefix uri-string))
+    (#"write" 'RDFDataMgr w model (get-java-field 'riot.rdfformat "TURTLE_BLOCKS"))))
+
+
 (defun add-jena-triple (model s property value)
   (let ((subject 
 	 (cond ((stringp s)

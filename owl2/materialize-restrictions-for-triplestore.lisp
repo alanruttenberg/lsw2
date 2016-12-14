@@ -70,7 +70,10 @@
 (defun remove-blank-nodes (list)
   (remove-if (lambda(e) (and (uri-p e) (search "urn:blank:" (uri-full e) :test 'char-equal))) list))
 
-;; we use just jena since we don't need a reasoner for this
+
+;; Assumptions:
+;; Source is a pre-reasoned OWL ontology
+;; A 'relonomy' is 
 (defun materialize2 (source partials)
   (let ((classes (make-hash-table :test 'equalp)) ;; actually simple existential restrictions 
 	(subclass-relations (make-hash-table :test 'equalp)) ;; either pairs of such or a named class and one
@@ -125,7 +128,7 @@
   ;; now that we've collected all the information, write it out.
   ;; because we've interned classes and subclass relations we're
   ;; sure to not write out redundant links. That's hard to
-  ;; accomplish with the owlim rul engine.
+  ;; accomplish with the owlim rule engine.
   (let ((*jena-model* (#"createDefaultModel" 'hp.hpl.jena.rdf.model.ModelFactory)))
     ;; *jena-model* is dynamic scope. The calls to (triple)
     ;; below add the triples to it.
@@ -151,15 +154,15 @@
 		       (triple superrestriction !owl:onProperty (first super))
 		       (triple superrestriction !owl:someValuesFrom (second super))))))
 	     subclass-relations)
-    (let ((w (new 'filewriter (namestring (translate-logical-pathname file)))))
-      (#"setNsPrefix" *jena-model* "l" (uri-full !owl:))
-      (#"setNsPrefix" *jena-model* "x" (uri-full !xsd:))
-      (#"setNsPrefix" *jena-model* "r" (uri-full !rdfs:))
-      (#"setNsPrefix" *jena-model* "f" (uri-full !rdf:))
-      (#"setNsPrefix" *jena-model* "o" (uri-full !obo:))
-      (#"write" 'RDFDataMgr w *jena-model* (get-java-field 'riot.rdfformat "TURTLE_BLOCKS"))
-      ))
-  )
+    (write-jena-model-turtle
+     *jena-model* file
+     ;; file can get big so set short prefixes
+     `(
+       ((,(uri-full !owl:) "l:"))
+       (,(uri-full !xsd:) "x:")
+       (,(uri-full !rdfs:) "r:")
+       (,(uri-full !rdf:) "f:")
+       (,(uri-full !obo:) "o:")))))
 
 ;; in: a relonomy, out a hash of existing term to restriction
 ;; baseont is a jena kb
@@ -261,6 +264,9 @@ d -> f1.g1, f2.g2
 ;;   (to-owl-syntax foo :turtle "/Volumes/trips/pro/owl/test.ttl"))
 
 ;; CAN BE PARALLELIZED (across relations)
+
+
+;;  A 'relonomy' 
 (defun relonomies (ont-file &rest rels)
   (let ((declared (make-hash-table))
 	(ont (make-jena-kb ont-file)))
@@ -320,9 +326,42 @@ d -> f1.g1, f2.g2
 ;; Unfortunately We don't know this beforehand
 
 
-(defun which-targets-for-relation (kb r)
-  (let ((kb (make-jena-kb ont-file)))
-    (sparql `(:select (?prop) (:distinct t) (:_res !owl:onProperty ,r)  (:_res !owl:someValuesFrom ?prop))
-	    :kb kb :use-reasoner :none)))
+(defun properties-used (jena)
+  (sparql `(:select (?r ?label) (:distinct t) (:_res !owl:onProperty ?r) (?r !rdfs:label ?label))
+	  :kb jena :use-reasoner :none))
 
-  
+(defun which-targets-for-relation-serial (kb jena r)
+  (loop with upseen = (make-hash-table)
+	with downseen = (make-hash-table)
+	with all = (make-hash-table)
+	for target in (sparql `(:select (?target) (:distinct t) (:_res !owl:onProperty ,r)  (:_res !owl:someValuesFrom ?target))
+			      :kb jena :use-reasoner :none :flatten t)
+	for parents = (ancestors target kb)
+	for children = (descendants target kb)
+	do (dolist (p (cons target parents)) (setf (gethash p upseen) t) (setf (gethash p all) t))
+	do (dolist (c (cons target children)) (setf (gethash c downseen) t) (setf (gethash c all) t))
+	finally (return-from which-targets-for-relation-serial (values upseen downseen all))))
+
+(defun which-targets-for-relation (kb jena r)
+  (let* ((upseen  (make-hash-table))
+	 (downseen  (make-hash-table))
+	 (all (make-hash-table))
+	 (targets (sparql 
+		   `(:select (?target)
+			(:distinct t)
+		      (:_res !owl:onProperty ,r)
+		      (:_res !owl:someValuesFrom ?target))
+		  :kb jena :use-reasoner :none :flatten t)))
+    (par-map-chunked  (lambda(target)
+			(let  ((parents (ancestors target kb))
+			       (children  (descendants target kb)))
+			  (dolist (p (cons target parents)) (setf (gethash p upseen) t) (setf (gethash p all) t))
+			  (dolist (c (cons target children)) (setf (gethash c downseen) t) (setf (gethash c all) t))))
+		    targets  :chunk-size 100)
+    (values upseen downseen all)))
+
+(defun updown-statistics-for-ontology (kb jena)
+  (loop for (p label) in (properties-used jena)
+	for results = (multiple-value-list (which-targets-for-relation kb jena p))
+	do (print (cons label (mapcar 'hash-table-count results)))))
+
