@@ -320,9 +320,42 @@ d -> f1.g1, f2.g2
 ;; Unfortunately We don't know this beforehand
 
 
-(defun which-targets-for-relation (kb r)
-  (let ((kb (make-jena-kb ont-file)))
-    (sparql `(:select (?prop) (:distinct t) (:_res !owl:onProperty ,r)  (:_res !owl:someValuesFrom ?prop))
-	    :kb kb :use-reasoner :none)))
+(defun properties-used (jena)
+  (sparql `(:select (?r ?label) (:distinct t) (:_res !owl:onProperty ?r) (?r !rdfs:label ?label))
+	  :kb jena :use-reasoner :none))
 
-  
+(defun which-targets-for-relation-serial (kb jena r)
+  (loop with upseen = (make-hash-table)
+	with downseen = (make-hash-table)
+	with all = (make-hash-table)
+	for target in (sparql `(:select (?target) (:distinct t) (:_res !owl:onProperty ,r)  (:_res !owl:someValuesFrom ?target))
+			      :kb jena :use-reasoner :none :flatten t)
+	for parents = (ancestors target kb)
+	for children = (descendants target kb)
+	do (dolist (p (cons target parents)) (setf (gethash p upseen) t) (setf (gethash p all) t))
+	do (dolist (c (cons target children)) (setf (gethash c downseen) t) (setf (gethash c all) t))
+	finally (return-from which-targets-for-relation-serial (values upseen downseen all))))
+
+(defun which-targets-for-relation (kb jena r)
+  (let* ((upseen  (make-hash-table))
+	 (downseen  (make-hash-table))
+	 (all (make-hash-table))
+	 (targets (sparql 
+		   `(:select (?target)
+			(:distinct t)
+		      (:_res !owl:onProperty ,r)
+		      (:_res !owl:someValuesFrom ?target))
+		  :kb jena :use-reasoner :none :flatten t)))
+    (par-map-chunked  (lambda(target)
+			(let  ((parents (ancestors target kb))
+			       (children  (descendants target kb)))
+			  (dolist (p (cons target parents)) (setf (gethash p upseen) t) (setf (gethash p all) t))
+			  (dolist (c (cons target children)) (setf (gethash c downseen) t) (setf (gethash c all) t))))
+		    targets  :chunk-size 100)
+    (values upseen downseen all)))
+
+(defun updown-statistics-for-ontology (kb jena)
+  (loop for (p label) in (properties-used jena)
+	for results = (multiple-value-list (which-targets-for-relation kb jena p))
+	do (print (cons label (mapcar 'hash-table-count results)))))
+
