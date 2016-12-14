@@ -86,14 +86,13 @@
 			(when parent
 			  (#"remove" parent table-panel))))
 
-		  (jss::set-java-field constraints "gridwidth" remainder)
-		  (jss::set-java-field constraints "gridheight" remainder)
-		  (jss::set-java-field constraints "weightx" 1.0)
-		  (jss::set-java-field constraints "weighty" 1.0)
-		  (jss::set-java-field constraints "gridx" 0)
-		  (jss::set-java-field constraints "gridy" 1)
-		  (jss::set-java-field constraints "fill" (get-java-field 'java.awt.GridBagConstraints "BOTH"))
-
+		  (jss::set-java-field constraints "gridwidth" remainder t)
+		  (jss::set-java-field constraints "gridheight" remainder t)
+		  (jss::set-java-field constraints "weightx" 1.0 t)
+		  (jss::set-java-field constraints "weighty" 1.0 t)
+		  (jss::set-java-field constraints "gridx" 0 t)
+		  (jss::set-java-field constraints "gridy" 1 t)
+		  (jss::set-java-field constraints "fill" (get-java-field 'java.awt.GridBagConstraints "BOTH") t )
 
 		  (let ((data (oinspect-data this object)))
 		    (setq header (car data))

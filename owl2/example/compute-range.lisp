@@ -39,14 +39,14 @@
      (parents '(object-some-values-from !r !Thing) test))))
 
 
-for every class
-get the domain
-compute range from domain
-compute domain from range
+;; for every class
+;; get the domain
+;; compute range from domain
+;; compute domain from range
 
-(defun compute-domain-range (ontology)
-(let ((properties 
+;; (defun compute-domain-range (ontology)
+;; (let ((properties 
 														   
-(loop for class in (descendants !owl:Thing)
-       do 
-       (loop for 
+;; (loop for class in (descendants !owl:Thing)
+;;        do 
+;;        (loop for 

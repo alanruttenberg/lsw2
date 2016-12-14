@@ -8,9 +8,13 @@
 				  :name :wild
 				  :type :wild))))
 
-(defsystem :util
-  :name "misc utilities"
-  :author "Alan Ruttenberg"
+(in-package :cl-user)
+
+;;; Should repackage as an lsw2 dependent system, as 'util' is overloaded
+(asdf:defsystem util
+  :name "LSW2 utilities"
+  :author "Alan Ruttenberg" :version "2.0.0"
+  :depends-on (xpath-xalan xmls xptest)
   :components
   ((:module macros
 	    :pathname ""
@@ -35,9 +39,7 @@
 	     (:file "jdbc")
 	     (:file "collections-misc")
 	     (:file "jargrep")
-	     (:file "datetime"))
-	    :depends-on
-	    (macros)))
-  :depends-on (xptest xmls xpath) )
+	     (:file "datetime")))))
 
 ;;;; eof
+
