@@ -151,15 +151,15 @@
 		       (triple superrestriction !owl:onProperty (first super))
 		       (triple superrestriction !owl:someValuesFrom (second super))))))
 	     subclass-relations)
-    (let ((w (new 'filewriter (namestring (translate-logical-pathname file)))))
-      (#"setNsPrefix" *jena-model* "l" (uri-full !owl:))
-      (#"setNsPrefix" *jena-model* "x" (uri-full !xsd:))
-      (#"setNsPrefix" *jena-model* "r" (uri-full !rdfs:))
-      (#"setNsPrefix" *jena-model* "f" (uri-full !rdf:))
-      (#"setNsPrefix" *jena-model* "o" (uri-full !obo:))
-      (#"write" 'RDFDataMgr w *jena-model* (get-java-field 'riot.rdfformat "TURTLE_BLOCKS"))
-      ))
-  )
+    (write-jena-model-turtle
+     *jena-model* file
+     ;; file can get big so set short prefixes
+     `(
+       ((,(uri-full !owl:) "l:"))
+       (,(uri-full !xsd:) "x:")
+       (,(uri-full !rdfs:) "r:")
+       (,(uri-full !rdf:) "f:")
+       (,(uri-full !obo:) "o:")))))
 
 ;; in: a relonomy, out a hash of existing term to restriction
 ;; baseont is a jena kb
