@@ -4,4 +4,6 @@ umls/work/*
 disease/data/supervised.pdf
 disease/data/unsupervised.csv
 disease/data/unsupervised.pdf
-
+quicklisp
+bootstrap.lisp
+bootstrap

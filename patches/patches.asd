@@ -9,7 +9,6 @@
   (
    (:file "abcl-function-doc")
    (:file "jinterface-safe-implementation")
-   (:file "defun-interactive-record-arglist")
   ))
 
 ;;;; eof
