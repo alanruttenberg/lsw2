@@ -87,3 +87,42 @@
     table))
 
 
+(defvar *owl2-manchesterish-function-syntax-terms*
+ '((objectintersectionof and)
+   (objectunionof or)
+   (objectsomevaluesfrom some)
+   (objectallvaluesfrom all)
+   (objecthasvalue value)
+   (equivalentclasses =)
+   (subclassof <)
+   (objectmincardinality min)
+   (classassertion type)
+   (objectmaxcardinality max)
+   (objectexactcardinality exactly)
+   (objectcomplementof not)))
+   
+(defun add-manchesterish-abbreviations ()
+  "Write this:
+ (with-ontology foo () 
+   ((asq
+     (= !probe (and !a (some !r !b)))
+     (= !probe2 (and !a1 (some !r !b1)))
+     (< !a1 !a)
+     (< !b !b1)
+     (type (and !probe2 (not !probe1)) !probeinstance))))
+
+  Instead of this:
+
+(with-ontology ont ()
+  ((sub-class-of !a1 !a)
+   (sub-class-of !b !b1)
+   (equivalent-classes !probe (object-intersection-of !a (object-some-values-from !r !b)))
+   (equivalent-classes !probe2 (object-intersection-of !a1 (object-some-values-from !r !b1)))
+   (class-assertion (object-intersection-of !probe2 (object-complement-of !probe1)) !probeinstance)))
+"
+  (loop for (base abbrev) in *owl2-manchesterish-function-syntax-terms*
+	do 
+	   (setf (gethash abbrev *owl2-vocabulary-forms*) (list base))
+	   (setf (gethash (intern (string abbrev) 'keyword) *owl2-vocabulary-forms*) (list base))))
+
+(add-manchesterish-abbreviations)

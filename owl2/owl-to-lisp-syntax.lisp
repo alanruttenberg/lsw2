@@ -78,7 +78,7 @@
 					  :ontology-iri ,ontology-iri
 					  :version-iri ,version-iri
 					  :about ,(make-uri (v3kb-name ontology))
-					  ))
+					  ),axioms)
 			axioms
 			ontnamevar
 			base))))))))
