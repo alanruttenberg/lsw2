@@ -342,7 +342,7 @@ d -> f1.g1, f2.g2
 	do (dolist (c (cons target children)) (setf (gethash c downseen) t) (setf (gethash c all) t))
 	finally (return-from which-targets-for-relation-serial (values upseen downseen all))))
 
-(defun which-targets-for-relation (kb jena r)
+(defun count-restriction-target-parents-and-children  (kb jena r)
   (let* ((upseen  (make-hash-table))
 	 (downseen  (make-hash-table))
 	 (all (make-hash-table))
@@ -364,4 +364,24 @@ d -> f1.g1, f2.g2
   (loop for (p label) in (properties-used jena)
 	for results = (multiple-value-list (which-targets-for-relation kb jena p))
 	do (print (cons label (mapcar 'hash-table-count results)))))
+
+
+(defun count-subject-children-cross-object-parents  (kb jena r)
+  (let* ((seen  (make-hash-table))
+	 (results (sparql 
+		   `(:select (?subject?target)
+			(:distinct t)
+		      (?subject !rdfs:subClassOf :_res)
+		      (:_res !owl:onProperty ,r)
+		      (:_res !owl:someValuesFrom ?target))
+		   :kb jena :use-reasoner :none )))
+    (print-db (length results))
+    (loop for (subject target) in results 
+	  do
+	     (let  ((parents (ancestors target kb))
+		    (children  (descendants subject kb)))
+	       (dolist (p (cons target parents))
+		 (dolist (c (cons subject children))
+		   (setf (gethash (cons p c) seen) t)))))
+    seen))
 
