@@ -409,7 +409,6 @@
   (let ((expression (to-class-expression class kb))
 	(reasoner (v3kb-reasoner kb)))
     (let ((nodes (funcall fn expression reasoner)))
-;      (print-db nodes)
       (loop for iri in (let ((them (jss::set-to-list (if flatten (#"getFlattened" nodes) nodes))))
 			 (let ((res
 				(if filter 
@@ -420,12 +419,28 @@
 	 for uri = (and iri (make-uri string))
 	 unless (or (null iri) (and (eq uri !owl:Nothing) (not include-nothing))) collect (make-uri string)))))
 
+(defun instance-query (instance kb fn &optional (flatten t) include-nothing filter)
+  (instantiate-reasoner kb (or (v3kb-default-reasoner kb) *default-reasoner*) nil)
+  (let ((expression (car (find :individual (gethash instance (v3kb-uri2entity kb)) :key 'second))))
+    (when expression
+      (let ((reasoner (v3kb-reasoner kb)))
+	(let ((nodes (funcall fn expression reasoner)))
+	  (loop for iri in (let ((them (jss::set-to-list (if flatten (#"getFlattened" nodes) nodes))))
+			     (let ((res
+				     (if filter 
+					 (remove-if-not (lambda(ce) (funcall filter ce reasoner)) them)
+					 them)))
+			       res))
+		for string = (and iri (#"toString" (#"getIRI" iri)))
+		for uri = (and iri (make-uri string))
+		unless (or (null iri) (and (eq uri !owl:Nothing) (not include-nothing))) collect (make-uri string)))))))
+
 (defun property-query (property kb fn &optional (flatten t) include-top filter )
   (instantiate-reasoner kb (or (v3kb-default-reasoner kb) *default-reasoner*) nil)
-  (let ((jprop (car (find :object-property (gethash property (v3kb-uri2entity kb)) :key 'second))))
-    (when jprop
+  (let ((expression (car (find :object-property (gethash property (v3kb-uri2entity kb)) :key 'second))))
+    (when expression
       (let ((reasoner (v3kb-reasoner kb)))
-	(let ((nodes (funcall fn jprop reasoner)))
+	(let ((nodes (funcall fn expression reasoner)))
 	  (loop for iri in (let ((them (jss::set-to-list (if flatten (#"getFlattened" nodes) nodes))))
 			     (let ((res
 				     (if filter 
