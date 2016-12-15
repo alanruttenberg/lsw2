@@ -311,11 +311,12 @@
 			(%fhave spec (%function 'trace-null-def))
 			t)))
 	     spec
-	     (let ((maybe-elsewhere (loop for pkg in (list-all-packages)
-					  when (and (find-symbol (symbol-name spec) pkg)
-						    (fboundp (find-symbol (symbol-name spec) pkg))
-						    (eq (symbol-package spec) pkg))
-					    collect (find-symbol (symbol-name spec) pkg))))
+	     (let ((maybe-elsewhere 
+		     (loop for pkg in (list-all-packages)
+			   for found = (find-symbol (symbol-name spec) pkg)
+			   for fboundp = (and found (fboundp found))
+			   when (and fboundp (eq (symbol-package found) pkg))
+			     collect (find-symbol (symbol-name spec) pkg))))
 	       (let ((*print-case* :downcase)
 		     (*print-escape* t))
 		 (cond ((null maybe-elsewhere)
@@ -720,7 +721,7 @@ functions are called."
   (if syms
     (let ((options (loop while (keywordp (car syms))
                      nconc (list (pop syms) (pop syms)))))
-      `(%trace-0 ',syms ',options))
+      `(progn (%trace-0 ',syms ',options) (%trace-list)))
     `(%trace-list)))
 
 (defun trace-spec-p (arg)
