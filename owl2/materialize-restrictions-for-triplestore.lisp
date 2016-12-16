@@ -385,3 +385,14 @@ d -> f1.g1, f2.g2
 		   (setf (gethash (cons p c) seen) t)))))
     seen))
 
+
+;; this version wins!
+(defun restrictions-in-conjunctions (kb)
+  (sparql '(:select (?p ?t) (:distinct t :count t) 
+	    (?x !owl:equivalentClass :_inter) 
+	    (:_inter !owl:intersectionOf :_list)
+	    (:_list (/ (* !rdf:rest) !rdf:first) :_el)
+	    (:_el !owl:onProperty ?p)
+	    (:_el !owl:someValuesFrom ?t))
+	  :use-reasoner :none :kb go+no :trace t))
+
