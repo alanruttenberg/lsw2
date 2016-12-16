@@ -342,6 +342,26 @@ d -> f1.g1, f2.g2
 	do (dolist (c (cons target children)) (setf (gethash c downseen) t) (setf (gethash c all) t))
 	finally (return-from which-targets-for-relation-serial (values upseen downseen all))))
 
+;; for a relation R get all pairs a b where a r some b.
+;; Let #A be the number of distinct a, #B the number of distinct b
+;; We assert a chain (3 triples per)  *#ancestors(b)
+;; Inside OWLIM we use a rules:
+;;
+;; 1. Subclass inheritence
+;;    a subclassof b
+;;    b r o
+;;    -----
+;;    a r o
+;;
+;; 2. Subclass transitivity
+;;    a subclassof b
+;;    b subclassof c
+;;   ---------------
+;;    a subclass of C
+
+;; for each descendant of a (#A) we assert subclassOf r  some b' for all b' superclass of b (#B)
+;; Number of extra triples: 2*#B (for the restriction, onproperty) times #a (one subclass triple)
+;; If we let OWLIM do the subclass transitivity we need to add them just to the subject triple.
 (defun count-restriction-target-parents-and-children  (kb jena r)
   (let* ((upseen  (make-hash-table))
 	 (downseen  (make-hash-table))
