@@ -466,8 +466,54 @@
 	 (translate-sparql-twerp-object clause s))
 	((sparql-twerpish-class? clause)
 	 (translate-sparql-twerp clause s))
-	   
+	((and (= (length clause) 3) (consp (second clause))) ; path
+	 (format s "~%~a ~a ~a . " (maybe-sparql-format-uri (car clause)) (sparql-path (second clause) t) (maybe-sparql-format-uri (third clause))))
 	(t (apply 'format s "~%~a ~a ~a . " (mapcar #'maybe-sparql-format-uri clause)))))
+
+(defun sparql-path (form &optional top)
+  "SPARQL path syntax
+elt is either URI or expression
+!elt -> (not elt)   - negated property set
+elt/elt/... - (/ &rest elt ) - group path 
+elt|elt|... - (or &rest elt) - property set
+^elt -> (^ elt) - inverse path
+elt{n} -> ({ elt n) - n occurrences
+elt{n,} -> ({ elt n t) - at least n occurrences
+elt{,n} -> ({ elt 0 n) - at most n occurrences 
+elt{n,m} -> ({ elt n m) - between n and m occurrences 
+elt+ -> (+ elt) - one or more occurences
+elt* -> (* elt) - zero or more occurences
+elt? -> (? elt) - zero or one occurences
+
+e.g. (sparql '(:select (?element) () 
+                 (:_list (/ (* !rdf:rest) !rdf:first) ?element)))
+
+See: https://www.w3.org/2009/sparql/docs/property-paths/Overview.xml
+"
+  (if (consp form)
+      (let ((head  (car form))
+	    (tail (cdr form)))
+	(ecase head
+	  (or (format nil (if top "~{~a~^|~}" "(~{~a~^|~})") (mapcar 'sparql-path tail)))
+	  (/ (format nil (if top "~{~a~^/~}" "(~{~a~^/~})") (mapcar 'sparql-path tail)))
+	  ({ (cond ((= (length tail) 2)
+		    (format nil "~a{~a}" (sparql-path (car tail)) (second tail)))
+		   ((and (= (length tail) 3) (eq (second tail) t))
+		    (format nil "~a{~a,}" (sparql-path (car tail)) (second tail)))
+		   ((and (= (length tail) 3)) 
+		    (apply 'format nil "~a{~a,~a}" (sparql-path (car tail)) (cdr tail)))
+		   ((t (error "")))))
+	  ((* + ?)
+	   (assert (not (cdr tail)) () "")
+	   (format nil "~a~a" (sparql-path (car tail)) head)
+	   )
+	  ((^ not)
+	   (assert (not (cdr tail)) () "")
+	   (format nil "~a~a" (if (eq head 'not) "!" head) (sparql-path (car tail)))
+	   )))
+      (if (uri-p form)
+	  (maybe-sparql-format-uri form)
+	  (error ""))))
 
 (defun sparql-twerpish-class? (clause)
   (and (consp clause)
