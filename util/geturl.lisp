@@ -98,7 +98,9 @@
 		 (loop for (key value) in extra-headers
 		      do (#"setRequestProperty" connection key value))
 		 (when post
-		   (#"setRequestMethod" connection "POST")
+		   (if (equal verb "PUT")
+		       (#"setRequestMethod" connection "PUT")
+		       (#"setRequestMethod" connection "POST"))
 		   (#"setDoOutput" connection t)
 		   (if (consp post)
 		       (with-output-to-string (s)
