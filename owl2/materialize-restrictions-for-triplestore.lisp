@@ -410,7 +410,7 @@ d -> f1.g1, f2.g2
 (defun restrictions-in-conjunctions (kb)
   (sparql '(:select (?p ?t) (:distinct t :count t) 
 	    (?x !owl:equivalentClass :_inter) 
-	    (:_inter !owl:intersectionOf :_list)
+	    (?x (or !owl:equivalentClass !rdfs:subClassOf) :_inter)
 	    (:_list (/ (* !rdf:rest) !rdf:first) :_el)
 	    (:_el !owl:onProperty ?p)
 	    (:_el !owl:someValuesFrom ?t))
