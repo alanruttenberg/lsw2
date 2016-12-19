@@ -39,6 +39,7 @@
 	     (:file "jdbc")
 	     (:file "collections-misc")
 	     (:file "jargrep")
+	     (:file "abcl-introspect")
 	     (:file "datetime")))))
 
 
