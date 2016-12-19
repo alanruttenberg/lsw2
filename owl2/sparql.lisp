@@ -40,28 +40,30 @@
     (extract-sparql-results xml url)))
 	 
 (defun extract-sparql-results (xml &optional (endpoint ""))
-  (let* ((parsed 
-	   (if (consp xml)
-	       xml
-	       (xmls:parse xml)))
-	 (results (find-elements-with-tag parsed "result"))
-	 (variables (mapcar (lambda(e) (attribute-named e "name")) (find-elements-with-tag parsed "variable"))))
-    (loop for result in results
-	  collect
-	  (loop for binding in (find-elements-with-tag result "binding" )
-		for name = (attribute-named binding "name")
-		collect
-		(cons name
-		      (cond ((equal (caar (third binding)) "uri")
-			     (make-uri (third (third binding))))
-			    ((equal (caar (third binding)) "bnode")
-			     (if (eql 0 (search "nodeID://" (third (third binding)))) 
-				 (make-uri (third (third binding))) ;; hack for virtuoso, since we can then use them in queries as is.
-				 (make-uri (format nil "~a~a" *blankprefix* (#"replaceAll" (format nil "~a~a" (uri-full endpoint) (third (third binding))) "://" "_")))))
-			    ((member (caar (third binding)) '("literal" "string") :test 'equal)
-			     (third (third binding)))
-			    (t (read-from-string (third (third binding)))))) into bound
-		finally (return (loop for variable in variables collect (cdr (assoc variable bound :test 'equal))))))))
+  (if (equal xml "")
+      nil
+      (let* ((parsed 
+	       (if (consp xml)
+		   xml
+		   (xmls:parse xml)))
+	     (results (find-elements-with-tag parsed "result"))
+	     (variables (mapcar (lambda(e) (attribute-named e "name")) (find-elements-with-tag parsed "variable"))))
+	(loop for result in results
+	      collect
+	      (loop for binding in (find-elements-with-tag result "binding" )
+		    for name = (attribute-named binding "name")
+		    collect
+		    (cons name
+			  (cond ((equal (caar (third binding)) "uri")
+				 (make-uri (third (third binding))))
+				((equal (caar (third binding)) "bnode")
+				 (if (eql 0 (search "nodeID://" (third (third binding)))) 
+				     (make-uri (third (third binding))) ;; hack for virtuoso, since we can then use them in queries as is.
+				     (make-uri (format nil "~a~a" *blankprefix* (#"replaceAll" (format nil "~a~a" (uri-full endpoint) (third (third binding))) "://" "_")))))
+				((member (caar (third binding)) '("literal" "string") :test 'equal)
+				 (third (third binding)))
+				(t (read-from-string (third (third binding)))))) into bound
+		    finally (return (loop for variable in variables collect (cdr (assoc variable bound :test 'equal)))))))))
 
 (defvar *default-reasoner* :pellet)
 
@@ -301,7 +303,7 @@
 		    (let ((with (getf qualifiers :with)))
 		      (remf qualifiers :with)
 		      (when with
-			(format s "WITH ~a " with)))
+			(format s "WITH ~a " (maybe-sparql-format-uri with))))
 		    (let ((head (pop form)))
 		      (write-string (string (car head)) s)
 		      (clauses (rest head))
@@ -449,6 +451,11 @@
 	((eq (car clause) :filter)
 	 (format s "~%FILTER ")
 	 (emit-sparql-filter (second clause) s))
+	((eq (car clause) :with)
+	 ;; expect either an atom then pairs or a pair then atoms
+	 (if (atom (second clause))
+	     (loop for (pred obj) in (cddr clause) do (emit-sparql-clause (list (second clause) pred obj) s ))
+	     (loop for obj in (cddr clause) do (emit-sparql-clause (list (car (second clause)) (second (second clause)) obj) s))))
 	((eq (car clause) :bind)
 	 (format s "~%BIND(")
 	 (assert (equalp (string (third clause)) "AS") () "BIND missing AS")

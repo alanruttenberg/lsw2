@@ -2,48 +2,65 @@
 
 (defclass sparql-repository-set ()
   ((root :initarg :root :accessor repository-root)
-   (repositories :accessor repositories :initarg :repositories :initform (make-hash-table :test 'equal))))
+   (repositories :accessor repositories :initarg :repositories :initform (make-hash-table :test 'equal))
+   (name :accessor name :initarg :name))
+  (:documentation "Some system that manages multiple sparql endpoints")
+)
 
 (defclass openrdf-sesame-instance (sparql-repository-set)
   ((system-endpoint :accessor system-endpoint :initarg system-endpoint))
-  )
-
-(defmethod initialize-instance ((instance openrdf-sesame-instance) &rest initargs)
-  (call-next-method))
+  (:documentation "An OpenRDF Sesame repository set. There is a distinguished SYSTEM repo for configuring other repositories in the set")
+  ) 
 
 (defmethod system-endpoint :around ((instance openrdf-sesame-instance))
+  "Lazy initialization of system endpoint the first time its asked for"
   (or (and (slot-boundp instance 'system-endpoint) (call-next-method))
       (progn (get-repositories instance)
 	     (setf (system-endpoint instance) (gethash "SYSTEM" (repositories instance))))))
 
 (defmethod endpoint-named ((instance openrdf-sesame-instance) name)
+  "Allways refresh the list of repositories as they might be added from outside"
+  (get-repositories instance)
   (gethash name (repositories instance)))
   
 (defclass graphdb-instance (openrdf-sesame-instance)
-  )
+  ()
+  (:documentation "GraphDB (http://graphdb.ontotext.com) is based on Sesame"))
 
 (defclass sparql-endpoint ()
-  ())
+  ((query-endpoint :accessor query-endpoint :initarg :query-endpoint)
+   (update-endpoint :accessor update-endpoint :initarg :update-endpoint))
+  (:documentation "A sparql endpoint migtht actually consist of a number of different services, in particular query and update"))
 
 (defclass sesame-sparql-endpoint ()
-  ((query-endpoint :accessor query-endpoint :initarg :query-endpoint)
-   (update-endpoint :accessor update-endpoint :initarg :update-endpoint)
-   (repo-id :accessor repo-id :initarg :repo-id)
+  ((repo-id :accessor repo-id :initarg :repo-id)
    (readable :accessor readable :initarg :readable)
    (writeable :accessor writeable :initarg :writeable)
    (title :accessor title :initarg :title)
-   (instance :accessor instance :initarg :instance)))
+   (instance :accessor instance :initarg :instance))
+  (:documentation "A Sesame SPARQL endpoint has an id, title, as well as read/write flags"))
 
 (defmethod print-object ((e sesame-sparql-endpoint) stream)
   (print-unreadable-object (e stream :type t)
     (unless (not (slot-boundp e 'repo-id))
-      (format stream "~a at ~a" (repo-id e) (query-endpoint e)))))
+      (format stream "~a@~a" (repo-id e) (name (instance e))))))
 
 (defmethod namespaces-endpoint ((endpoint sesame-sparql-endpoint))
+  "The namespaces endpoint of a Sesame endpoint is a service location for accessing prefixes known to the endpoint" 
   (make-uri (concatenate 'string (uri-full (query-endpoint endpoint)) "/namespaces")))
 
+(defmethod repositories-endpoint ((instance openrdf-sesame-instance))
+  "The repositories endpoint of a Sesame endpoint is a service location for accessing information about the repositories in the set" 
+  (make-uri (concatenate 'string (uri-full (root instance)) "/namespaces")))
+
+(defmethod repositories-endpoint ((endpoint sesame-sparql-endpoint))
+  (repositories-endpoint (instance endpoint)))
+
 (defclass graphdb-sparql-endpoint (sesame-sparql-endpoint)
-  )
+  ()
+  (:documentation "A SPARQL endpoint within a graphdb instance"))
+
+(defgeneric endpoint-class (instance) (:documentation "The class of SPARQL endpoint associated with endpoints in an instance"))
 
 (defmethod endpoint-class  ((g openrdf-sesame-instance))
   'sesame-sparql-endpoint)
@@ -51,16 +68,16 @@
 (defmethod endpoint-class  ((g graphdb-instance))
   'graphdb-sparql-endpoint)
   
-(setq *graphdb* (make-instance 'graphdb-instance :root "http://127.0.0.1:8080/graphdb-workbench-ee/"))
+(defvar *default-graphdb* (make-instance 'graphdb-instance :root "http://127.0.0.1:8080/graphdb-workbench-ee/" :name :local-graphdb))
 
-; (register-namespace "graphdb:" (format nil "~arepositories/" *graphdb-root*) t)
-(register-namespace "sesamerep:" "http://www.openrdf.org/config/repository#")
-(register-namespace "owlim:" "http://www.ontotext.com/trree/owlim#")
-(register-namespace "sailrepository:" "http://www.openrdf.org/config/repository/sail#")
-(register-namespace "sesamesail:" "http://www.openrdf.org/config/sail#")
+(register-namespace "sesamerep:" "http://www.openrdf.org/config/repository#") ;; called rep: sometimes
+(register-namespace "owlim:" "http://www.ontotext.com/trree/owlim#") 
+(register-namespace "sailrepository:" "http://www.openrdf.org/config/repository/sail#") ;; called sr: sometimes
+(register-namespace "sesamesail:" "http://www.openrdf.org/config/sail#") ;; called sail: sometimes
 
 (defmethod get-repositories ((instance openrdf-sesame-instance))
-  (with-input-from-string (s (get-url (format nil "~arepositories" (repository-root instance)) :accept  "text/csv" :force-refetch t))
+  "Get the list of repositories (sparql endpoint objects) for a sesame instance"
+  (with-input-from-string (s (get-url (repositories-endpoint instance) :accept  "text/csv" :force-refetch t))
     (read-line s)
     (loop with endpoint-class = (endpoint-class instance)
 	  for line =  (read-line s nil :eof)
@@ -79,7 +96,6 @@
 								    (make-uri (concatenate 'string  uri "/statements"))))))
 	  collect repo)))
   
-
 (defmethod get-timeout ((endpoint graphdb-sparql-endpoint))
   "get the current query timeout, in seconds"
   (let ((endpoint-id (repo-id  endpoint))
@@ -98,58 +114,53 @@
 
 (defmethod get-endpoint-parameters ((repo graphdb-sparql-endpoint))
   (let ((endpoint-id (repo-id repo))
-	(system-repo (system-endpoint (instance repo))))
-    (sparql `(:select (?graph ?graphtype ?type ?rep ?delegate ?param ?value) ()
-	       (?graph !rdf:type ?graphtype)
-	       (:graph ?graph
-		       (?rep !sesamerep:repositoryID ,endpoint-id)
-		       (?rep !sesamerep:repositoryImpl ?delegate)
-		       (?delegate !sesamerep:delegate ?impl)
-		       (?impl !sesamerep:repositoryType ?type)
-		       (:optional
-			(?impl !sailrepository:sailImpl ?sail)
-			(?sail ?param ?value)))
-	    )
-	       :endpoint (query-endpoint system-repo))))
+	(system (query-endpoint (system-endpoint (instance repo)))))
+    (sparql-endpoint-query
+     system
+     `(:select (?param ?value) ()
+	(?graph !rdf:type ?graphtype)
+	(:graph ?graph
+		(?rep !sesamerep:repositoryID ,endpoint-id)
+		(?rep (/ !sesamerep:repositoryImpl (* !sesamerep:delegate) !sailrepository:sailImpl) ?sail)
+		(?sail !sesamesail:sailType ?type)
+		(?sail ?param ?value))))))
 
-(defmethod get-endpoint-parameters ((repo graphdb-sparql-endpoint))
+(defmethod get-endpoint-parameter ((repo graphdb-sparql-endpoint) param)
   (let ((endpoint-id (repo-id repo))
-	(system-repo (system-endpoint (instance repo))))
-    (sparql `(:select (?graph ?graphtype ?s ?p ?o) ()
-	       (?graph !rdf:type ?graphtype)
-	       (:graph ?graph (?s ?p ?o)))
-	    ;; 	       (?rep !sesamerep:repositoryID ,endpoint-id)
-	    ;; 	       (?rep !sesamerep:repositoryImpl ?delegate)
-	    ;; 	       (?delegate !sesamerep:delegate ?impl)
-	    ;; 	       (?impl !sesamerep:repositoryType ?type)
-	    ;; 	       (:optional
-	    ;; 		(?impl !sailrepository:sailImpl ?sail)
-	    ;; 		(?sail ?param ?value)))
-	    ;; )
-	    :endpoint (query-endpoint system-repo))))
+	(system (query-endpoint (system-endpoint (instance repo)))))
+    (caar (sparql-endpoint-query
+     system
+     `(:select (?value) ()
+	(?graph !rdf:type ?graphtype)
+	(:graph ?graph
+		(?rep !sesamerep:repositoryID ,endpoint-id)
+		(?rep (/ !sesamerep:repositoryImpl (* !sesamerep:delegate) !sailrepository:sailImpl) ?sail)
+		(?sail !sesamesail:sailType ?type)
+		(?sail ,param ?value)))))))
 
-;; graphdb_ee_change_parameter <- function(repo,parameter,value)
-;;   { sparqlupdate(
-;;     "PREFIX sys:  <http://www.openrdf.org/config/repository#>",
-;;     "PREFIX sail: <http://www.openrdf.org/config/repository/sail#>",
-;;     "PREFIX onto: <http://www.ontotext.com/trree/owlim#>",
-;;     "DELETE { GRAPH ?g {?sail ?param ?old_value } }",
-;;     "INSERT { GRAPH ?g {?sail ?param ?new_value } }",
-;;     "WHERE {",
-;;     "  GRAPH ?g { ?rep sys:repositoryID ?id . }",
-;;     "  GRAPH ?g { ?rep sys:repositoryImpl ?delegate . }",
-;;     "  GRAPH ?g { ?delegate sys:repositoryType ?type . }",
-;;     "  GRAPH ?g { ?delegate sys:delegate ?impl . }",
-;;     "  GRAPH ?g { ?impl sail:sailImpl ?sail . }",
-;;     "  GRAPH ?g { ?sail ?param ?old_value . }",
-;;     "  FILTER( ?id = \"",repo,"\" ) .",
-;;     "  FILTER( ?param = ",param," ) .",
-;;     "  BIND( ",value," AS ?new_value ) .",
-;;     "}",
-;;     endpoint=gsub("(.*/)(.*)","\\1SYSTEM/statements",current_endpoint,perl=TRUE)
-;;     )
-;;   }
-
+(defmethod set-endpoint-parameter ((repo graphdb-sparql-endpoint) param value)
+  (let ((endpoint-id (repo-id repo))
+	(system (system-endpoint (instance repo))))
+    (destructuring-bind (oldvalue graph)
+	(car (sparql-endpoint-query
+	      (query-endpoint system)
+	      `(:select (?oldvalue ?graph) ()
+		 (:graph ?graph
+			 (?rep !sesamerep:repositoryID ,endpoint-id)
+			 (?rep (/ !sesamerep:repositoryImpl (* !sesamerep:delegate) !sailrepository:sailImpl) ?sail)
+			 (?sail !sesamesail:sailType ?type)
+			 (:optional (?sail ,param ?oldvalue))))))
+    (sparql-endpoint-query
+     (update-endpoint system)
+     `(:update  
+       ((:with ,graph) ,@(if oldvalue `((:delete (?sail ,param ,oldvalue)))) (:insert (?sail ,param ,value))
+	(?rep !sesamerep:repositoryID ,endpoint-id)
+	(?rep (/ !sesamerep:repositoryImpl (* !sesamerep:delegate) !sailrepository:sailImpl) ?sail)
+	(?sail !sesamesail:sailType ?type)
+	))
+     )
+      oldvalue)))
+    
 (defmethod get-repository-prefixes ((repo sesame-sparql-endpoint))
   (extract-sparql-results (get-url (uri-full (namespaces-endpoint repo)) :force-refetch t)))
   
@@ -182,52 +193,56 @@
   (flet ((m (n) (format nil "~am" n)))
     (let ((context (make-uri (format nil "urn:lsw:graph:~a" name))))
       (sparql-endpoint-query system `(:update
-			(:insert
-			 (:graph ,context
-				 (:_repo !rdf:type !sesamerep:Repository)
-				 (:_repo !sesamerep:repositoryID ,name)
-				 (:_repo !rdfs:label ,label)
-				 (:_repo !sesamerep:repositoryImpl :_impl)
-				 (:_impl !sesamerep:repositoryType "owlim:MonitorRepository")
-				 (:_impl !sailrepository:sailImpl :_sail)
-				 (:_sail !sesamesail:sailType "owlimClusterWorker:Sail" )
+			  (:insert
+			   (:graph ,context
+				   (:_repo !rdf:type !sesamerep:Repository)
+				   (:_repo !sesamerep:repositoryID ,name)
+				   (:_repo !rdfs:label ,label)
+				   (:_repo !sesamerep:repositoryImpl :_impl)
+				   (:with :_impl
+					  (!sesamerep:repositoryType "owlim:ReplicationClusterWorker")
+					  (!sesamerep:delegate :_delegate) )
+				   (:with :_delegate
+					 (!sesamerep:repositoryType "owlim:MonitorRepository")
+					 (!sailrepository:sailImpl :_sail))
+				   (:with :_sail
+					  (!sesamesail:sailType "owlimClusterWorker:Sail" )
+					  (!owlim:base-URL "urn:shouldnt:be:here:" )
+					  (!owlim:defaultNS "")
+					  (!owlim:entity-index-size ,(prin1-to-string entity-index-size))
+					  (!owlim:entity-id-size "32")
+					  (!owlim:imports "")
+					  (!owlim:repository-type "file-repository")
+					  (!owlim:ruleset "owl-horst-optimized" )
+					  (!owlim:storage-folder "storage")
+					  (!owlim:cache-memory ,(m cache-memory))
 
-				 (:_sail !owlim:base-URL "urn:shouldnt:be:here:" )
-				 (:_sail !owlim:defaultNS "")
-				 (:_sail !owlim:entity-index-size ,entity-index-size)
-				 (:_sail !owlim:entity-id-size "32")
-				 (:_sail !owlim:imports "")
-				 (:_sail !owlim:repository-type "file-repository")
-				 (:_sail !owlim:ruleset "owl-horst-optimized" )
-				 (:_sail !owlim:storage-folder "storage")
-				 (:_sail !owlim:cache-memory ,cache-memory)
+					  (!owlim:query-timeout "0")
+					  (!owlim:query-limit-results "0")
 
-				 (:_sail !owlim:query-timeout "0")
-				 (:_sail !owlim:query-limit-results "0")
+					  (!owlim:enablePredicateList ,enable-predicate-list)
+					  (!owlim:read-only "false")
+					  (!owlim:in-memory-literal-properties ,in-memory-literal-properties)
+					  (!owlim:enable-literal-index "true")
 
-				 (:_sail !owlim:enablePredicateList ,enable-predicate-list)
-				 (:_sail !owlim:read-only "false")
-				 (:_sail !owlim:in-memory-literal-properties ,in-memory-literal-properties)
-				 (:_sail !owlim:enable-literal-index "true")
+					  (!owlim:check-for-inconsistencies "false")
+					;(!owlim:disable-sameAs "false")
 
-				 (:_sail !owlim:check-for-inconsistencies "false")
-					;(:_sail !owlim:disable-sameAs "false")
+					;(!owlim:enable-context-index ,context-index)
 
-					;(:_sail !owlim:enable-context-index ,context-index)
+					;(!owlim:throw-QueryEvaluationException-on-timeout "false")
 
-					;(:_sail !owlim:throw-QueryEvaluationException-on-timeout "false")
+					;(!owlim:nonInterpretablePredicates "http://www.w3.org/2000/01/rdf-schema#label;http://www.w3.org/1999/02/22-rdf-syntax-ns#type;http://www.ontotext.com/owlim/ces#gazetteerConfig;http://www.ontotext.com/owlim/ces#metadataConfig")
 
-					;(:_sail !owlim:nonInterpretablePredicates "http://www.w3.org/2000/01/rdf-schema#label;http://www.w3.org/1999/02/22-rdf-syntax-ns#type;http://www.ontotext.com/owlim/ces#gazetteerConfig;http://www.ontotext.com/owlim/ces#metadataConfig")
-
-				 (:_sail !owlim:tuple-index-memory ,(m tuple-index-memory))
-				 (:_sail !owlim:predicate-memory ,(m predicate-memory))
-				 (:_sail !owlim:fts-memory ,(m full-text-memory))
-				 (:_sail !owlim:ftsIndexPolicy ,full-text)
-				 (:_sail !owlim:ftsLiteralsOnly ,full-text-literals-only)
-				 (:_sail !owlim:transaction-mode ,transaction-mode)
-				 (:_sail !owlim:transaction-isolation ,transaction-isolation)))
-			(:insert 
-			 (,context !rdf:type !sesamerep:RepositoryContext)))
+					  (!owlim:tuple-index-memory ,(m tuple-index-memory))
+					  (!owlim:predicate-memory ,(m predicate-memory))
+					  (!owlim:fts-memory ,(m full-text-memory))
+					  (!owlim:ftsIndexPolicy ,full-text)
+					  (!owlim:ftsLiteralsOnly ,full-text-literals-only)
+					  (!owlim:transaction-mode ,transaction-mode)
+					  (!owlim:transaction-isolation ,transaction-isolation))))
+			  (:insert 
+			   (,context !rdf:type !sesamerep:RepositoryContext)))
 	       :command :update :trace t))))
 #|
 :_sail owlim:entity-index-size "500000" ;
