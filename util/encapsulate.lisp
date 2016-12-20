@@ -128,7 +128,7 @@
 (defun setf-function-spec-name (spec)
   (if (setf-function-name-p spec)
     (let ((name (%setf-method (cadr spec))))
-      (if (non-nil-symbolp name)  ; this can be an anonymous function
+      (if (non-nil-symbol-p name)  ; this can be an anonymous function
         name
         (setf-function-name (cadr spec))))
     spec))
@@ -243,7 +243,7 @@
 (defun remove-encapsulation (cap)
   (let* ((owner (encapsulation-owner cap))
          (cur-def (%encap-fboundp owner))
-         (old-def (encapsulation-old-def cap)))
+         (old-def (encapsulate::encapsulation-old-def cap)))
     (typecase owner
       (symbol
        (cond ((or (null cur-def)
@@ -252,14 +252,14 @@
               nil)
              ((mop::std-generic-function-p cur-def)
               (remhash (mop::funcallable-instance-function cur-def) *encapsulation-table*)
-              (set-encapsulation-owner old-def owner)
+              (encapsulate::set-encapsulation-owner old-def owner)
               (setf (mop::funcallable-instance-function cur-def) (mop::funcallable-instance-function old-def)))
              (t (remhash cur-def *encapsulation-table*)
-		(set-encapsulation-owner old-def owner)
+		(encapsulate::set-encapsulation-owner old-def owner)
 		(%fhave owner old-def))))
       (method
        (remhash cur-def *encapsulation-table*)
-       (set-encapsulation-owner old-def owner)
+       (encapsulate::set-encapsulation-owner old-def owner)
        (if (mop::std-slot-value owner 'sys::fast-function)
 	   (setf (mop::std-slot-value owner 'sys::fast-function) old-def)
 	   (progn
@@ -388,7 +388,7 @@
 
 (defun %trace-package (pkg &rest args)
   (declare (dynamic-extent args))
-  (do-present-symbols (sym pkg)
+  (do-symbols (sym pkg)
     ;; Don't auto-trace imported symbols, because too often these are imported
     ;; system functions...
     (when (eq (symbol-package sym) pkg)
@@ -440,25 +440,25 @@
                                   :count (or count most-positive-fixnum))
               (terpri *trace-output*))))))))
 
-(defun trace-inside-frame-p (name)
-  (if (packagep name)
-    (map-call-frames #'(lambda (p context)
-                         (declare (ignore context))
-                         (let* ((fn (cfp-lfun p))
-                                (fname (and fn (function-name fn)))
-                                (sym (typecase fname
-                                       (method (method-name fname))
-                                       (cons (and (setf-function-name-p fname) (cadr fname)))
-                                       (symbol fname)
-                                       (t nil))))
-                           (when (and sym (eq (symbol-package sym) name))
-                             (return-from trace-inside-frame-p t)))))
-    (let ((fn (%encap-binding name)))
-      (when fn
-        (map-call-frames #'(lambda (p context)
-                             (declare (ignore context))
-                             (when (eq (cfp-lfun p) fn)
-                               (return-from trace-inside-frame-p t))))))))
+;; (defun trace-inside-frame-p (name)
+;;   (if (packagep name)
+;;     (map-call-frames #'(lambda (p context)
+;;                          (declare (ignore context))
+;;                          (let* ((fn (cfp-lfun p))
+;;                                 (fname (and fn (function-name fn)))
+;;                                 (sym (typecase fname
+;;                                        (method (method-name fname))
+;;                                        (cons (and (setf-function-name-p fname) (cadr fname)))
+;;                                        (symbol fname)
+;;                                        (t nil))))
+;;                            (when (and sym (eq (symbol-package sym) name))
+;;                              (return-from trace-inside-frame-p t)))))
+;;     (let ((fn (%encap-binding name)))
+;;       (when fn
+;;         (map-call-frames #'(lambda (p context)
+;;                              (declare (ignore context))
+;;                              (when (eq (cfp-lfun p) fn)
+;;                                (return-from trace-inside-frame-p t))))))))
 
 (defun trace-package-spec (spec)
   (when (or (stringp spec)
@@ -983,12 +983,12 @@ functions are called."
   (let ((old-fn (mop::funcallable-instance-function instance)))
     (unless (eq old-fn new-fn)
     (cond ((and *loading-removes-encapsulation* *load-truename*)
-           (when (%traced-p old-fn)
-             (warn "~%... Untracing ~s" (%untrace-1 old-fn)))
-           (when (%advised-p old-fn)
-             (format t "~%... Unadvising ~s" (%unadvise-1 old-fn))))
-          (t (when (setq cap (get-encapsulation old-fn))
-               (let* ((old-inner-def (find-unencapsulated-definition oldmethod))
+           (when (encapsulate::%traced-p old-fn)
+             (warn "~%... Untracing ~s" (encapsulate::%untrace-1 old-fn)))
+           (when (encapsulate::%advised-p old-fn)
+             (format t "~%... Unadvising ~s" (encapsulate::%unadvise-1 old-fn))))
+          (t (when (setq cap (encapsulate::get-encapsulation old-fn))
+               (let* ((old-inner-def (encapsulate::find-unencapsulated-definition oldmethod))
                       )
                  ;; make last encapsulation call new definition
                  (set-unencapsulated-definition cap new-fn)
@@ -998,7 +998,7 @@ functions are called."
                  (setf (%method-function oldmethod) old-inner-def)
                  (loop
                    for def = olddef then (encapsulation-old-def cap)
-                   for cap = (get-encapsulation def) while cap
+                   for cap = (encapsulate::get-encapsulation def) while cap
                    do (copy-method-function-bits newdef def)))))))))
 
 
