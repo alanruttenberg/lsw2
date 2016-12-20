@@ -207,7 +207,7 @@
 (defun make-treeview (file name kb &optional (depth *treeview-depth*))
   (#"setDismissDelay" (#"sharedInstance" 'tooltipmanager) 300000) ;; make the tooltips last longer
   (#"setInitialDelay" (#"sharedInstance" 'tooltipmanager) 50)
-  (let ((jpanel (#"demo" 'org.sc.prefuse.TreeView (format nil "file://~a" file) "name" "2" (format nil "~a" (max 3 (classtree-depth kb)))))
+  (let ((jpanel (#"demo" 'org.lsw.LSWTreeView (format nil "file://~a" file) "name" "2" (format nil "~a" (max 3 (classtree-depth kb)))))
 	(jframe (new 'JFrame (string-capitalize name))))
     (setq panel jpanel)
     (let ((visualization (#"getVisualization" (#"getComponent" jpanel 0) )))

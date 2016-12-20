@@ -60,6 +60,6 @@
 	     )
 	    :depends-on (matcher basics)
 	    ))
-  :depends-on (util xmls owl2libs-local))
+  :depends-on (util xmls owl2libs-mvn))
 
 ;;;; eof
