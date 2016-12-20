@@ -1,21 +1,37 @@
 (in-package :system)
 
+(defparameter +ctx+
+  (find "ctx" (#"getDeclaredFields" (java::jclass "org.armedbear.lisp.CompiledClosure")) :key #"getName" :test 'equal))
+
+(defparameter +value+
+  (find "value" (#"getDeclaredFields" (java::jclass "org.armedbear.lisp.ClosureBinding")) :key #"getName" :test 'equal))
+
 (defun function-internal-fields (f)
   (if (symbolp f) 
       (setq f (symbol-function f)))
-;; think about other fields
+  ;; think about other fields
   (let ((fields (#"getDeclaredFields" (#"getClass" f))))
     (loop for field across fields
 	  do (#"setAccessible" field t)
 	  collect
 	  (#"get" field f))))
 
+(defun function-internals (f)
+  (append (function-internal-fields f)
+	  (and (#"isInstance" (java::jclass "org.armedbear.lisp.CompiledClosure") f)
+	       (compiled-closure-context f))))
+
+(defun compiled-closure-context (f)
+  (let ((context (#"get" +ctx+ f)))
+    (loop for binding across context
+	  collect 
+	  (#"get" +value+ binding))))
    
 (defun foreach-internal-field (fn-fn not-fn-fn &optional (fns :all) (definer nil))
   "fn-n gets called with top, internal function, not-fn-fn gets called with top anything-but"
   (declare (optimize (speed 3) (safety 0)))
   ;; 10 times faster inlining and using with-constant-signature
-  (jss::with-constant-signature ((fields "getDeclaredFields") (get "get") (access "setAccessible") (getclass "getClass"))
+  (jss::with-constant-signature ((fields "getDeclaredFields") (get "get") (access "setAccessible") (getclass "getClass") (name "getLambdaName"))
     (labels ((function-internal-fields (f)
 	       (if (symbolp f) 
 		   (setq f (symbol-function f)))
@@ -28,7 +44,7 @@
 	       (declare (optimize (speed 3) (safety 0)))
 	       (dolist (el (function-internal-fields f))
 		 (if (functionp el)
-		     (let ((name? (#"getLambdaName" el)))
+		     (let ((name? (name el)))
 		       (if (or (consp name?) (and name? (fboundp name?) (eq el (symbol-function name?))) )
 			   (progn
 			     (when not-fn-fn (funcall not-fn-fn top name?))
@@ -43,10 +59,12 @@
 		       (funcall not-fn-fn top el)
 		       )))))
       (if (eq fns :all)
-	  (dolist (p (list-all-packages))
+	  (progn
+	    (dolist (p (list-all-packages))
 	    (do-symbols (s p)
 	      (when (fboundp s)
 		(check (symbol-function s) s nil))))
+	    (each-non-symbol-compiled-function (lambda (definer f) (check f definer nil))))
 	  (dolist (f fns) 
 	    (check (if (not (symbolp f)) f  (symbol-function f)) (or definer f) nil))
 	  ))))
@@ -60,6 +78,7 @@
        )))
   them)
 
+	      
 (defun annotate-internal-functions (&optional (fns :all) definer)
   (foreach-internal-field 
    (lambda(top internal)
@@ -113,48 +132,58 @@
 
 (defun method-spec-list (method)
   `(,(mop::generic-function-name  (mop::method-generic-function method))
-    ,@(mop::method-qualifiers method) 
+    ,(mop::method-qualifiers method) 
     ,(mapcar #'(lambda (c)
 		 (if (typep c 'mop:eql-specializer)
 		     `(eql ,(mop:eql-specializer-object c))
 		     (class-name c)))
 	     (mop:method-specializers method))))
 
-
-
-(defun any-function-name (function)
-  (let ((top (getf (sys::function-plist function) :internal-to-function)))
-    (if top
-	`(:local-function ,@(if (#"getLambdaName" function) (list (#"getLambdaName" function)))
-			  :in ,@(if (typep top 'mop::standard-method)
-				    (cons :method (method-spec-list top))
-				    (list top)))
-        (let ((method (getf (sys::function-plist function) :method-function)))
-          (if method
-              (cons :method-function (sys::method-spec-list method))
-              (let ((fast-function (getf (sys::function-plist function) :method-fast-function)))
-                (if fast-function
-                    (cons :method-fast-function (sys::method-spec-list fast-function))
-		    (let ((slot (getf (sys::function-plist function) :initfunction)))
-		      (if slot
-			  (list :slot-initfunction (slot-value slot 'name ) :for (class-name (slot-value slot 'allocation-class)))
-			  (or (nth-value 2 (function-lambda-expression function))
-			      (and (not (compiled-function-p function))
-				   `(:anonymous-interpreted-function))
-			      (let* ((class (#"getClass" function))
-				     (loaded-from (sys::get-loaded-from function))
-				     (name (#"replace" (#"getName" class) "org.armedbear.lisp." ""))
-				     (where (and loaded-from (concatenate 'string (pathname-name loaded-from) "." (pathname-type loaded-from)))))
-				`(:anonymous-function ,name ,@(if (sys::arglist function)  (sys::arglist function)) 
-						      ,@(if where (list (list :from where)))))))))))))))
+(defun function-name-by-where-loaded-from (function)
+  (let* ((class (#"getClass" function))
+	 (loaded-from (sys::get-loaded-from function))
+	 (name (#"replace" (#"getName" class) "org.armedbear.lisp." ""))
+	 (where (and loaded-from (concatenate 'string (pathname-name loaded-from) "." (pathname-type loaded-from)))))
+    `(:anonymous-function ,name ,@(if (sys::arglist function)  (sys::arglist function)) 
+			  ,@(if where (list (list :from where))))))
+  
+(defun any-function-name (function &aux it)
+  (let ((plist (sys::function-plist function)))
+    (cond ((setq it (getf plist :internal-to-function))
+	   `(:local-function ,@(if (#"getLambdaName" function) (list (#"getLambdaName" function)))
+			     :in ,@(if (typep it 'mop::standard-method)
+				       (cons :method (method-spec-list it))
+				       (list it))))
+	  ((setq it (getf plist :method-function))
+	   (cons :method-function (sys::method-spec-list it)))	   
+	  ((setq it (getf plist :method-fast-function))
+	   (cons :method-fast-function (sys::method-spec-list it)))
+	  ((setq it (getf plist :initfunction))
+	   (let ((class (and (slot-boundp it 'allocation-class) (slot-value it 'allocation-class))))
+	     (list :slot-initfunction (slot-value it 'name ) :for (if class (class-name class) '??))))
+	  (t (or (nth-value 2 (function-lambda-expression function))
+		 (and (not (compiled-function-p function))
+		      `(:anonymous-interpreted-function))
+		 (function-name-by-where-loaded-from function))))))
 
 (defmethod print-object ((f function) stream)
   (print-unreadable-object (f stream :identity t)
     (let ((name (any-function-name  f)))
        (if (consp name)
            (format stream "~{~a~^ ~}" name)
-           (princ (any-function-name  f) stream)))))
-                          
+           (princ name stream)))))b
+
+(defun each-non-symbol-compiled-function (f)
+  (loop for q = (list (find-class t)) then q
+	for focus = (pop q)
+	while focus
+	do (setq q (append q (mop::class-direct-subclasses  focus)))
+	   (loop for method in (mop::class-direct-methods focus)
+		 do (when (compiled-function-p (mop::method-function method)) (funcall f method (mop::method-function method))))
+	   (loop for slot in (mop::class-direct-slots focus)
+		 for initfunction = (and (slot-boundp slot 'initfunction) (slot-value slot 'initfunction))
+		 do (and initfunction (compiled-function-p initfunction) (funcall f slot initfunction)))))
+                                
 ;; hooks into defining 
  
 (defvar *fset-hooks* nil)
