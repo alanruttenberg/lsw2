@@ -218,7 +218,7 @@
          (old-def (%encap-binding owner))
          (newsym (encapsulation-symbol cap)))
     (setf (gethash fn *encapsulation-table*) cap)
-    (sys::set-loaded-from fn cap)
+    (setf (getf (sys::function-plist fn) :capsule) cap)
     (set-encapsulation-owner old-def newsym)
     (etypecase owner
       (symbol
