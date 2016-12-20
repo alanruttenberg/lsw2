@@ -7,7 +7,7 @@ use Getopt::Std;
 
 #http://docs.oracle.com/javase/7/docs/technotes/tools/windows/java.html
 
-getopt('rsbjgc'); # r=ram, s=stack, b=bits, j=java, g=verbose gc, c=trace class loading. Environment variables if not command line args.
+getopt('rsbjgcd'); # r=ram, s=stack, b=bits, j=java, g=verbose gc, c=trace class loading, d=wait for jdb. Environment variables if not command line args.
 
 if ($ENV{ABCL_WD})
   { $here = $ENV{ABCL_WD} }
@@ -27,6 +27,9 @@ elsif ($ENV{ABCL_BITS})
   { $bits = "-d$ENV{ABCL_BITS}" }
 else
   { $bits = "-d32"; }
+
+if ($opt_d || $ENV{ABCL_JDB})
+{ @debug = ("-Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=8000") }
 
 if ($opt_g)
 { @gc = ("-XX:$opt_g\PrintGCDetails", "-XX:$opt_g\PrintGCTimeStamps") }
@@ -78,7 +81,7 @@ if ($ENV{ABCL_PROFILE_SHARK})
 if (`uname` =~ /Darwin/)
  { @dock = ("-Xdock:icon=$here/images/lswicon.icns","-Xdock:name='Armed Bear Common Lisp'")}
 
-@args  = ($ram,$stack,$bits,@gc,@cl,@profileargs, @dock);
+@args  = ($ram,$stack,$bits,@debug,@gc,@cl,@profileargs, @dock);
 #@args  = ($ram,$stack,$bits,@gc,@profileargs,"-Xbootclasspath/a:$classpath",@dock);
 
 if (!($ENV{OS} =~ /windows/i)) { @args = ("-server",@args);}
