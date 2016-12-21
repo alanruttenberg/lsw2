@@ -5,32 +5,13 @@
   <artifactId>LSWTreeview</artifactId>
   <version>1.0.0</version>
   <name>LSWTreeview</name>
-
   <build>
     <sourceDirectory>src</sourceDirectory>
     <directory>target</directory>
-
     <plugins>
       <plugin>
 	<artifactId>maven-assembly-plugin</artifactId>
 	<version>2.4</version>  
-	<!-- <configuration> -->
-	<!--   <archive> -->
-	<!--     <manifest> -->
-	<!--       <mainClass>org.lsw.Treeview</mainClass> -->
-	<!--     </manifest> -->
-	<!--   </archive> -->
-	<!--   <logLevel>WARNING</logLevel> -->
-	<!-- </configuration> -->
-	<!-- <executions> -->
-	<!--   <execution> -->
-	<!--     <id>make-assembly</id>  -->
-	<!--     <phase>package</phase>  -->
-	<!--     <goals> -->
-	<!--       <goal>single</goal> -->
-	<!--     </goals> -->
-	<!--   </execution> -->
-	<!-- </executions> -->
       </plugin>
     </plugins>
   </build>

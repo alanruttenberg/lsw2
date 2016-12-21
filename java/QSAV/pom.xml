@@ -1,0 +1,27 @@
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0"
+	 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>uk.ac.ox.cs.pagoda</groupId>
+  <artifactId>QuotedStringAnnotationVisitor</artifactId>
+  <version>1.0.0</version>
+  <name>QuotedAnnotationStringVisitor</name>
+  <build>
+    <sourceDirectory>src</sourceDirectory>
+    <directory>target</directory>
+    <plugins>
+      <plugin>
+	<artifactId>maven-assembly-plugin</artifactId>
+	<version>2.4</version>  
+      </plugin>
+    </plugins>
+  </build>
+  <dependencies>
+    <dependency>
+      <groupId>net.sourceforge.owlapi</groupId>
+      <artifactId>owlapi-distribution</artifactId>
+      <version>4.2.6</version>
+    </dependency>
+  </dependencies>
+</project>
+
+

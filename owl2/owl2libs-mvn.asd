@@ -19,7 +19,8 @@
    (:module prefuse :pathname "lib" :components
 	    ((:mvn "de.sciss/prefuse-core/1.0.1")
 	     (:mvn "de.sciss/prefuse-demos/1.0.1")
-	     (:jar-file "LSWTreeview-1.0.0.jar")))
+	     (:jar-file "LSWTreeview-1.0.0")
+	     (:jar-file "QuotedStringAnnotationVisitor-1.0.0")))
    (:module lib :pathname "lib"
             :depends-on (compatibility owlapi-java
                                        reasoner/pellet reasoner/fact++ reasoner/hermit reasoner/elk))))
