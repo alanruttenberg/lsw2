@@ -1,7 +1,7 @@
 ; http://owlapi.svn.sourceforge.net/viewvc/owlapi/v3/trunk/examples/src/main/java/org/coode/owlapi/examples/Example11.java?view=markup
 
 (defparameter *inferred-axiom-types*
-  '((:class-assertios InferredClassAssertionAxiomGenerator)
+  '((:class-assertions InferredClassAssertionAxiomGenerator)
     (:property-assertions InferredPropertyAssertionGenerator)
     
     (:disjoint-classes InferredDisjointClassesAxiomGenerator)
@@ -17,6 +17,8 @@
     (:data-property-characteristics InferredDataPropertyCharacteristicAxiomGenerator)
     (:object-property-characteristics InferredObjectPropertyCharacteristicAxiomGenerator)))
 
+(defparameter *all-inferred-axiom-types* (mapcar 'car *inferred-axiom-types*))
+
 ;; (ontology-with-inferred-axioms source-ont &key types)
 ;; where types is take from *inferred-axiom-types*
 ;; returns a java OWLOntologyInstance (pack this up later)
@@ -24,9 +26,9 @@
 ;; (setq iao (load-ontology "http://purl.obolibrary.org/obo/iao.owl"))
 ;; (#"size" (#"getAxioms" (ontology-with-inferred-axioms iao :subclasses))) -> 159
 
-(defun ontology-with-inferred-axioms (source-ont &key types)
-  (let* ((manager (#"createOWLOntologyManager" 'org.semanticweb.owlapi.apibinding.OWLManager))
-	 (inf-ont (#"createOntology" manager))
+(defun ontology-with-inferred-axioms (source-ont &key to-ont (types *all-inferred-axiom-types*))
+  (let* ((manager (unless to-ont (#"createOWLOntologyManager" 'org.semanticweb.owlapi.apibinding.OWLManager)))
+	 (inf-ont (if to-ont (v3kb-ont to-ont) (#"createOntology" manager)))
 	 (generators (new 'arraylist)))
     (loop for type in types
 	  for found = (second (assoc type *inferred-axiom-types*))
@@ -53,7 +55,6 @@
 			    (#"toString" e))
 		))
     ))
-
 
 (defun write-ontology-with-inferred-axioms (ont ont-iri &optional file)
   (let* ((inf (ontology-with-inferred-axioms ont  :types '(:subclasses)))

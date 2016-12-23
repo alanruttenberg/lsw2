@@ -188,7 +188,8 @@
 	 ,@body))))
 
 (defmacro with-ontology (name (&key base ontology-properties about includes rules eval (collecting t) also-return-axioms only-return-axioms
-				    ontology-iri version-iri) definitions &body body)
+				 ontology-iri version-iri) definitions &body body)
+  (declare (ignore rules includes))
   (let ((axioms-var (make-symbol "AXIOMS"))
 	(oiri (make-symbol "ONTOLOGY-IRI"))
 	(viri (make-symbol "VERSION-IRI")))
@@ -215,9 +216,9 @@
 	       )))
 	 (let ((*default-kb* ,name))
 	   (declare (special *default-kb*))
+;	   (declare (ignorable *default-kb* ))
 	   (flet ((write-ontology (&optional (pathname (make-pathname  :name (string-downcase (string (v3kb-name *default-kb*))) :type "owl" :directory (pathname-directory "~/Desktop/"))))
 		    (jena-serialize-to-file *last-jena-model* "RDF/XML-ABBREV" pathname)))
-	     (declare (ignorable *default-kb* ))
 	     (values-list (append (multiple-value-list (progn ,@body)) (and ,also-return-axioms (list ,axioms-var))))))))))
 
 (defun include-out-of-line-axioms (name as-fn))

@@ -71,11 +71,11 @@
 
 (defun remove-axiom (axiom kb)
   (let ((changes (or (v3kb-changes kb) (setf (v3kb-changes kb) (new 'arraylist)))))
-    (#"addAll" changes (#"removeAxiom" (v3kb-manager kb) (v3kb-ont kb) axiom))))
+    (#"add" changes (#"removeAxiom" (v3kb-manager kb) (v3kb-ont kb) axiom))))
 
 (defun add-axiom (axiom kb)
   (let ((changes (or (v3kb-changes kb) (setf (v3kb-changes kb) (new 'arraylist)))))
-    (#"addAll" changes (#"addAxiom" (v3kb-manager kb) (v3kb-ont kb) axiom))))
+    (#"add" changes (#"addAxiom" (v3kb-manager kb) (v3kb-ont kb) axiom))))
 
 (defun subclassof-axiom (subclass-expression superclass-expression kb)
   (#"getOWLSubClassOfAxiom"
