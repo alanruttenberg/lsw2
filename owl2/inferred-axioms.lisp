@@ -4,7 +4,7 @@
   '((:class-assertions InferredClassAssertionAxiomGenerator)
     (:property-assertions InferredPropertyAssertionGenerator)
     
-    (:disjoint-classes InferredDisjointClassesAxiomGenerator)
+    (:disjoint-classes owlapi.util.InferredDisjointClassesAxiomGenerator)
     (:equivalent-classes InferredEquivalentClassAxiomGenerator)
     (:subclasses InferredSubClassAxiomGenerator)
 
