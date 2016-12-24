@@ -166,6 +166,17 @@
 		      `(:anonymous-interpreted-function))
 		 (function-name-by-where-loaded-from function))))))
 
+(defun local-function-p (function)
+  (and (functionp function)
+       (let ((plist  (sys::function-plist function)))
+	 (or (getf plist :internal-to-function)
+	     (getf plist :method-function)
+	     (getf plist :method-fast-function)
+	     (getf plist :slot-initfunction)))))
+
+(defun local-function-owner (function)
+  (local-function-p function))
+
 (defmethod print-object ((f function) stream)
   (print-unreadable-object (f stream :identity t)
     (let ((name (any-function-name  f)))
@@ -246,3 +257,5 @@
 	    :finally (return
 		       (parse-integer (coerce result 'string)))))
     (t () 0)))
+
+(provide :abcl-introspect)
