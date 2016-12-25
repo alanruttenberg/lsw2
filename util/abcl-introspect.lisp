@@ -1,37 +1,40 @@
 (in-package :system)
 
 (defparameter +ctx+
-  (find "ctx" (#"getDeclaredFields" (java::jclass "org.armedbear.lisp.CompiledClosure")) :key #"getName" :test 'equal))
+  (find "ctx" (java::jcall "getDeclaredFields" (java::jclass "org.armedbear.lisp.CompiledClosure")) :key (lambda(e) (java::jcall "getName" e)) :test 'equal))
 
 (defparameter +value+
-  (find "value" (#"getDeclaredFields" (java::jclass "org.armedbear.lisp.ClosureBinding")) :key #"getName" :test 'equal))
+  (find "value" (java::jcall "getDeclaredFields" (java::jclass "org.armedbear.lisp.ClosureBinding")) :key (lambda(e) (java::jcall "getName" e)) :test 'equal))
 
 (defun function-internal-fields (f)
   (if (symbolp f) 
       (setq f (symbol-function f)))
   ;; think about other fields
-  (let ((fields (#"getDeclaredFields" (#"getClass" f))))
+  (let ((fields (java::jcall "getDeclaredFields" (java::jcall "getClass" f))))
     (loop for field across fields
-	  do (#"setAccessible" field t)
+	  do (java::jcall "setAccessible" field t)
 	  collect
-	  (#"get" field f))))
+	  (java::jcall "get" field f))))
 
 (defun function-internals (f)
   (append (function-internal-fields f)
-	  (and (#"isInstance" (java::jclass "org.armedbear.lisp.CompiledClosure") f)
+	  (and (java::jcall "isInstance" (java::jclass "org.armedbear.lisp.CompiledClosure") f)
 	       (compiled-closure-context f))))
 
 (defun compiled-closure-context (f)
-  (let ((context (#"get" +ctx+ f)))
+  (let ((context (java::jcall "get" +ctx+ f)))
     (loop for binding across context
 	  collect 
-	  (#"get" +value+ binding))))
+	  (java::jcall "get" +value+ binding))))
    
 (defun foreach-internal-field (fn-fn not-fn-fn &optional (fns :all) (definer nil))
   "fn-n gets called with top, internal function, not-fn-fn gets called with top anything-but"
   (declare (optimize (speed 3) (safety 0)))
-  ;; 10 times faster inlining and using with-constant-signature
-  (jss::with-constant-signature ((fields "getDeclaredFields") (get "get") (access "setAccessible") (getclass "getClass") (name "getLambdaName"))
+  (macrolet ((fields (c) `(java::jcall ,(java::jmethod "java.lang.Class" "getDeclaredFields") ,c))
+	     (get (f i) `(java::jcall ,(java::jmethod "java.lang.reflect.Field" "get" "java.lang.Object") ,f ,i))
+	     (access (f b) `(java::jcall ,(java::jmethod "java.lang.reflect.AccessibleObject" "setAccessible" "boolean") ,f ,b))
+	     (getclass (o) `(java::jcall ,(java::jmethod "java.lang.Object" "getClass") ,o))
+	     (name (o) `(java::jcall ,(java::jmethod "org.armedbear.lisp.Operator" "getLambdaName") ,o)))
     (labels ((function-internal-fields (f)
 	       (if (symbolp f) 
 		   (setq f (symbol-function f)))
@@ -140,17 +143,50 @@
 	     (mop:method-specializers method))))
 
 (defun function-name-by-where-loaded-from (function)
-  (let* ((class (#"getClass" function))
+  (let* ((class (java::jcall "getClass" function))
 	 (loaded-from (sys::get-loaded-from function))
-	 (name (#"replace" (#"getName" class) "org.armedbear.lisp." ""))
+	 (name (java::jcall "replace" (java::jcall "getName" class) "org.armedbear.lisp." ""))
 	 (where (and loaded-from (concatenate 'string (pathname-name loaded-from) "." (pathname-type loaded-from)))))
     `(:anonymous-function ,name ,@(if (sys::arglist function)  (sys::arglist function)) 
 			  ,@(if where (list (list :from where))))))
   
+(defun maybe-jss-function (f)
+  (and (find-package :jss)
+       (or (getf (sys::function-plist f) :jss-function)
+	   (let ((internals (function-internal-fields f)))
+	     (and (= (length internals) 2)
+		  (eq (second internals) (intern "INVOKE-RESTARGS" :jss))
+		  (stringp (first internals))
+		  (setf (getf (sys::function-plist f) :jss-function) (first internals)))))))
+	 
 (defun any-function-name (function &aux it)
   (let ((plist (sys::function-plist function)))
     (cond ((setq it (getf plist :internal-to-function))
-	   `(:local-function ,@(if (#"getLambdaName" function) (list (#"getLambdaName" function)))
+	   `(:local-function ,@(if (java::jcall "getLambdaName" function) (list (java::jcall "getLambdaName" function)))
+			     :in ,@(if (typep it 'mop::standard-method)
+				       (cons :method (method-spec-list it))
+				       (list it))))
+	  ((setq it (getf plist :method-function))
+	   (cons :method-function (sys::method-spec-list it)))	   
+	  ((setq it (getf plist :method-fast-function))
+	   (cons :method-fast-function (sys::method-spec-list it)))
+	  ((setq it (getf plist :initfunction))
+	   (let ((class (and (slot-boundp it 'allocation-class) (slot-value it 'allocation-class))))
+	     (list :slot-initfunction (slot-value it 'name ) :for (if class (class-name class) '??))))
+	  (t (or (nth-value 2 (function-lambda-expression function))
+		 (and (not (compiled-function-p function))
+		      `(:anonymous-interpreted-function))
+		 (function-name-by-where-loaded-from function))))))
+
+(defun any-function-name (function &aux it)
+  (maybe-jss-function function)
+  (let ((plist (sys::function-plist function)))
+    (cond ((setq it (getf plist :internal-to-function))
+	   `(:local-function ,@(if (java::jcall "getLambdaName" function) 
+				   (list (java::jcall "getLambdaName" function))
+				   (if (getf plist :jss-function)
+				       (list (concatenate 'string "#\"" (getf plist :jss-function) "\"")))
+				   )
 			     :in ,@(if (typep it 'mop::standard-method)
 				       (cons :method (method-spec-list it))
 				       (list it))))
@@ -210,7 +246,6 @@
     (annotate-clos-slots)
     )
   (annotate-internal-functions (list name)))
-
 
 (defmethod mop::add-direct-method :after (class method)
   (annotate-clos-methods (list method)))
