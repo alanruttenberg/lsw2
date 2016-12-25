@@ -1,11 +1,5 @@
 (in-package :system)
 
-(defparameter +ctx+
-  (find "ctx" (java::jcall "getDeclaredFields" (java::jclass "org.armedbear.lisp.CompiledClosure")) :key (lambda(e) (java::jcall "getName" e)) :test 'equal))
-
-(defparameter +value+
-  (find "value" (java::jcall "getDeclaredFields" (java::jclass "org.armedbear.lisp.ClosureBinding")) :key (lambda(e) (java::jcall "getName" e)) :test 'equal))
-
 (defun function-internal-fields (f)
   (if (symbolp f) 
       (setq f (symbol-function f)))
@@ -22,10 +16,10 @@
 	       (compiled-closure-context f))))
 
 (defun compiled-closure-context (f)
-  (let ((context (java::jcall "get" +ctx+ f)))
+  (let ((context (java::jcall "get" (load-time-value (java::jclass-field "org.armedbear.lisp.CompiledClosure" "ctx")) f)))
     (loop for binding across context
 	  collect 
-	  (java::jcall "get" +value+ binding))))
+	  (java::jcall "get" (load-time-value (java::jclass-field "org.armedbear.lisp.ClosureBinding" "value")) binding))))
    
 (defun foreach-internal-field (fn-fn not-fn-fn &optional (fns :all) (definer nil))
   "fn-n gets called with top, internal function, not-fn-fn gets called with top anything-but"
@@ -81,7 +75,6 @@
        )))
   them)
 
-	      
 (defun annotate-internal-functions (&optional (fns :all) definer)
   (foreach-internal-field 
    (lambda(top internal)
@@ -91,7 +84,6 @@
    nil
    fns
    definer))
-
 
 (defun annotate-clos-methods (&optional (which :all))
   (flet ((annotate (method)
