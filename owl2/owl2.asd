@@ -57,6 +57,7 @@
 	     (:file "dl-query")
 	     (:file "hermit-debug")
 	     (:file "domain-and-range")
+	     (:file "release")
 	     )
 	    :depends-on (matcher basics)
 	    ))
