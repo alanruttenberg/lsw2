@@ -30,7 +30,7 @@
    dest is either nil, in which case a string is returned, or is the
    path to where it should get written. If the file type given is .gz,
    .zip, or .xz then the file will be accordingly compressed"
-
+  (if (v3kb-p ont) (apply-changes ont))
   (let ((ont (if (v3kb-p ont) (v3kb-ont ont) ont))
 	(storer (#"createStorer" (new (second (assoc syntax *owlapi-io-classes*)))))
 	(target (if (null dest) 

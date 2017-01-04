@@ -77,6 +77,29 @@
   (let ((changes (or (v3kb-changes kb) (setf (v3kb-changes kb) (new 'arraylist)))))
     (#"add" changes (#"addAxiom" (v3kb-manager kb) (v3kb-ont kb) axiom))))
 
+(defun add-axiom (axiom kb)
+  (#"addAxiom" (v3kb-manager kb) (v3kb-ont kb) axiom))
+
+(defun add-ontology-annotation (annotation kb)
+  (let ((changes (or (v3kb-changes kb) (setf (v3kb-changes kb) (new 'arraylist)))))
+    (when (consp annotation)
+      (let ((annotation-object
+	      (new 'OWLAnnotationImpl (#"getOWLAnnotationProperty"  (v3kb-datafactory kb) (to-iri (car annotation)))
+		   (cond ((uri-p (second annotation))
+			  (to-iri (second annotation)))
+			 (t (#"getOWLLiteral" (v3kb-datafactory kb) (second annotation))))
+		   (new 'java.util.hashset))))
+	(setq annotation (setq @ annotation-object))))
+    (#"add" changes (new 'AddOntologyAnnotation (v3kb-ont kb) annotation))))
+
+(defun add-version-iri (kb iri)
+  (add-ontology-annotation (list !owl:versionIRI iri) kb))
+
+(defun apply-changes (ont)
+  (unwind-protect (and (v3kb-changes ont)
+		       (#"applyChanges"  (v3kb-manager ont) (v3kb-changes ont)))
+    (setf (v3kb-changes ont) nil)))
+
 (defun subclassof-axiom (subclass-expression superclass-expression kb)
   (#"getOWLSubClassOfAxiom"
    (v3kb-datafactory kb) 

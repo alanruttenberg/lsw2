@@ -246,7 +246,7 @@
 (defun pprint-owl-lisp-syntax (ontology-location label-source-key &key (stream t))
   (let ((*print-case* :downcase)
 	(*print-right-margin* 150))
-    (let ((ontology (load-ontology ontology-location)))
+    (let ((ontology (if (v3kb-p ontology-location) ontology-location (load-ontology ontology-location))))
       (and label-source-key (make-instance 'label-source :key label-source-key :sources (list ontology)))
       (let ((*print-uri-with-labels-from* (and label-source-key (list label-source-key))))
 	(multiple-value-bind  (header definitions ontvar) (owl-to-lisp-syntax ontology)

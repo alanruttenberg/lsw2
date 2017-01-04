@@ -319,6 +319,7 @@
 	     
     
 (defun instantiate-reasoner (ont  &optional (reasoner *default-reasoner*) (profile nil) (config nil))
+  (apply-changes ont)
   (#"setProperty" 'system "factpp.jni.path" *factpp-jni-path*)
   (unless (null reasoner)
     (unless (v3kb-reasoner ont)
