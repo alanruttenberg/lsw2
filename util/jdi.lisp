@@ -4,6 +4,7 @@
 ;; separate process runs the debugger, in our case we'll just have a
 ;; thread that does it, and be careful not to have it be suspended at the
 ;; wrong time.
+(in-package :system)
 
 ;; The first step is to add the tool jar which is part of the JDK
 
@@ -90,7 +91,7 @@
   (ensure-jdi)
   (let ((request 
 	  (#"createExceptionRequest"
-	   (#"eventRequestManager" sys::*jdi-jvm*)
+	   (#"eventRequestManager" *jdi-jvm*)
 	   (jdi-get-class-ref exception-class)
 	   ;; event if exception caught
 	   java:+true+
@@ -114,6 +115,7 @@
 
 (defun jdi-call-in-thread-context (f &key (thread-ref (jdi-current-thread-thread-ref)) (suspend nil))
   "Call f with arguments: jvm proxy, target thread ref, to send info back. "
+  (ensure-jdi)
   (threads::make-thread
    ;; Make sure our important bits are captured in the closure
    (let ((mailbox *jdi-mailbox*)
@@ -192,7 +194,12 @@
        (loop for i from 1 below  (#"frameCount" thread-ref)
 	     ;; protect because not all frames have a this
 	     for this-string = (ignore-errors (jdi-this-in-stack-frame thread-ref (#"frame" thread-ref i)))
-	     when this-string collect this-string))
+	     for context = `(:class ,(#"name" (#"declaringType" (#"location" (#"frame" thread-ref i))))
+			      :method ,(#"name" (#"method" (#"location" (#"frame" thread-ref i)))))
+	     if this-string
+	       collect (append (list :this this-string) context)
+	     else
+	       collect context)) ;frame.location().declaringType().name().toCharArray
      :thread-ref thread-ref :suspend nil)))
  
 ;; invoke from repl-thread
