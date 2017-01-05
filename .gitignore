@@ -7,3 +7,5 @@ disease/data/unsupervised.pdf
 quicklisp
 bootstrap.lisp
 bootstrap
+.DS_store
+.webcache
