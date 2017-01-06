@@ -17,6 +17,14 @@
       (setf (v3kb-name kb) `(:jena ,file-or-model))
       kb)))
 
+(defun read-jena-model (path)
+  (#"loadModel" 'RDFDataMgr (namestring (truename path))))
+
+(defun each-jena-statement (model fn)
+  (let ((iterator (#"listStatements" model)))
+    (loop while (#"hasNext" iterator)
+	  do  (funcall fn (#"next" iterator)))))
+
 (defun write-jena-model (model to)
   (let ((jfile (new 'java.io.file (namestring (translate-logical-pathname to)))))
     (when (not (#"exists" jfile))

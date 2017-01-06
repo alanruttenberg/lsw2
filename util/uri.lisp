@@ -70,8 +70,11 @@ Which can then be used as !material-entity
 	 (when (and abbreviation (char= (char abbreviation 0) #\_) (char= (char abbreviation 1) #\:))
 	   (setq abbreviation (format nil "blank:~a" (subseq abbreviation 2))))
 	 (if string
-	     (when format-args
+	     (progn
+	       (when format-args
 	       (setq string (apply 'format nil string format-args)))
+	       (when (char= (char string 0) #\/)
+		 (setq string (concatenate 'string "file://" string))))
 	     (setq string (unabbreviate-namespace
 			   (if format-args
 			       (setq abbreviation (apply 'format nil abbreviation format-args))

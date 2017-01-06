@@ -58,6 +58,7 @@
 	     (:file "hermit-debug")
 	     (:file "domain-and-range")
 	     (:file "release")
+	     (:file "logger-control")
 	     )
 	    :depends-on (matcher basics)
 	    ))

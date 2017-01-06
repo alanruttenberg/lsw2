@@ -92,6 +92,16 @@
 	(setq annotation (setq @ annotation-object))))
     (#"add" changes (new 'AddOntologyAnnotation (v3kb-ont kb) annotation))))
 
+(defun add-ontology-imports (uri kb)
+  (let ((changes (or (v3kb-changes kb) (setf (v3kb-changes kb) (new 'arraylist)))))
+    (let ((import-object (new 'OWLImportsDeclarationImpl (to-iri uri))))
+      (#"add" changes (new 'AddImport (v3kb-ont kb) import-object)))))
+
+(defun remove-ontology-imports (uri kb)
+  (let ((changes (or (v3kb-changes kb) (setf (v3kb-changes kb) (new 'arraylist)))))
+    (let ((import-object (if (uri-p uri) (new 'OWLImportsDeclarationImpl (to-iri uri)) uri)))
+      (#"add" changes (new 'RemoveImport (v3kb-ont kb) import-object)))))
+  
 (defun add-version-iri (kb iri)
   (add-ontology-annotation (list !owl:versionIRI iri) kb))
 
