@@ -45,18 +45,30 @@
 		 (car (all-matches (version-date-string r) "(\\d+)-(\\d+)-(\\d+)" 3 2 1))))))
 
 (defmethod print-object ((r foundry-release) stream)
-  (print-unreadable-object (r stream :type t)
-    (format stream "~a@~a~a~{~a~^,~}" (namespace r) (version-date-string r) (if (phases r) " : " ", not yet started") (phases r))))
+  (if (not (slot-boundp r 'namespace))
+      (call-next-method)
+      (print-unreadable-object (r stream :type t)
+	(format stream "~a@~a~a~{~a~^,~}" (namespace r) (version-date-string r) (if (phases r) " : " ", not yet started") (phases r)))))
 
 (defvar *current-release* )
 
 ;; this is the main call
-(defun make-release (namespace source-file &optional (when (get-universal-time)))
-  (setq *current-release* (make-instance 'foundry-release :release-time when :ontology-source-file source-file :namespace namespace))
-  (create-merged-ontology release)
-  (copy-files-to-release-directory release)
-  (write-catalog.xml release)
-  (write-purl-yaml release))
+(defun make-release (namespace source-file  &rest initargs &key (when (get-universal-time)) &allow-other-keys)
+  (remf initargs :when)
+  (setq *current-release* (apply 'make-instance 'foundry-release
+				 :release-time when
+				 :ontology-source-file source-file
+				 :namespace namespace
+				 initargs))
+  (do-release *current-release*))
+
+(defmethod do-release  ((r foundry-release))
+  (create-merged-ontology r)
+  (copy-files-to-release-directory r)
+  (log-progress r "Creating catalog-v0001.xml for protege")
+  (write-catalog.xml r)
+  (log-progress r "Creating purl.yaml with lines to be pasted into the PURL config")
+  (write-purl-yaml r))
 
 ;; (make-release "iao" "~/repos/information-artifact-ontology/src/ontology/iao.owl" when
 ;;    :additional-products '("ontology-metadata.owl"))
@@ -85,7 +97,7 @@
 						  (pathname-directory source-path))
 						 '("releases")))))
 	      (if (probe-file release-base)
-		  (format *debug-io* "Using release directory: ~a~%" release-base)
+		  (log-progress r "Using release directory: ~a~%" release-base)
 		  (cerror "Can't figure out release base (guessed ~a). Pass it to the function" release-base))
 	      release-base))))
 
@@ -215,7 +227,7 @@
 	 (license-annotations (license-annotations r)))
     (copy-ontology-annotations r source destont (lambda(prop) (not (eq prop !owl:versionIRI))))
     (note-ontologies-merged r destont)
-    (add-ontology-annotation `(,!owl:versionIRI ,(make-versioniri (namespace r) (version-date-string r))  destont))
+    (add-ontology-annotation `(,!owl:versionIRI ,(make-versioniri (namespace r) (version-date-string r)))  destont)
     (add-ontology-annotation `(,!rdfs:comment "This version of the ontology is the merge of all its imports and has added axioms inferred by an OWL reasoner") destont)
     (log-progress r "Merging")
     (loop for disp in dispositions
@@ -335,10 +347,27 @@
     (write-line "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>" c)
     (write-line "<catalog prefer=\"public\" xmlns=\"urn:oasis:names:tc:entity:xmlns:xml:catalog\">" c)
     (loop for d in (dispositions r)
-	  for catalogiri = (uri-full (getf d :versioniri))
-	  do (format c "    <uri name=\"~a\" uri=\"~a.~a\"/>~%" catalogiri (pathname-name catalogiri) (pathname-type catalogiri)))
+	  for versioniri = (uri-full (getf d :versioniri))
+	  for ontologyiri = (uri-full (getf d :ontologyiri))
+	  do
+	     (format c "    <uri name=\"~a\" uri=\"~a.~a\"/>~%" versioniri (pathname-name versioniri) (pathname-type versioniri))
+	     (format c "    <uri name=\"~a\" uri=\"~a.~a\"/>~%" ontologyiri (pathname-name ontologyiri) (pathname-type ontologyiri)))
     (write-line "</catalog>" c)))
 
+(defmethod copy-files-to-release-directory ((r foundry-release))
+  (loop for disp in (dispositions r)
+	for copy = (getf disp :copy)
+	when copy
+	  do (let ((dest (merge-pathnames (make-pathname :name (pathname-name copy) :type "owl") (ensure-release-dir r))))
+	       (log-progress r "Copying ~a.~a to ~a~%" (pathname-name copy) (pathname-type copy) dest)
+	       ;; I would use copy-file but it doesn't know about redirects
+	       ;; (uiop/stream:copy-file copy dest)
+	       (sys::run-program "curl" (list "-L" (uri-full (make-uri (namestring copy))) "-o" (namestring dest)))
+	       (add-version-iris-license-and-rewrite-imports r dest (getf disp :add-license))))
+  (let ((to-be-deleted (directory (merge-pathnames (make-pathname :name :wild :type "bak") (ensure-release-dir r)))))
+    (loop for file in to-be-deleted
+	  do (log-progress r "Deleting ~a~%" file)
+	     (delete-file file))))
 
 (defmethod write-purl-yaml ((r foundry-release)) 
   (with-open-file (c (merge-pathnames (make-pathname

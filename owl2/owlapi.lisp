@@ -554,7 +554,7 @@
 (defun set-version-iri (kb iri)
   (let ((change (#"createOntologyChange"
 		 (new 'SetOntologyIDData 
-		      (new 'owlontologyid (to-iri iri)))
+		      (new 'owlontologyid (to-iri (get-ontology-iri kb)) (to-iri iri)))
 		 (v3kb-ont kb))))
     (add-change kb change)
     (apply-changes kb)))
