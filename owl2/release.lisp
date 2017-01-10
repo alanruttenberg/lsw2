@@ -56,7 +56,7 @@
   (create-merged-ontology release)
   (copy-files-to-release-directory release)
   (write-catalog.xml release)
-  (write-purl-yaml release)))
+  (write-purl-yaml release))
 
 ;; (make-release "iao" "~/repos/information-artifact-ontology/src/ontology/iao.owl" when
 ;;    :additional-products '("ontology-metadata.owl"))
@@ -215,7 +215,7 @@
 	 (license-annotations (license-annotations r)))
     (copy-ontology-annotations r source destont (lambda(prop) (not (eq prop !owl:versionIRI))))
     (note-ontologies-merged r destont)
-    (add-ontology-annotation `(,!owl:versionIRI ,(make-versioniri (namespace r)))  destont)
+    (add-ontology-annotation `(,!owl:versionIRI ,(make-versioniri (namespace r) (version-date-string r))  destont))
     (add-ontology-annotation `(,!rdfs:comment "This version of the ontology is the merge of all its imports and has added axioms inferred by an OWL reasoner") destont)
     (log-progress r "Merging")
     (loop for disp in dispositions

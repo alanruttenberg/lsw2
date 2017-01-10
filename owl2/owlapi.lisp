@@ -274,6 +274,15 @@
 ;      (set-java-field it "ignoreUnsupportedDatatypes" +true+ t)
       it)))
 
+(defun quiet-reasoner-config ()
+  (let ((standard (new 'SimpleConfiguration (new 'NullReasonerProgressMonitor)))
+	(progressMonitor (new 'owlapi.reasoner.ConsoleProgressMonitor)))
+    (new 'org.semanticweb.owlapi.reasoner.SimpleConfiguration progressMonitor
+	 (#"getFreshEntityPolicy" standard)
+	 (new 'long "9223372036854775807")
+	 (#"valueOf" 'individualNodeSetPolicy "BY_SAME_AS")
+	 )))
+
 (defun factpp-reasoner-config ()
   (vanilla-reasoner-config))
 
@@ -523,7 +532,32 @@
   (check-ontology kb)
   (loop for p in (remove-if #"isAnonymous" (set-to-list (#"getEquivalentObjectProperties" (v3kb-reasoner kb) (#"getOWLObjectProperty" (v3kb-datafactory kb) (to-iri !owl:bottomObjectProperty)))))
      for uri = (make-uri (#"toString" (#"getIRI" p)))
-     unless (eq uri !owl:bottomObjectProperty) collect uri))
+	unless (eq uri !owl:bottomObjectProperty) collect uri))
+
+(defun get-ontology-iri (kb)
+  (let ((ontology (if (v3kb-p kb) (v3kb-ont kb) kb)))
+    (make-uri (#"toString" (#"get" (#"getOntologyIRI" (#"getOntologyID" ontology)))))))
+
+(defun get-version-iri (kb)
+  (let ((ontology (if (v3kb-p kb) (v3kb-ont kb) kb)))
+    (make-uri (#"toString" (#"get" (#"getVersionIRI" (#"getOntologyID" ontology)))))))
+
+(defun get-imports-declarations (kb)
+  (mapcar (compose 'make-uri #"toString" #"getIRI")
+	  (jss::j2list (#"getImportsDeclarations" (v3kb-ont kb)))))
+
+(defun add-change (kb change)
+  (unless (v3kb-changes kb)
+    (setf (v3kb-changes kb) (new 'arraylist)))
+  (#"add" (v3kb-changes kb) change))
+
+(defun set-version-iri (kb iri)
+  (let ((change (#"createOntologyChange"
+		 (new 'SetOntologyIDData 
+		      (new 'owlontologyid (to-iri iri)))
+		 (v3kb-ont kb))))
+    (add-change kb change)
+    (apply-changes kb)))
 
 (defun test-reasoners ()
   (let (o)

@@ -26,7 +26,7 @@
 ;; (setq iao (load-ontology "http://purl.obolibrary.org/obo/iao.owl"))
 ;; (#"size" (#"getAxioms" (ontology-with-inferred-axioms iao :subclasses))) -> 159
 
-(defun ontology-with-inferred-axioms (source-ont &key to-ont (types *all-inferred-axiom-types*))
+(defun add-inferred-axioms (source-ont &key to-ont (types *all-inferred-axiom-types*))
   (let* ((manager (unless to-ont (#"createOWLOntologyManager" 'org.semanticweb.owlapi.apibinding.OWLManager)))
 	 (inf-ont (if to-ont (v3kb-ont to-ont) (#"createOntology" manager)))
 	 (generators (new 'arraylist)))
@@ -47,7 +47,7 @@
 		       (declaration (class !c))
 		       (equivalent-classes !c (object-union-of !a !b))))
     (check-ontology foo :classify t :reasoner :factpp)
-    (each-axiom (ontology-with-inferred-axioms foo :types '(:subclasses))
+    (each-axiom (add-inferred-axioms foo :types '((:subclasses)))
 		(lambda(e) 
 		  (print-db e
 			    ;; workaround over-eager print-db-hook that calls eval-uri-reader-macro
@@ -57,7 +57,7 @@
     ))
 
 (defun write-ontology-with-inferred-axioms (ont ont-iri &optional file)
-  (let* ((inf (ontology-with-inferred-axioms ont  :types '(:subclasses)))
+  (let* ((inf (add-inferred-axioms ont  :types '(:subclasses)))
 	 (manager (#"getOWLOntologyManager" inf))
 	 (it (make-v3kb :name ont-iri 
 			:manager manager
@@ -90,7 +90,7 @@
 		       ))
     (check-ontology foo :classify t :reasoner reasoner)
     (princ (to-owl-syntax foo :functional))
-    (each-axiom (ontology-with-inferred-axioms foo :types '(:equivalent-object-properties))
+    (each-axiom (add-inferred-axioms foo :types '(:equivalent-object-properties))
 		(lambda(e) (print (#"toString" e))))
     ))
 

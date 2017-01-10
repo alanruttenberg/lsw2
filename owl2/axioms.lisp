@@ -89,7 +89,7 @@
 			  (to-iri (second annotation)))
 			 (t (#"getOWLLiteral" (v3kb-datafactory kb) (second annotation))))
 		   (new 'java.util.hashset))))
-	(setq annotation (setq @ annotation-object))))
+	(setq annotation annotation-object)))
     (#"add" changes (new 'AddOntologyAnnotation (v3kb-ont kb) annotation))))
 
 (defun add-ontology-imports (uri kb)
