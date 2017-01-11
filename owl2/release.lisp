@@ -396,15 +396,18 @@
     (format c "- ~a.owl: ~areleases/~a/~a-merged.owl~%~%" (namespace r) (release-purl-base r) (version-date-string r) (namespace r))
     (format c "# For 'entries: (current)' section~%")
     ;; stated main product
-    (format c "-exact: ~a/~a-stated.owl~%" (namespace r) (namespace r))
+    (format c "-exact: /~a-stated.owl~%"  (namespace r))
     (format c "  replacement: ~areleases/~a/~a.owl~%~%" (release-purl-base r) (version-date-string r) (namespace r))
     (loop for product in (additional-products r)
-	  do (format c "-exact: ~a/~a~%" (namespace r) product)
+	  do (format c "-exact: /~a~%" product)
 	     (format c "  replacement: ~areleases/~a/~a~%~%" (release-purl-base r) (version-date-string r) product))
     (format c "# For 'entries: (versions)' section~%")
     ;; dated main product
-    (format c "-exact: ~a/~a/~a.owl~%" (namespace r) (version-date-string r) (namespace r))
+    (format c "-exact: /~a/~a.owl~%" (version-date-string r) (namespace r))
     (format c "  replacement: ~areleases/~a/~a-merged.owl~%~%" (release-purl-base r) (version-date-string r) (namespace r))
+    ;; dated main product (stated)
+    (format c "-exact: /~a/~a-stated.owl~%" (version-date-string r) (namespace r))
+    (format c "  replacement: ~areleases/~a/~a.owl~%~%" (release-purl-base r) (version-date-string r) (namespace r))
     ;; Fallthrough for anything else relative to release dir
     (format c "-prefix: /~a/ ~%" (version-date-string r))
     (format c "  replacement: ~areleases/~a/~%~%" (release-purl-base r) (version-date-string r))))
