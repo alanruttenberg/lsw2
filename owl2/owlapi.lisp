@@ -93,6 +93,7 @@
     (let* ((manager (#"createOWLOntologyManager" 'org.semanticweb.owlapi.apibinding.OWLManager)))
 ;      (#"setSilentMissingImportsHandling" manager silent-missing)
       (and mapper (#"addIRIMapper" manager mapper))
+      (setq @ mapper)
       (let ((ont
 	     (if uri
 		 (#"loadOntologyFromOntologyDocument" manager (to-iri uri))
@@ -110,7 +111,18 @@
 	(let ((it (make-v3kb :name (or uri name) :manager manager :ont ont :datafactory (#"getOWLDataFactory" manager) :default-reasoner reasoner :mapper mapper)))
 	  (setf (v3kb-uri2entity it) (compute-uri2entity it))
 	  it
-	)))))
+	  )))))
+
+(defun check-loaded-versus-mapped (ont)
+  (let ((irimap (get-java-field (v3kb-mapper iao) "iriMap" t)))
+    (loop for (got-it-from ontologyiri) in (loaded-documents ont)
+	  for mapper-says = (#"toString" (#"getDocumentIRI" (v3kb-mapper ont) (to-iri ontologyiri)))
+	  for hash-utters = (#"get" irimap (to-iri ontologyiri))
+	  for hash-says = (and hash-utters (#"toString" hash-utters))
+	  do (print-db ontologyiri got-it-from mapper-says hash-says))
+    (format t "map dump~%")
+    (loop for key in (set-to-list (#"keySet" irimap))
+	  do (format t "~a -> ~a~%" (#"toString" key) (#"toString" (#"get" irimap key))))))
 
 (defun maybe-reorder-assertions (assertions &aux ontology-iri version-iri)
   "pull out two place annotations - ontology annotations, and import assertions, and put them at the start"
