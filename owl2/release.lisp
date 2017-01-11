@@ -135,7 +135,13 @@
       (call-next-method)
       (destructuring-bind (owner project)
 	  (git-project-info r)
-	(let* ((raw-base (format nil "http://cdn.rawgit.com/~a/~a/master/" owner project))
+	(let* (	;; (raw-base (format nil "http://cdn.rawgit.com/~a/~a/master/" owner project))
+	       ;; cdn.rawgit would be faster/nicer but deployments are permanent! No fixing mistakes.
+	       ;; I could embed the commit into the URL as below but then I'd have to generate the redirects after committing
+	       ;; the main files. Too likely to lead to an error. (maybe just a PURL prefix - will think about it)
+	       ;; (raw-base (raw-base (format nil "https://github.com/~a/~a/<commit>/" owner project)))
+	       ;; For now just serve the file you'de find after clicking "raw"
+	       (raw-base (format nil "https://raw.githubusercontent.com/~a/~a/master/" owner project))
 	       (probe-test (merge-pathnames (project-root-relative-path r (truename (ontology-source-file r))) raw-base)))
 	  (assert (probe-file probe-test) 
 		  (raw-base probe-test) "Calculated Release-url-base incorrectly: ~a" raw-base)
@@ -171,9 +177,10 @@
   (if (slot-boundp r 'versioned-uri-map)
       (call-next-method)
       (setf (versioned-uri-map r) 
-	    (mapcar (lambda(d)
-		      (list (getf d :ontologyiri)
-			    (getf d :versioniri)))
+	    (mapcan (lambda(d)
+		      `(,@(if (getf d :original-versioniri)
+			      (list (list (getf d :original-versioniri) (getf d :versioniri))))
+			(,(getf d :ontologyiri) ,(getf d :versioniri))))
 		    (dispositions r)))))
 
 (defmethod versioned-uri-for ((r foundry-release) uri)
@@ -297,11 +304,12 @@
 		      (let ((versioned (namestring (merge-pathnames (make-pathname :directory `(:relative ,date)) ontologyiri))))
 			(assert (null (pathname-host loaded-from)) () "~a is one of ours but is NOT loaded from file - instead: ~a. Probably an error in catalog-v0001.xml"
 				ontologyiri loaded-from)
-			(list :copy loaded-from :ontologyiri ontologyiri :versioniri (make-uri versioned) :add-license t )))
+			(list :copy loaded-from :ontologyiri ontologyiri :original-versioniri (make-uri versioniri)
+			      :versioniri (make-uri versioned) :add-license t )))
 		     ((equal (pathname-name ontologyiri) (namespace r))
 		      ;; This is the main file. <namespace.owl> -> <namespace>/<date><namespace.owl>
 		      (let ((versioned (namestring (merge-pathnames (make-pathname :directory `(:relative ,(namespace r) ,date)) ontologyiri))))
-			(list :copy loaded-from :versioniri (make-uri versioned) :add-license t)))
+			(list :copy loaded-from :versioniri (make-uri versioned) :add-license t :original-versioniri versioniri)))
 		     ;; This is an external import. Use its versionIRI
 		     ;; Might neede to be careful - if locally cached it could be stale. Not the case for IAO
 		     ((not versioniri)
@@ -388,28 +396,28 @@
 (defmethod write-purl-yaml ((r foundry-release)) 
   (with-open-file (c (merge-pathnames (make-pathname
 				       :directory `(:relative ,(version-date-string r))
-				       :name "purl"
-				       :type "yaml")
+				       :name "purls"
+				       :type "yml")
 				      (release-directory-base r))
 		     :if-exists :supersede :direction :output)
     (format c "# For 'products:' section~%")
     (format c "- ~a.owl: ~areleases/~a/~a-merged.owl~%~%" (namespace r) (release-purl-base r) (version-date-string r) (namespace r))
     (format c "# For 'entries: (current)' section~%")
     ;; stated main product
-    (format c "-exact: /~a-stated.owl~%"  (namespace r))
+    (format c "- exact: /~a-stated.owl~%"  (namespace r))
     (format c "  replacement: ~areleases/~a/~a.owl~%~%" (release-purl-base r) (version-date-string r) (namespace r))
     (loop for product in (additional-products r)
-	  do (format c "-exact: /~a~%" product)
+	  do (format c "- exact: /~a~%" product)
 	     (format c "  replacement: ~areleases/~a/~a~%~%" (release-purl-base r) (version-date-string r) product))
     (format c "# For 'entries: (versions)' section~%")
     ;; dated main product
-    (format c "-exact: /~a/~a.owl~%" (version-date-string r) (namespace r))
+    (format c "- exact: /~a/~a.owl~%" (version-date-string r) (namespace r))
     (format c "  replacement: ~areleases/~a/~a-merged.owl~%~%" (release-purl-base r) (version-date-string r) (namespace r))
     ;; dated main product (stated)
-    (format c "-exact: /~a/~a-stated.owl~%" (version-date-string r) (namespace r))
+    (format c "- exact: /~a/~a-stated.owl~%" (version-date-string r) (namespace r))
     (format c "  replacement: ~areleases/~a/~a.owl~%~%" (release-purl-base r) (version-date-string r) (namespace r))
     ;; Fallthrough for anything else relative to release dir
-    (format c "-prefix: /~a/ ~%" (version-date-string r))
+    (format c "- prefix: /~a/ ~%" (version-date-string r))
     (format c "  replacement: ~areleases/~a/~%~%" (release-purl-base r) (version-date-string r))))
 
 
