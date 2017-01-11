@@ -223,7 +223,7 @@
 (defmethod create-merged-ontology ((r foundry-release))
   (let* ((source (ontology r))
 	 (destont (new-empty-kb (make-uri (format nil "http://purl.obolibrary.org/obo/~a.owl" (namespace r)))))
-	 (dispositions (compute-imports-disposition r))
+	 (dispositions (dispositions r))
 	 (license-annotations (license-annotations r)))
     (copy-ontology-annotations r source destont (lambda(prop) (not (eq prop !owl:versionIRI))))
     (note-ontologies-merged r destont)
@@ -270,6 +270,12 @@
     (log-progress r "Rewriting imports for ~a~%" ontology-path)
     (to-owl-syntax kb :rdfxml ontology-path)))
 
+;; If we want to have a live "dev" version, the checked-in files, as
+;; with all, need to have a versionIRI that distinguishes them from
+;; the released files. Q: Do we need /dev/
+;; A: we're going to redirect from /obo/iao/dev/foo.owl to the repo. So yes, they need /dev.
+;; However, the release ones shouldn't mention dev.
+
 (defmethod compute-imports-disposition ((r foundry-release))
   "For each of the imports decide if we are using a published
    versioned import or a version we serve. Return a data structure that
@@ -289,6 +295,8 @@
 	       (cond ((equal (third (pathname-directory ontologyiri)) (namespace r))
 		      ;; This is one of ours, so make date relative purl <namespace>/<file.owl> -> <namespace>/<date>/<file.owl>
 		      (let ((versioned (namestring (merge-pathnames (make-pathname :directory `(:relative ,date)) ontologyiri))))
+			(assert (null (pathname-host loaded-from)) () "~a is one of ours but is NOT loaded from file - instead: ~a. Probably an error in catalog-v0001.xml"
+				ontologyiri loaded-from)
 			(list :copy loaded-from :ontologyiri ontologyiri :versioniri (make-uri versioned) :add-license t )))
 		     ((equal (pathname-name ontologyiri) (namespace r))
 		      ;; This is the main file. <namespace.owl> -> <namespace>/<date><namespace.owl>
@@ -297,8 +305,10 @@
 		     ;; This is an external import. Use its versionIRI
 		     ;; Might neede to be careful - if locally cached it could be stale. Not the case for IAO
 		     ((not versioniri)
-					;(warn "Didn't get versionIRI for ~a so using copying and will use local version" ontologyiri)
-		      (list :copy ontologyiri :versioniri (make-local-version-uri r ontologyiri) :add-license nil))
+		      (multiple-value-bind (iri dir)
+			  (make-local-version-uri r ontologyiri)
+			(log-progress r "Didn't get versionIRI for ~a so copying to ~a in release dir" ontologyiri (make-pathname :directory dir))
+		      (list :copy ontologyiri :versioniri iri :save-to-dir dir :add-license nil)))
 		     (t (list :copy nil :versioniri (make-uri versioniri) :add-license nil))))))
 
 (defmethod make-local-version-uri ((r foundry-release) ontology-iri)
@@ -316,15 +326,17 @@
 	  (auth (if (equal auth "purl.obolibrary.org")
 		    nil
 		    `(:relative ,auth))))
-      (make-uri (namestring (merge-pathnames (make-pathname :directory (rplaca path :relative))
-		       (merge-pathnames (make-pathname :directory auth)
-					(make-pathname
-					 :directory `(:absolute  "obo" ,(namespace r) ,(version-date-string r))
-					 :name file
-					 :type type
-					 :host `(:scheme "http" :authority "purl.obolibrary.org"))
-					)
-		       ))))))
+      (values
+       (make-uri (namestring (merge-pathnames (make-pathname :directory (rplaca path :relative))
+					      (merge-pathnames (make-pathname :directory auth)
+							       (make-pathname
+								:directory `(:absolute  "obo" ,(namespace r) ,(version-date-string r))
+								:name file
+								:type type
+								:host `(:scheme "http" :authority "purl.obolibrary.org"))
+							       )
+					      )))
+       path))))
       
 (defun make-versioniri (namespace &optional (date (version-date-string)))
   "The versioniri for the main artifact"
@@ -349,25 +361,29 @@
     (loop for d in (dispositions r)
 	  for versioniri = (uri-full (getf d :versioniri))
 	  for ontologyiri = (uri-full (getf d :ontologyiri))
+	  for dir = (getf d  :save-to-dir)
+	  when (getf d :copy)
 	  do
-	     (format c "    <uri name=\"~a\" uri=\"~a.~a\"/>~%" versioniri (pathname-name versioniri) (pathname-type versioniri))
-	     (format c "    <uri name=\"~a\" uri=\"~a.~a\"/>~%" ontologyiri (pathname-name ontologyiri) (pathname-type ontologyiri)))
+	     (setq dir (if dir (namestring (make-pathname :directory dir)) "")) 
+	     (format c "    <uri name=\"~a\" uri=\"~a~a.~a\"/>~%" versioniri dir (pathname-name versioniri) (pathname-type versioniri))
+	     (format c "    <uri name=\"~a\" uri=\"~a~a.~a\"/>~%" ontologyiri dir (pathname-name ontologyiri) (pathname-type ontologyiri)))
     (write-line "</catalog>" c)))
 
 (defmethod copy-files-to-release-directory ((r foundry-release))
   (loop for disp in (dispositions r)
 	for copy = (getf disp :copy)
+	for dir = (getf disp  :save-to-dir)
 	when copy
-	  do (let ((dest (merge-pathnames (make-pathname :name (pathname-name copy) :type "owl") (ensure-release-dir r))))
+	  do (let ((dest (merge-pathnames (make-pathname :directory dir :name (pathname-name copy) :type "owl") (ensure-release-dir r))))
 	       (log-progress r "Copying ~a.~a to ~a~%" (pathname-name copy) (pathname-type copy) dest)
 	       ;; I would use copy-file but it doesn't know about redirects
 	       ;; (uiop/stream:copy-file copy dest)
-	       (sys::run-program "curl" (list "-L" (uri-full (make-uri (namestring copy))) "-o" (namestring dest)))
+	       (sys::run-program "curl" (list "-L" "--create-dirs" (uri-full (make-uri (namestring copy))) "-o" (namestring dest)))
 	       (add-version-iris-license-and-rewrite-imports r dest (getf disp :add-license))))
-  (let ((to-be-deleted (directory (merge-pathnames (make-pathname :name :wild :type "bak") (ensure-release-dir r)))))
+  (let ((to-be-deleted (directory (merge-pathnames (make-pathname :directory `(:relative :wild) :name :wild :type "bak") (ensure-release-dir r)))))
     (loop for file in to-be-deleted
 	  do (log-progress r "Deleting ~a~%" file)
-	     (delete-file file))))
+	     '(delete-file file))))
 
 (defmethod write-purl-yaml ((r foundry-release)) 
   (with-open-file (c (merge-pathnames (make-pathname
@@ -376,27 +392,21 @@
 				       :type "yaml")
 				      (release-directory-base r))
 		     :if-exists :supersede :direction :output)
-    ;; main product
-    (format c "-exact: ~a.owl~%" (namespace r))
-    (format c "  replacement: ~areleases/~a/~a-merged.owl~%~%" (release-purl-base r) (version-date-string r) (namespace r))
-    ;; dated main product
-    (format c "-exact: ~a/~a/~a.owl~%" (namespace r) (version-date-string r) (namespace r))
-    (format c "  replacement: ~areleases/~a/~a-merged.owl~%~%" (release-purl-base r) (version-date-string r) (namespace r))
+    (format c "# For 'products:' section~%")
+    (format c "- ~a.owl: ~areleases/~a/~a-merged.owl~%~%" (namespace r) (release-purl-base r) (version-date-string r) (namespace r))
+    (format c "# For 'entries: (current)' section~%")
     ;; stated main product
     (format c "-exact: ~a/~a-stated.owl~%" (namespace r) (namespace r))
     (format c "  replacement: ~areleases/~a/~a.owl~%~%" (release-purl-base r) (version-date-string r) (namespace r))
-    ;; additional products
     (loop for product in (additional-products r)
 	  do (format c "-exact: ~a/~a~%" (namespace r) product)
 	     (format c "  replacement: ~areleases/~a/~a~%~%" (release-purl-base r) (version-date-string r) product))
-    ;; All the imports (the first entry is the top-level ontology which we've already handled)
-    (loop for d in (cdr (dispositions r))
-	  for iri = (uri-full (getf d :versioniri))
-	  for copy = (getf d :copy)
-	  when copy
-	    do
-	       (format c "-exact: ~a~%" (#"replaceAll" iri ".*?://.*?/.*?/" ""))
-	       (format c "  replacement: ~areleases/~a/~a.~a~%" (release-purl-base r) (version-date-string r) (pathname-name iri) (pathname-type iri))
-	       (terpri c))))
+    (format c "# For 'entries: (versions)' section~%")
+    ;; dated main product
+    (format c "-exact: ~a/~a/~a.owl~%" (namespace r) (version-date-string r) (namespace r))
+    (format c "  replacement: ~areleases/~a/~a-merged.owl~%~%" (release-purl-base r) (version-date-string r) (namespace r))
+    ;; Fallthrough for anything else relative to release dir
+    (format c "-prefix: /~a/ ~%" (version-date-string r))
+    (format c "  replacement: ~areleases/~a/~%~%" (release-purl-base r) (version-date-string r))))
 
 
