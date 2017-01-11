@@ -1,5 +1,71 @@
+;; Typical usage:
+;; (make-release  "iao" "~/repos/information-artifact-ontology/src/ontology/iao.owl"
+;;               :when 3692716953
+;;               :additional-products '("ontology-metadata.owl" "iao-main"))
+;;
+;; Arguments:
+;; First argument is namespace. It is used in defining purls.
+;;
+;; Second argument is location of top-level ontology that will be merged
+;;
+;; :when is optional, defaulting to now = (get-universal-time). Passing an
+;;   explicit time is useful when you started release one day but
+;;   finished it on some other. Synonym :release-time
+;;
+;; :additional products name other ontology files parallel to the main
+;;   source. These will be given purls like http://purl.obolibrary.org/obo/<namespace>/<name of additional product>
+;;   as well as dated PURLs
+;;
+;; :version-date-string defaults to YYYY-MM-DD computed from when
+;;
+;; :release-purl-base is where the release files will be served from.
+;;   defaults to https://raw.githubusercontent.com/<repo owner>/<repo name>/master/
+;;   where <repo owner> and <repo name> are computed by call to git in the
+;;   directory of the source file argument.
+;;
+;; :release-directory-base defaults to ../../releases from directory of source file argument
+;;   This is where the build products are put
+;;
+;; :license-annotations is an alist with entries (<uri> value).
+;;   Default is to read a file called LICENSE in the same directory where
+;;   the first line is expected to be a URL, which becomes the value of
+;;   dc:license with subsequent lines being a textual description added
+;;   as a comment. Example: https://github.com/information-artifact-ontology/IAO/blob/master/src/ontology/LICENSE
+;;   
+;; :reasoner is the reasoner to use for checking consistency and adding inferences.
+;;   Default is fact++ (:factpp). Other choices :elk,:hermit,:pellet
+;;
+;; The global *current-release* is set to the release object.
+;; 
+;; Defaults are computed based on the following assumptions:
+;; Setup is, starting at repo root, /releases/<date>/<release files> /src/ontology/
+;; PURLs are based at purl.obolibrary.org/obo/<namespace>...
+;; Versioned PURLs are of the form purl.obolibrary.org/obo/<namespace>/<date>/...
+;; Version control is via git
+;; Release files served from github
+;; If a /dev/ version is published then each ontology purl.obolibrary.org/obo/dev/xxx.owl must have a
+;;   versionIRI in the source should be purl.obolibrary.org/obo/dev/xxx.owl  for ontologyIRI 
+;;   purl.obolibrary.org/obo/xxx.owl
+
+;; A release consists of:
+;;   - A  merged/reasoned version of the ontology copied to the release directory
+;;     called <namespace>-merged.owl, served at http://purl.obolibrary.org/obo/<namespace>.owl
+;;   - The unmerged/unreasoned version served at http://purl.obolibrary.org/obo/<namespace>/<namespace>-stated.owl
+;;   - Each additional product served at http://purl.obolibrary.org/obo/<namespace>/<product>.owl
+;;   - versioned purls for each of the above and imports at http://purl.obolibrary.org/obo/<namespace>/<date>/<filename>.owl
+;;   - The original ontology, local imports, and external imports without a version IRI copied
+;;     to the release directory and given a dated purl in the ontology's namespace
+;;   - OntologyIRIs and VersionIRIs for the stated version and its imports in the release directory
+;;      rewritten to use dated PURLs.
+;;   - A catalog-v001.xml file in the release directory to tell protege how to load the release
+;;   - A file purls.yml in the release directory with lines to copy to the purl.obolibrary.org
+;;       configuration file
+;; Accessing a dated PURL will always get the same results, assuming the targets of dated PURLs aren't
+;;  changed (which they shouldn't be)
+
+;; Implementation:
 ;; Rerun the ontofox script to update externals (todo)
-;; Load an ontology, merge all axioms into one ontology. (done)
+;; Load the ontology, merge all axioms into one ontology. (done)
 ;; Run reasoner. Add inferred subclass axioms.  (done)
 :; Do a little materialization.  (todo)
 ;; Copy the ontology annotations from the top ontology (not the imports)  (done)
@@ -8,11 +74,24 @@
 ;; Add imported-from annotations to the imported ontologies (done)
 ;; Write the merged ontology to the release directory (done)
 ;; Copy our own imports and others' unversioned imports to the release directory (done)
-;; Add versionIRIs and rewrite imports to used them (done)
-;; Add a note saying how this was created (done)
-;; Write out a catalog-v001.xml because protege can't find ontologies in front of its nose (todo)
-;; Write out what will be needed to be added to the the PURL config (todo)
+;; Add versionIRIs and rewrite imports to use them (done)
+;; Add an ontology annotation saying how this was created (done)
+;; Write out a catalog-v001.xml because protege can't find ontologies in front of its nose (done)
+;; Write out what will be needed to be added to the the PURL config (purls.yml in release dir) (done)
 ;; Write out some basic facts / release notes template (todo)
+;;
+;; Ideas for future:
+;;  - subclasses for projects hosted at sourceforge, gitlab
+;;  - products that are materialized sufficiently to get reasonable results
+;;      when queried using SPARQL
+;;  - Other variants people tend to use - subsets, no axioms
+;;  - OBO product
+;;  - package LSW so the build can be specified by a maven .pom
+;;
+;; Related:
+;;  - http://www.obofoundry.org/id-policy.html
+;;  - http://obofoundry.org/principles/fp-000-summary.html
+;;  - https://github.com/ontodev/robot
 
 (defclass foundry-release ()
   ((ontology-source-file :accessor ontology-source-file :initarg :ontology-source-file)
@@ -53,14 +132,15 @@
 (defvar *current-release* )
 
 ;; this is the main call
-(defun make-release (namespace source-file  &rest initargs &key (when (get-universal-time)) &allow-other-keys)
-  (remf initargs :when)
+(defun make-release (namespace source-file  &rest initargs &key (when (get-universal-time)) hold  &allow-other-keys)
+  (remf initargs :when) (remf initargs :hold)
   (setq *current-release* (apply 'make-instance 'foundry-release
 				 :release-time when
 				 :ontology-source-file source-file
 				 :namespace namespace
 				 initargs))
-  (do-release *current-release*))
+  (unless hold
+    (do-release *current-release*)))
 
 (defmethod do-release  ((r foundry-release))
   (create-merged-ontology r)
