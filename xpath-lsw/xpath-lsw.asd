@@ -11,23 +11,24 @@
 
 (in-package :asdf)
 
-(defsystem :xpath
+(defsystem :xpath-lsw
   :name ""
   :author "Alan Ruttenberg"
   :licence "BSD"
   :components
   ((:module jars
-	    :pathname ""
-	    :serial t
-	    :components
-	    ((:jar-directory "xalan-j_2_7_1")
-	    ))
+    :pathname ""
+    :components
+    ((:mvn "xalan/xalan/2.7.1")
+     ))
    (:module lisp
-	    :pathname ""
-	    :components
-	    ((:file "xpath")
-	     (:file "loop")
-	     ))))
+    :pathname ""
+    :serial t
+    :components
+    ((:file "xpath")
+     (:file "loop")
+     )
+    :depends-on (jars))))
 
 ;;;; eof
  
