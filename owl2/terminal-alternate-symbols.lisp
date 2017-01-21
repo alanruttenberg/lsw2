@@ -87,7 +87,7 @@
     table))
 
 
-(defvar *owl2-manchesterish-function-syntax-terms*
+(defparameter *owl2-manchesterish-function-syntax-terms*
  '((objectintersectionof and)
    (objectunionof or)
    (objectsomevaluesfrom some)
@@ -95,11 +95,14 @@
    (objecthasvalue value)
    (equivalentclasses =)
    (subclassof <)
+   (subobjectpropertyof p<)
+   (object-property-chain o)
    (objectmincardinality min)
    (classassertion type)
    (objectmaxcardinality max)
    (objectexactcardinality exactly)
-   (objectcomplementof not)))
+   (objectcomplementof not)
+   (declaration is)))
    
 (defun add-manchesterish-abbreviations ()
   "Write this:
@@ -126,3 +129,14 @@
 	   (setf (gethash (intern (string abbrev) 'keyword) *owl2-vocabulary-forms*) (list base))))
 
 (add-manchesterish-abbreviations)
+
+
+
+
+
+
+
+
+
+
+
