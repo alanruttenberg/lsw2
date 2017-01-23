@@ -78,7 +78,8 @@
   (if (uri-p source) (setq source (uri-full source)))
   (#"setProperty" 'system "jdk.xml.entityExpansionLimit" "100000000")
   (#"setProperty" 'system "entityExpansionLimit" "100000000") ; avoid low limit as we are not worried about security
-  (#"setProperty" 'system "factpp.jni.path" *factpp-jni-path*)
+  (when (boundp '*factpp-natives*)
+    (#"setProperty" 'system "factpp.jni.path" *factpp-jni-path*))
   (let ((mapper nil)
 	(uri nil))
     (setq source (if (java-object-p source) (#"toString" source) source))
@@ -324,14 +325,14 @@
   (instantiate-reasoner ont reasoner profile))
 
 (defun get-reasoner-factory (ont)
-  (#"setProperty" 'system "factpp.jni.path" *factpp-jni-path*)
+  (when (boundp '*factpp-natives*)
+    (#"setProperty" 'system "factpp.jni.path" *factpp-jni-path*))
   (or (v3kb-reasoner-factory ont)
       (setf (v3kb-reasoner-factory ont)
 	    (ecase (or (v3kb-default-reasoner ont) *default-reasoner*)
 	      (:hermit (new "org.semanticweb.HermiT.Reasoner$ReasonerFactory"))
 	      ((:pellet :pellet-sparql) (new 'com.clarkparsia.pellet.owlapiv3.PelletReasonerFactory))
 	      (:factpp   
-	       (#"setProperty" 'system "factpp.jni.path" *factpp-jni-path*)
 	       (new 'uk.ac.manchester.cs.factplusplus.owlapiv3.FaCTPlusPlusReasonerFactory))
 	      (:elk  (new 'org.semanticweb.elk.owlapi.ElkReasonerFactory))
 	      (:jfact (new 'uk.ac.manchester.cs.jfact.JFactFactory))
@@ -341,7 +342,8 @@
     
 (defun instantiate-reasoner (ont  &optional (reasoner *default-reasoner*) (profile nil) (config nil))
   (apply-changes ont)
-  (#"setProperty" 'system "factpp.jni.path" *factpp-jni-path*)
+  (when (boundp '*factpp-natives*)
+    (#"setProperty" 'system "factpp.jni.path" *factpp-jni-path*))
   (unless (null reasoner)
     (unless (v3kb-reasoner ont)
       (setf (v3kb-default-reasoner ont) reasoner)

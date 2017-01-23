@@ -1,6 +1,10 @@
-(require 'asdf)
-
 (in-package :cl-user)
+(require 'asdf)
+(require :abcl-contrib)
+(require :abcl-asdf)
+(require :jss)
+(jss::ensure-compatibility)
+
 
 (defun register-all-asdf-sysdefs (directory) 
   "this would be easier if directory **/ worked"
@@ -57,10 +61,6 @@
 ;; http://abcl-dev.blogspot.com/2009/09/loading-fasls-from-jar-files.html
 ;; these shouldn't be here.
 
-
-(require :abcl-contrib)
-(require :jss)
-(jss::ensure-compatibility)
 
 (let ((*suppress-compiler-warnings* (not *load-verbose*)))
   (asdf::oos 'asdf::load-op 'patches :verbose *load-verbose*))
