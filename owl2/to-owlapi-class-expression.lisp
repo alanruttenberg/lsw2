@@ -92,8 +92,12 @@
       (#"getOWLObjectInverseOf" data-factory (#"getOWLObjectProperty" data-factory (to-iri (second arg))))
       (#"getOWLObjectProperty" data-factory (to-iri arg))))
 
+(defun to-owlapi-data-property-expression (arg data-factory)
+  (#"getOWLDataProperty" data-factory (to-iri arg)))
+
 (defun data-factory-constructor (arg)
-  (read-from-string (format nil "#\"getOWL~a\"" arg)))
+  (let ((normalized (third (gethash arg *owl2-vocabulary-forms*))))
+    (read-from-string (format nil "#\"getOWL~a\"" normalized))))
 
 (defun to-owlapi-literal (arg data-factory)
   (cond ((and (stringp arg) (find #\@ arg :test 'char=))
@@ -102,7 +106,7 @@
 	((stringp arg)
 	  (#"getOWLLiteral" data-factory arg))
 	((and (consp arg) (eq (car arg) :literal))
-	 (#"getOWLLiteral" data-factory (print1-to-string arg) (#"getOWLDataType" (to-iri (second arg)))))
+	 (#"getOWLLiteral" data-factory (princ-to-string arg) (#"getOWLDatatype" data-factory (to-iri (third arg)))))
 	((numberp arg)
 	 (#"getOWLLiteral" data-factory arg))
 	(t (error "don't understand literal ~s" arg))))
@@ -113,16 +117,13 @@
 (defun to-owlapi-number (arg data-factory)
   arg)
 
-(defun to-owlapi-data-range (arg data-factory)
-  arg)
-			
-
 ;; cut, paste, mod of to-owlapi-class-expression. I'm so embarassed.
 ;; This one slightly changes argument processing to be able to eat an
 ;; extra argument for facet restrictions.
 
 (defun to-owlapi-data-range (data-range data-factory)
-  (let ((patterns (find 'data-range *class-expression-syntax* :key 'car)))
+  (let ((patterns (find 'data-range *class-expression-syntax* :key 'car))
+	(arguments nil))
     (flet ((circular (list) (let ((list (copy-list list))) (setf (cdr (last list)) list))))
       (if (atom data-range)
 	  (#"getOWLDatatype" data-factory (to-iri data-range))
@@ -131,30 +132,69 @@
 		    (rest patterns)
 		    :test 'equalp
 		    :key 'car)
-
 	    ;; this loop is complicated because
 	    ;; a) There can be repeated arguments written as (* x)
 	    ;; b) If there are repeated arguments they need to be
 	    ;;    packaged up into a java set to pass to the constructor
-	    (loop with arguments = (rest data-range)
-	       for arg = (pop arguments) while arguments
-	       with accumulate-set = nil
-	       for argtype = (progn (when (consp (car argtypes))
+	    (progn
+	      (setq arguments (rest data-range))
+	      (loop with accumulate-set = nil
+		    while arguments
+		    for arg = (pop arguments)
+		    for argtype = (progn
+				    (when (consp (car argtypes))
 				      (setq argtypes (circular (rest (car argtypes))))
 				      (setq accumulate-set t))
 				    (prog1 (car argtypes) (setq argtypes (cdr argtypes))))
-	       for processed-arg = (ecase argtype
-				     (literal (to-owlapi-literal arg data-factory))
-				     (data-range (to-owlapi-data-range arg data-factory))
-				     (facet-restriction (to-owlapi-facet-restriction arg (pop arguments) data-factory)))
-	       if accumulate-set collect processed-arg into last-arg-set 
-	       else collect processed-arg into leading-args
-	       finally
-	       (return 
-		 (if accumulate-set 
-		     (apply (data-factory-constructor expression-type)
-			    data-factory
-			    (append leading-args (list (list-to-java-set last-arg-set))))
-		     (apply (data-factory-constructor expression-type)
-			    data-factory leading-args)))
-	       ))))))
+		    for processed-arg = (ecase argtype
+					  (literal (to-owlapi-literal arg data-factory))
+					  (data-range (to-owlapi-data-range arg data-factory))
+					  (facet-restriction (to-owlapi-facet-restriction arg (pop arguments) data-factory)))
+		    if accumulate-set collect processed-arg into last-arg-set 
+		      else collect processed-arg into leading-args
+		    finally
+		       (return 
+			 (if accumulate-set 
+			     (apply (data-factory-constructor expression-type)
+				    data-factory
+				    (append leading-args (list (list-to-java-set last-arg-set))))
+			     (apply (data-factory-constructor expression-type)
+				    data-factory leading-args)))
+		    )))))))
+
+
+(defun owlapi-axiom-constructor (axiom-type)
+  (let ((normalized (third (gethash axiom-type *owl2-vocabulary-forms*))))
+    (format nil "getOWL~aAxiom" normalized)))
+
+(defun to-owlapi-axiom (axiom ont)
+  (setq axiom (eval-uri-reader-macro axiom))
+  (let ((axiom-type (car (gethash (car axiom) *owl2-vocabulary-forms*)))
+	(df (v3kb-datafactory ont)))
+    (assert axiom-type (axiom-type) "Don't know how to translate axiom type ~a" (car axiom))
+    (case axiom-type
+      ((subclassof disjointclasses equivalentclasses) 
+       (apply 'jcall (owlapi-axiom-constructor axiom-type) df (mapcar (lambda(e)(to-class-expression e ont)) (cdr axiom))))
+      ((TransitiveObjectProperty AsymmetricObjectProperty
+			       SymmetricObjectProperty IrreflexiveObjectProperty
+			       ReflexiveObjectProperty InverseFunctionalObjectProperty
+			       FunctionalObjectProperty)
+       (jcall (owlapi-axiom-constructor axiom-type) df (to-owlapi-object-property-expression (cdr axiom))))
+      (FunctionalDataProperty
+	(jcall (owlapi-axiom-constructor axiom-type) df (to-owlapi-data-property-expression (second axiom) df)))
+      ((InverseObjectProperties DisjointObjectProperties EquivalentObjectProperties)
+       (apply 'jcall (owlapi-axiom-constructor axiom-type) df (mapcar (lambda(e)(to-owlapi-object-property-expression e ont)) (cdr axiom))))
+      ((SubDataPropertyOf EquivalentDataProperties DisjointDataProperties)
+       (apply 'jcall (owlapi-axiom-constructor axiom-type) df (mapcar (lambda(e)(to-owlapi-data-property-expression e df)) (cdr axiom))))
+      ((SubObjectPropertyOf EquivalentObjectProperties DisjointObjectProperties)
+       (apply 'jcall (owlapi-axiom-constructor axiom-type) df (mapcar (lambda(e)(to-owlapi-object-property-expression e df)) (cdr axiom))))
+      ((DataPropertyDomain  DataPropertyRange)
+       (jcall (owlapi-axiom-constructor axiom-type) df 
+	      (to-owlapi-data-property-expression (second axiom) df) 
+	      (to-owlapi-data-range (third axiom) df)))
+      ((ObjectPropertyDomain ObjectPropertyRange)
+       (jcall (owlapi-axiom-constructor axiom-type) df 
+	      (to-owlapi-object-property-expression (second axiom) df) 
+	      (to-owlapi-class-expression (third axiom) df)))
+      (t (error "don't know how to create owlapi for axiom ~a yet" axiom-type)))))
+

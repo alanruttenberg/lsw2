@@ -8,9 +8,9 @@
     (set-to-list (#"getExplanations" eg (subclassof-axiom !owl:Thing !owl:Nothing ontology) 2))))
 
 (defun explain-unsatisfiable-class (ontology class)  
-  (let* ((egf (#"createExplanationGeneratorFactory" 'ExplanationManager (get-reasoner-factory ontology)))
+  (let* ((egf (#"createExplanationGeneratorFactory" 'api.ExplanationManager (get-reasoner-factory ontology)))
 	 (eg (#"createExplanationGenerator" egf (v3kb-ont ontology))))
-    (set-to-list (#"getExplanations" eg (subclassof-axiom class !owl:Nothing ontology) 2))))
+    (mapcar 'justified-entailments (set-to-list (#"getExplanations" eg (subclassof-axiom class !owl:Nothing ontology) 2)))))
 
 (defun test-inconsistency-explanation ()
   (with-ontology ontology (:collecting t)
@@ -21,15 +21,37 @@
 	   (eg (#"createExplanationGenerator" egf (v3kb-ont ontology))))
       (mapcar 'justified-entailments (iterable-to-list (#"getExplanations" eg (subclassof-axiom !owl:Thing !owl:Nothing ontology) 2))))))
 
+(defparameter has-axiom-id-iri !<http://purl.obolibrary.org/obo/IAO_0010000>)
+
 ;; todo express in manchester with labels
-(defun justified-entailments (explanation)  
-  (let* ((manager (#"createOWLOntologyManager" 'OWLManager))
-	 (ontology (#"createOntology" manager (#"getAxioms" explanation)))
-	 (df (#"getOWLDataFactory" manager))
-	 (entailmentMarkerAnnotationProperty (#"getOWLAnnotationProperty" df (to-iri !<http://owl.cs.manchester.ac.uk/explanation/vocabulary#entailment>)))
-	 (entailmentAnnotation (#"getOWLAnnotation"  df entailmentMarkerAnnotationProperty (#"getOWLLiteral" df +true+))))
-    `(:entailment ,(#"toString" (#"getAxiomWithoutAnnotations" (#"getAnnotatedAxiom" (#"getEntailment" explanation) (#"singleton" 'Collections entailmentAnnotation) )))
-       :support ,@(mapcar #"toString" (set-to-list (#"getAxioms" explanation))))))
+(defun justified-entailments (explanation &optional (kb *default-kb*))
+  
+  (let* ((manager (if kb (v3kb-manager kb) (#"createOWLOntologyManager" 'OWLManager)))
+	 (df (if kb (v3kb-datafactory kb) (#"getOWLDataFactory" manager)))
+	 (entailmentMarkerAnnotationProperty (#"getOWLAnnotationProperty" df #"{explanation}.ENTAILMENT_MARKER_IRI"))
+	 (entailmentAnnotation (#"getOWLAnnotation"  df entailmentMarkerAnnotationProperty (#"getOWLLiteral" df +true+)))
+	 (axiom (#"getAxiomWithoutAnnotations"
+		 (#"getAnnotatedAxiom"
+		 (#"getEntailment" explanation) 
+		 (#"singleton" 'Collections entailmentAnnotation))))
+	 (entailment (axiom-to-lisp-syntax axiom))
+	 (explanation-axioms  (setq @ (set-to-list (#"getAxioms" explanation))))
+	 (support (mapcar 'axiom-to-lisp-syntax explanation-axioms)))
+    (loop for axiom in explanation-axioms
+	  (entity-annotations  has-axiom-id-iri 
+    
+    `(:entailment ,entailment
+      :support ,support
+      :signature ,(axioms-signature support))))
+
+(defun axioms-signature (axioms)
+  (let ((them nil)) 
+    ;; hack tree-walk - always return nil for remove
+    (tree-remove-if 
+     (lambda(e) (when (and (atom e) (not (symbolp e))) (pushnew e them)) nil)
+     axioms)
+    them))
+
 
 
 
