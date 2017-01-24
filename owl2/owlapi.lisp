@@ -381,9 +381,9 @@
 ;;	setPhysicalURIForOntology(OWLOntology ontology, java.net.URI physicalURI) 
 ;;          Overrides the current physical URI for a given ontology.
 
-(defun check-ontology (ont  &key classify reasoner (log "OFF") profile)
+(defun check-ontology (ont  &key classify reasoner (log "OFF") profile (show-progress t))
   (let ((reasoner (or reasoner (v3kb-default-reasoner ont) *default-reasoner*)))
-    (instantiate-reasoner ont reasoner profile)
+    (instantiate-reasoner ont reasoner profile (unless show-progress (new 'SimpleConfiguration (new 'NullReasonerProgressMonitor))))
     (when (or (eq reasoner :pellet) (eq reasoner :pellet-sparql))
       (pellet-log-level (#"getKB" (v3kb-reasoner ont)) log))
     ;;  (if classify (#"prepareReasoner" (v3kb-reasoner ont)))
