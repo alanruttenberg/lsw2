@@ -37,9 +37,6 @@
 	 (entailment (axiom-to-lisp-syntax axiom))
 	 (explanation-axioms  (setq @ (set-to-list (#"getAxioms" explanation))))
 	 (support (mapcar 'axiom-to-lisp-syntax explanation-axioms)))
-    (loop for axiom in explanation-axioms
-	  (entity-annotations  has-axiom-id-iri 
-    
     `(:entailment ,entailment
       :support ,support
       :signature ,(axioms-signature support))))

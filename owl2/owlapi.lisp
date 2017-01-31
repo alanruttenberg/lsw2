@@ -590,7 +590,8 @@
 (defun short-form-provider (kb &key
 			    (properties (list !rdfs:label))
 			    (language-preferences '("en"))
-			    (replace nil))
+				 (replace nil)
+				 (quoted-when-has-space t))
   (or (and (not replace) (v3kb-short-form-provider kb))
       (let* ((a-props (new 'java.util.arraylist)) 
 	     (langs (new 'java.util.arraylist))
@@ -607,7 +608,8 @@
 	  (#"put" prop->lang-none (get-entity prop :annotation-property kb) langs-none))
 	(let ((any-lang-provider (new 'owlapi.util.annotationvalueshortformprovider a-props prop->lang-none ontset
 				      (new 'simpleshortformprovider))))
-	  (#"setLiteralRenderer" any-lang-provider (new 'quotedStringAnnotationVisitor))
+	  (when quoted-when-has-space
+	    (#"setLiteralRenderer" any-lang-provider (new 'quotedStringAnnotationVisitor)))
 	  ;(jss::set-java-field any-lang-provider "quoteShortFormsWithSpaces" +true+)
 	  (let ((lang-specific-provider (new 'owlapi.util.annotationvalueshortformprovider a-props prop->lang ontset any-lang-provider)))
 	    (#"setLiteralRenderer" lang-specific-provider (new 'quotedStringAnnotationVisitor))
@@ -726,6 +728,16 @@
 	 (renderer (new 'FunctionalSyntaxObjectRenderer (v3kb-ont ont) writer)))
     (#"visit" renderer axiom)
     (#"toString" writer)))
+
+(defun latex-render-axiom (axiom &optional ont)
+  (let* ((writer (new 'stringwriter))
+	 (renderer (new 'org.semanticweb.owlapi.latex.renderer.LatexObjectVisitor
+			(new 'latexwriter writer)
+			(v3kb-datafactory (or ont (new-empty-kb !unused))))))
+    (when ont (#"setShortFormProvider" renderer (short-form-provider ont :quoted-when-has-space nil :replace t)))
+    (#"visit" renderer axiom)
+    (#"toString" writer)
+    ))
 
 (defun get-entity (uri type ont)
   (unless (v3kb-uri2entity ont)
