@@ -142,7 +142,7 @@
      do (setq forms (funcall hook forms)))
   (when forms
     (cond ((stringp (car forms))
-	   `((print ',(car forms) *trace-output*)
+	   `((pprint ',(car forms) *trace-output*) (princ " "*trace-output*)
 	     ,@(print-db-aux (cdr forms))))
 	  ((and (consp (car forms)) 
 		(consp (caar forms)) 
@@ -152,11 +152,11 @@
 	     (prin1 ,(car forms) *trace-output* )
 	       ,@(print-db-aux (cdr forms))))
 	  ((null (cdr forms))
-	   `((print ',(car forms) *trace-output*)
+	   `((pprint ',(car forms) *trace-output*)(princ " " *trace-output*)
 	     (let ((values (multiple-value-list ,(car forms))))
 	       (prin1 (car values) *trace-output*)
 	       (apply #'values values))))
-	  (t `((print ',(car forms) *trace-output*)
+	  (t `((pprint ',(car forms) *trace-output*) (princ " " *trace-output*)
 	       (prin1 ,(car forms) *trace-output*)
 	       ,@(print-db-aux (cdr forms)))))))
 
