@@ -215,6 +215,9 @@ calls, so you can get what you probably wanted: (type-of (car (eval-uri-reader-m
 	((consp form) (mapcar #'eval-uri-reader-macro form))
 	(t form)))
 
+(defun evurl (form)
+  (eval-uri-reader-macro form))
+
 (defparameter *uri-workaround-character-fixes* 
   (load-time-value
    (loop for fixme in '(#\& #\  #\( #\)  )
