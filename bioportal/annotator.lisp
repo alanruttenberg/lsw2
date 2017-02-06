@@ -1,15 +1,16 @@
-;; this is the key associated with the account "lsw". You might want to get your own key,
-;; by creating an account on bioportal.
+(defvar *bioportal-key* "6551953c-31bb-4189-91b5-f0733a251c61"
+  "this is the key associated with the account 'lsw'. You might want to get your own key, by creating an account on bioportal.")
 
-(defvar *bioportal-key* "6551953c-31bb-4189-91b5-f0733a251c61")
+(defvar *bioportal-cache* (asdf:system-relative-pathname 'lsw2 "bioportal-cache/"))
 
-(defun ncbo-annotate (text apikey &key (format "XML"))
-  (get-url "http://rest.bioontology.org/obs/annotator" 
+(defun ncbo-annotate (text apikey &key (format "json"))
+ (get-url "http://rest.bioontology.org/obs/annotator" 
 	   :post (append 
 		  (list 
 		   (list "apikey" apikey)
-		   (list "textToAnnotate" text))
-		  (when format (list (list "format" format))))))
+		   (list "text" text))
+		  (when format (list (list "format" format))))
+	   :accept "" ))
 
 (defun ncbo-get-signature (conceptid ontologyid &key (apikey *bioportal-key*) (format "XML"))
   (get-url (format nil "http://rest.bioontology.org/bioportal/concepts/~a?conceptid=~a&apikey=~a" ontologyid conceptid apikey)))
@@ -18,8 +19,8 @@
   (let ((sample "This protocol will evaluate patients with systemic lupus erythematosus (SLE) and their relatives")) 
    (xmls::parse (ncbo-annotate sample *bioportal-key* :format "XML"))))
 
-(defun ensure-cached-ontology-by-ncbi-localid (id &key (cachedir "lsw:bioportal-cache;") force)
-  (let ((fname (merge-pathnames "lsw:bioportal-cache;" (make-pathname :name id :type "owl"))))
+(defun ensure-cached-ontology-by-ncbi-localid (id &key (cachedir *bioportal-cache* force))
+  (let ((fname (merge-pathnames *bioportal-cache* (make-pathname :name id :type "owl"))))
     (ensure-directories-exist fname)
     (if (not (and (probe-file fname) (not force)))
 	(progn
@@ -45,7 +46,7 @@
 	 (or
 	  (gethash "39343.owl" *ontcache*)
 	  (progn
-	    (let* ((original (load-ontology "lsw:bioportal-cache;39343.owl")) ;; hehe, inconsistent. Unfortunately weakend doesn't like inconsistency either - unless new name?
+	    (let* ((original (load-ontology (merge-pathnames *bioportal-cache* "39343.owl"))) ;; hehe, inconsistent. Unfortunately weakend doesn't like inconsistency either - unless new name?
 		   (weakened (weaken-to-only-subclasses original (string (gensym)) :keep-class-assertions nil)))
 	      (instantiate-reasoner weakened :factpp) ; cause it's the fastest
 	      (setf (v3kb-weakened-from weakened) nil) ; free space of old ontology
