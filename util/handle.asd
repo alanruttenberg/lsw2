@@ -12,7 +12,7 @@
   :name "handle.net api"
   :author "Alan Ruttenberg"
   :components
-  ((:jar-file "handle" :pathname "lsw:extlib;handle.jar")
+  ((:mvn "org.dspace/handle")
    (:file "hdl"))
   )
 
