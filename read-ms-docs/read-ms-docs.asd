@@ -15,10 +15,12 @@
     :licence "BSD"
     :components
     ((:module jars 
-	      :serial t
 	      :pathname ""
 	      :components
-	      ((:jar-directory "apache-poi")))
+	      ((:mvn "org.apache.poi/poi/3.6")
+	       (:mvn "org.apache.poi/poi-scratchpad/3.6")
+	       (:mvn "org.apache.poi/poi-ooxml/3.6")
+	       (:mvn "org.apache.poi/poi-ooxml-schemas/3.6")))
      (:module files :pathname ""
 	      :depends-on (jars)
 	      :components
