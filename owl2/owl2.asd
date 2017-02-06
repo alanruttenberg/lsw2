@@ -64,4 +64,7 @@
 	    ))
   :depends-on (util xmls owl2libs-mvn))
 
+(defun test-owlapi ()
+  (prove::run #P"owl2:test-owlapi.lisp"))
+
 ;;;; eof

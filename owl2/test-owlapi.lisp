@@ -1,4 +1,5 @@
 (in-package :cl-user)
+(setq *read-time-uri* t)
 
 (with-ontology test-ontology ()
   ()
@@ -7,11 +8,10 @@
 	    (subobjectpropertyof !a !b)
 	    (object-property-domain !a !b)))
 	(*read-time-uri* t))
-	
     (prove:plan (length expressions))
     (loop for expression in expressions 
 	  do
-	     (eval `(prove:is-type (to-owlapi-axiom ',expression *test-ontology*) 'java-object)))))
+	     (eval `(prove:is-type (to-owlapi-axiom ',expression *default-kb*) 'java-object)))))
 
 (prove:finalize)
 
