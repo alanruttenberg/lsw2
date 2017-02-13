@@ -7,6 +7,9 @@
 
 (require :quicklisp-abcl)
 
+(unless (member 'ql:quickload sys::*module-provider-functions*)
+  (setq sys::*module-provider-functions*  (append sys::*module-provider-functions*  '(ql:quickload))))
+
 (ql:quickload 'owl2)
 (ql:quickload 'inspect)
   
