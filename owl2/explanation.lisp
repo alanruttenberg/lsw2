@@ -1,29 +1,20 @@
 ;; WIP see https://github.com/matthewhorridge/owlexplanation
 
-(find-java-class 'org.semanticweb.owl.explanation.impl.blackbox.checker.InconsistentOntologyExplanationGeneratorFactory)
-
-(defun explain-inconsistency (ontology)  
-  (let* ((egf (new 'InconsistentOntologyExplanationGeneratorFactory (get-reasoner-factory ontology) (new 'Long "10000"))) ;; milliseconds
+(defun explain-inconsistency (ontology &key (max-explanations 2)  (timeout 10000))
+  (let* ((egf (new 'InconsistentOntologyExplanationGeneratorFactory (get-reasoner-factory ontology) (new 'Long (prin1-to-string timeout)))) ;; milliseconds
 	 (eg (#"createExplanationGenerator" egf (v3kb-ont ontology))))
-    (set-to-list (#"getExplanations" eg (subclassof-axiom !owl:Thing !owl:Nothing ontology) 2))))
+    (mapcar 'justified-entailments (j2list (#"getExplanations" eg (subclassof-axiom !owl:Thing !owl:Nothing ontology) max-explanations)))))
 
-(defun explain-unsatisfiable-class (ontology class)  
-  (let* ((egf (#"createExplanationGeneratorFactory" 'api.ExplanationManager (get-reasoner-factory ontology)))
-	 (eg (#"createExplanationGenerator" egf (v3kb-ont ontology))))
-    (mapcar 'justified-entailments (set-to-list (#"getExplanations" eg (subclassof-axiom class !owl:Nothing ontology) 2)))))
-
-(defun test-inconsistency-explanation ()
-  (with-ontology ontology (:collecting t)
-      ((asq (subclassof !a !owl:Nothing )
-	    (subclassof !owl:Thing !a) ))
-    (setf (v3kb-default-reasoner ontology) :hermit)
-    (let* ((egf (new 'blackbox.checker.InconsistentOntologyExplanationGeneratorFactory (get-reasoner-factory ontology) (new 'Long "10000"))) ;; milliseconds
-	   (eg (#"createExplanationGenerator" egf (v3kb-ont ontology))))
-      (mapcar 'justified-entailments (iterable-to-list (#"getExplanations" eg (subclassof-axiom !owl:Thing !owl:Nothing ontology) 2))))))
+(defun explain-unsatisfiable-class (ontology class &key (max-explanations 2)  (timeout 10000))
+  (let* ((egf (#"createExplanationGeneratorFactory" 'api.ExplanationManager (get-reasoner-factory ontology))))
+    (let ((eg (#"createExplanationGenerator" egf (v3kb-ont ontology))))
+      ;; don't know why there isn't a constructor that takes timeout like with InconsistentOntologyExplanationGeneratorFactory
+      (let ((checkerfactory #"{eg}.checkerFactory"))
+	(setf #"{checkerfactory}.entailmentCheckTimeOutMS" (new 'Long (prin1-to-string timeout))))
+      (mapcar 'justified-entailments (set-to-list (#"getExplanations" eg (subclassof-axiom class !owl:Nothing ontology) max-explanations))))))
 
 (defparameter has-axiom-id-iri !<http://purl.obolibrary.org/obo/IAO_0010000>)
 
-;; todo express in manchester with labels
 (defun justified-entailments (explanation &optional (kb *default-kb*))
   
   (let* ((manager (if kb (v3kb-manager kb) (#"createOWLOntologyManager" 'OWLManager)))
