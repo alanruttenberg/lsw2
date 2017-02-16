@@ -57,14 +57,17 @@
 	     (:file "dl-query")
 	     (:file "hermit-debug")
 	     (:file "domain-and-range")
+	     (:fiel "short-form-providers")
 	     (:file "release")
 	     (:file "logger-control")
 	     )
 	    :depends-on (matcher basics)
 	    ))
-  :depends-on (util xmls owl2libs-mvn))
+  :depends-on (util xmls owl2libs-bundle))
 
-(defun test-owlapi ()
-  (prove::run #P"owl2:test-owlapi.lisp"))
+(let ((where (merge-pathnames "test-owlapi.lisp" (load-time-value *load-pathname*))))
+  (defun cl-user::test-owlapi()
+    (funcall (intern "QUICKLOAD" 'ql) :prove)
+    (funcall (intern "RUN" 'prove) where)))
 
 ;;;; eof

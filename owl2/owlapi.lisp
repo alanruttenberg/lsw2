@@ -587,40 +587,6 @@
     (check-ontology o t :reasoner :factpp )
     (format t "Factplusplus says descendants of owl:Thing are ~a~%" (descendants !owl:Thing o))))
 
-(defun short-form-provider (kb &key
-			    (properties (list !rdfs:label))
-			    (language-preferences '("en"))
-				 (replace nil)
-				 (quoted-when-has-space t))
-  (or (and (not replace) (v3kb-short-form-provider kb))
-      (let* ((a-props (new 'java.util.arraylist)) 
-	     (langs (new 'java.util.arraylist))
-	     (langs-none (new 'java.util.arraylist))
-	     (prop->lang (new 'hashmap))
-	     (prop->lang-none (new 'hashmap))
-	     (ontset (new 'owlapi.util.owlontologyimportsclosuresetprovider
-			  (v3kb-manager kb) (v3kb-ont kb))))
-	(dolist (lang language-preferences)
-	  (#"add" langs lang))
-	(dolist (prop properties)
-	  (#"add" a-props (get-entity prop :annotation-property kb))
-	  (#"put" prop->lang (get-entity prop :annotation-property kb) langs)
-	  (#"put" prop->lang-none (get-entity prop :annotation-property kb) langs-none))
-	(let ((any-lang-provider (new 'owlapi.util.annotationvalueshortformprovider a-props prop->lang-none ontset
-				      (new 'simpleshortformprovider))))
-	  (when quoted-when-has-space
-	    (#"setLiteralRenderer" any-lang-provider (new 'quotedStringAnnotationVisitor)))
-	  ;(jss::set-java-field any-lang-provider "quoteShortFormsWithSpaces" +true+)
-	  (let ((lang-specific-provider (new 'owlapi.util.annotationvalueshortformprovider a-props prop->lang ontset any-lang-provider)))
-	    (#"setLiteralRenderer" lang-specific-provider (new 'quotedStringAnnotationVisitor))
-	    ;; next isn't working yet
-	    ;(jss::set-java-field lang-specific-provider "quoteShortFormsWithSpaces" +true+)
-	    (setf (v3kb-short-form-provider kb) 
-		  (new 'owlapi.util.BidirectionalShortFormProviderAdapter (#"getImportsClosure" (v3kb-ont kb))
-		       lang-specific-provider)))))))
-
-
-
 (defun manchester-parser (kb)
   (or (v3kb-manchester-parser kb)
       (setf (v3kb-manchester-parser kb)
@@ -729,15 +695,22 @@
     (#"visit" renderer axiom)
     (#"toString" writer)))
 
-(defun latex-render-axiom (axiom &optional ont)
+(defun latex-render-axiom (axiom &optional (ont *default-kb*) short-form-provder)
   (let* ((writer (new 'stringwriter))
 	 (renderer (new 'org.semanticweb.owlapi.latex.renderer.LatexObjectVisitor
 			(new 'latexwriter writer)
 			(v3kb-datafactory (or ont (new-empty-kb !unused))))))
-    (when ont (#"setShortFormProvider" renderer (short-form-provider ont :quoted-when-has-space nil :replace t)))
-    (#"visit" renderer axiom)
+    (when ont (#"setShortFormProvider" renderer (or short-form-provder (short-form-provider ont :quoted-when-has-space nil :replace t))))
+    (#"setPrettyPrint" renderer t)
+    (#"visit" renderer (if (consp axiom) (to-owlapi-axiom axiom ont) axiom))
     (#"toString" writer)
     ))
+
+(defun latex-render-axiom-camel (axiom &optional (ont *default-kb*))
+    (latex-render-axiom-camel axiom ont (make-camel-case-short-form-provider ont)))
+
+(defun print-latex-rendered-axiom (axiom &optional (ont *default-kb*) (stream t))
+  (princ (latex-render-axiom axiom ont) stream))
 
 (defun get-entity (uri type ont)
   (unless (v3kb-uri2entity ont)
