@@ -15,7 +15,7 @@
      ("ObjectSomeValuesFrom" object-property-expression class-expression)
      ("ObjectSomeValuesFrom" object-property-expression class-expression)
      ("ObjectAllValuesFrom" object-property-expression class-expression)
-     ("ObjectHasValue" individual)
+     ("ObjectHasValue" object-property-expression individual)
      ("ObjectHasSelf" object-property-expression)
      ("ObjectMinCardinality" number object-property-expression class-expression )
      ("ObjectMaxCardinality" number object-property-expression class-expression )
@@ -39,7 +39,9 @@
 ;; data factory from the ontology object. The OWLAPI constructors are
 ;; named as the class expression heads with "getOWL" prepended.
 
-(defun to-owlapi-class-expression (class-expression data-factory)
+(defvar *scratch-ontology* (with-ontology scratch ()() scratch))
+
+(defun to-owlapi-class-expression (class-expression &optional (data-factory (v3kb-datafactory *scratch-ontology*)))
   (cond ((jclass-superclass-p (load-time-value (find-java-class 'org.semanticweb.owlapi.model.owlentity)) (jobject-class class-expression))
 	 class-expression)
 	((jclass-superclass-p (load-time-value (find-java-class 'org.semanticweb.owlapi.model.OWLEntity.owlclassexpression)) (jobject-class class-expression))
