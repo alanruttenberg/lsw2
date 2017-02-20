@@ -38,6 +38,7 @@
 	     (:file "obo")
 	     (:file "jdbc")
 	     (:file "collections-misc")
+	     (:file "print-java-object-by-class")
 	     (:file "jargrep")
 	     (:file "datetime")))))
 
