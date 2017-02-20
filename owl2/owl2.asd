@@ -64,7 +64,9 @@
 	    ))
   :depends-on (util xmls owl2libs-mvn))
 
-(defun test-owlapi ()
-  (prove::run #P"owl2:test-owlapi.lisp"))
+(defun cl-user::test-owlapi ()
+  (require :testing)
+  (let ((cl-user::*read-time-uri* t))
+    (funcall (intern "RUN" 'prove) #P"owl2:test-owlapi.lisp")))
 
 ;;;; eof
