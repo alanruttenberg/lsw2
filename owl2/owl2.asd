@@ -57,7 +57,7 @@
 	     (:file "dl-query")
 	     (:file "hermit-debug")
 	     (:file "domain-and-range")
-	     (:fiel "short-form-providers")
+	     (:file "short-form-providers")
 	     (:file "release")
 	     (:file "logger-control")
 	     )
