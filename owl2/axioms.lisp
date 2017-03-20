@@ -227,3 +227,18 @@
 			(incf count)))))))))
 
   
+
+(defun ppax (thing)
+  "Pretty print one or more axioms. Thing a URI get all relevant axioms. Thing a list of lists, print each as axiom. Thing a list, print just that axiom. Thing a string - should parse but don't yet"
+  (if (uri-p thing)
+      (setq thing (all-relevant-axioms thing)))
+  (if (not (consp (car thing)))
+      (ppax (list thing))
+      (loop for ax in thing
+	    do
+	       (pprint (replace-with-labels
+			(cond
+			  ((java-object-p ax) (axiom-to-lisp-syntax ax))
+			  ((consp ax) ax)
+			  ((uri-p ax) ax)
+			  ((string ax) (error "haven't implemented parsing of string in arbitrary syntax: '~a'" ax))))))))
