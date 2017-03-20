@@ -590,7 +590,7 @@
 (defun manchester-parser (kb)
   (or (v3kb-manchester-parser kb)
       (setf (v3kb-manchester-parser kb)
-	    (new 'ManchesterOWLSyntaxClassExpressionParser (v3kb-datafactory kb)
+	    (new 'parser.ManchesterOWLSyntaxClassExpressionParser (v3kb-datafactory kb)
 		 (new 'shortformentitychecker (short-form-provider kb))))))
 
 (defun parse-manchester-expression (kb string)
@@ -668,12 +668,11 @@
     maxdepth))
 
 (defun get-referencing-axioms (entity type ont &optional direct-only)
-  (mapcar 'manchester-expression-from-functionalish
-	  (mapcar 'axiom-to-lisp-syntax 
-		  (loop for (entity etype eont) in (gethash entity (v3kb-uri2entity ont))
-		     when (eq etype type)
-		     append (set-to-list (#"getAxioms" eont entity))
-		     unless direct-only append (set-to-list (#"getReferencingAxioms" eont entity))))))
+  (mapcar 'axiom-to-lisp-syntax 
+	  (loop for (entity etype eont) in (gethash entity (v3kb-uri2entity ont))
+		when (eq etype type)
+		  append (set-to-list (#"getAxioms" eont entity))
+		unless direct-only append (set-to-list (#"getReferencingAxioms" eont entity)))))
 
 (defun get-rendered-referencing-axioms (entity type ont &optional direct-only)
   (loop for (entity etype eont) in (gethash entity (v3kb-uri2entity ont))
