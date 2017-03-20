@@ -157,9 +157,11 @@
 		(make-uri nil actual))
 	      (error "Couldn't determine which URI was meant by '~a' in ~a" name instance))))))
 
-;; not the best method -should cache, but works.
+;; Assumes that we are using quoted string short form provider. So we add quotes if we get a string with a space
 (defmethod make-uri-from-label-source ((instance v3kb) name &optional actual)
-  (make-uri (#"toString" (#"getIRI" (to-class-expression (if (find #\space name) (concatenate 'string "'" name "'") name) instance)))))
+  (make-uri
+   (#"toString" (#"getIRI" (#"getEntity" (short-form-provider *snomed*) (if (find #\space name) (concatenate 'string "'" name "'") name))))
+   ))
 
 ;; well, cache here
 (defun label-uri (label &optional (ont *default-kb*))
@@ -268,8 +270,17 @@
   (let ((them nil)
 	(re (#"compile" 'regex.Pattern regex)))
     (each-entity-label ont (list !rdfs:label) 
-		       (lambda(ont prop label)
+		       (lambda(uri prop label)
 			      (when (#"matches" (#"matcher" re label)) (push label them)))
+		       )
+    them))
+
+(defun labels/terms-matching(regex &key (annotation-property !rdfs:label) (ont *default-kb*))
+  (let ((them nil)
+	(re (#"compile" 'regex.Pattern regex)))
+    (each-entity-label ont (list !rdfs:label) 
+		       (lambda(uri prop label)
+			      (when (#"matches" (#"matcher" re label)) (push (list uri label)  them)))
 		       )
     them))
 
