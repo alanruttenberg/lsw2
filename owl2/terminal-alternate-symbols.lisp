@@ -130,13 +130,19 @@
 
 (add-manchesterish-abbreviations)
 
-
-
-
-
-
-
-
-
-
-
+(defun all-owl2-term-alternatives (term)
+  (loop with q = (list term)
+	for top = (pop q)
+	for next =  (gethash top  *owl2-vocabulary-forms*)
+	for manch = (second (assoc top *owl2-manchesterish-function-syntax-terms*))
+	for keymanch = (and manch (intern manch 'keyword))
+	until (null top)
+	collect top into them
+	do (loop for candidate in (list (car next) (second next) (fourth next)
+					manch keymanch)
+		 unless (or (null candidate)
+			    (member candidate them :test 'equal) ; seen it already
+			    (member candidate q :test 'equal)) ; already on the q
+		   do 
+		      (setq q (append q (list candidate))))
+	finally (return them)))
