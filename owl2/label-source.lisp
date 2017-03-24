@@ -159,9 +159,11 @@
 
 ;; Assumes that we are using quoted string short form provider. So we add quotes if we get a string with a space
 (defmethod make-uri-from-label-source ((instance v3kb) name &optional actual)
-  (make-uri
-   (#"toString" (#"getIRI" (#"getEntity" (short-form-provider *snomed*) (if (find #\space name) (concatenate 'string "'" name "'") name))))
-   ))
+  
+  (setq name (#"replaceAll" name "'" "''")) ;; idiosyncracy of provider. They don't really need to quote it when it isn't the first or last of string, but hey.
+  (let  ((found (#"getEntity" (short-form-provider *snomed*) (if (find #\space name) (concatenate 'string "'" name "'") name))))
+    (assert found (name) "Didn't find term called ~a in ~a" name instance)
+    (make-uri (#"toString" (#"getIRI" found)))))
 
 ;; well, cache here
 (defun label-uri (label &optional (ont *default-kb*))
