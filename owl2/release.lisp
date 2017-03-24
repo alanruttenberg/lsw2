@@ -108,6 +108,7 @@
    (phases :accessor phases :initarg :phases :initform nil)
    (versioned-uri-map :accessor versioned-uri-map :initarg :versioned-uri-map)
    (additional-products :accessor additional-products :initarg :additional-products)
+   (inferred-axiom-types :accessor inferred-axiom-types :initarg :inferred-axiom-types)
    ))
 
 (setq last-kbd-macro "\213\C-y :accessor \C-y :initarg :\C-y\C-n\C-a\C-f\C-f\C-f")
@@ -138,6 +139,7 @@
 				 :release-time when
 				 :ontology-source-file source-file
 				 :namespace namespace
+				 :inferred-axiom-types (set-difference *all-inferred-axiom-types* '(:disjoint-classes :class-assertions :object-property-characteristics :sub-object-properties))
 				 initargs))
   (unless hold
     (do-release *current-release*)))
@@ -321,8 +323,11 @@
 	  for ont = (getf disp :ontology)
 	  do (each-axiom ont (lambda(ax) (add-axiom ax destont)) nil))
     (log-progress r "Adding inferences")
-    (add-inferred-axioms source :to-ont destont :types
-			 (set-difference *all-inferred-axiom-types* '(:disjoint-classes :class-assertions :object-property-characteristics)))
+;    (setq @ 
+;    (add-inferred-axioms source :types
+;			 (list :sub-object-properties)))
+;    (break)
+    (add-inferred-axioms source :to-ont destont :types (inferred-axiom-types r))
     (when license-annotations (log-progress r "Adding license"))
     (dolist (a license-annotations) (add-ontology-annotation a destont))
     (let ((dest (merged-ontology-pathname r)))
