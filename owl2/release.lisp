@@ -322,11 +322,20 @@
 	  do (each-axiom ont (lambda(ax) (add-axiom ax destont)) nil))
     (log-progress r "Adding inferences")
     (add-inferred-axioms source :to-ont destont :types
-			 (set-difference *all-inferred-axiom-types* '(:disjoint-classes :class-assertions)))
+			 (set-difference *all-inferred-axiom-types* '(:disjoint-classes :class-assertions :object-property-characteristics)))
     (when license-annotations (log-progress r "Adding license"))
     (dolist (a license-annotations) (add-ontology-annotation a destont))
     (let ((dest (merged-ontology-pathname r)))
-      (to-owl-syntax destont :rdfxml dest))))
+      (to-owl-syntax destont :rdfxml dest))
+    (multiple-value-bind (res errorp) (ignore-errors (check-ontology destont))
+      (assert (not errorp) (destont) "Hey! The merged ontology (~a) has an error during the consistency test but the original didn't!~%~a" (merged-ontology-pathname r) errorp)
+      (unless errorp
+	(assert (check-ontology destont) (destont)
+		"Hey! The merged ontology (~a) is inconsistent but the original wasn't!~%~a")
+	(assert (null (unsatisfiable-classes destont)) (destont) 
+		"Hey! The merged ontology (~a) has unsatisfiable classes but the original didn't!~%~a"
+		(merged-ontology-pathname r) (replace-with-labels (unsatisfiable-classes destont) destont))))
+    ))
 
 (defun make-v3kb-facade (ontology-path)
   (let ((manager (#"createOWLOntologyManager" 'org.semanticweb.owlapi.apibinding.OWLManager)))
