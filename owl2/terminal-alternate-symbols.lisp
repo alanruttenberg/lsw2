@@ -5,7 +5,7 @@
 
 (defparameter *owl2-vocabulary-forms*
   (let ((table (make-hash-table :test 'equalp)))
-    (loop for (un worded &optional third) in
+    (loop for (un worded third) in
 	 '((annotation annotation)
 	   (annotationassertion annotation-assertion)
 	   (annotationproperty annotation-property)
