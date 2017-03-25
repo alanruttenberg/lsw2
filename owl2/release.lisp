@@ -35,6 +35,13 @@
 ;; :reasoner is the reasoner to use for checking consistency and adding inferences.
 ;;   Default is fact++ (:factpp). Other choices :elk,:hermit,:pellet
 ;;
+;; :inferred-axiom-types is a list of types from *all-inferred-axiom-types* describing the kinds of inferences that
+;; should be added to the destination ontology
+;;
+;; :collect-inferred-axioms? if t creates a hash table (inferred-axioms-by-type <release>) with the keys from the value
+;; of :inferred-axiom-types and values being ontology java objects with the inferred axioms. You can display these using
+;; (display-inferences <release> <type)
+;;
 ;; The global *current-release* is set to the release object.
 ;; 
 ;; Defaults are computed based on the following assumptions:
@@ -96,7 +103,8 @@
 (defclass foundry-release ()
   ((ontology-source-file :accessor ontology-source-file :initarg :ontology-source-file)
    (project-root-directory :accessor project-root-directory :initarg :project-root-directory)
-   (ontology :accessor ontology :initarg :ontology)
+   (source-ontology :accessor source-ontology :initarg :source-ontology)
+   (built-ontology :accessor built-ontology)
    (reasoner :accessor reasoner :initarg :reasoner :initform :factpp)
    (namespace :accessor namespace :initarg :namespace)
    (release-time :accessor release-time :initarg :release-time )
@@ -108,10 +116,14 @@
    (phases :accessor phases :initarg :phases :initform nil)
    (versioned-uri-map :accessor versioned-uri-map :initarg :versioned-uri-map)
    (additional-products :accessor additional-products :initarg :additional-products)
-   (inferred-axiom-types :accessor inferred-axiom-types :initarg :inferred-axiom-types)
+   (inferred-axiom-types :accessor inferred-axiom-types :initarg :inferred-axiom-types 
+			 :initform *default-inferred-axiom-types*)
+   (collect-inferred-axioms? :accessor collect-inferred-axioms? :initarg :collect-inferred-axioms?)
+   (inferred-axioms-by-type :accessor inferred-axioms-by-type :initform (make-hash-table))
    ))
 
-(setq last-kbd-macro "\213\C-y :accessor \C-y :initarg :\C-y\C-n\C-a\C-f\C-f\C-f")
+(defvar *default-inferred-axiom-types* 
+  (set-difference *all-inferred-axiom-types* '(:disjoint-classes :class-assertions :object-property-characteristics :sub-object-properties)))
 
 
 (defmethod initialize-instance ((r foundry-release) &rest initiargs)
@@ -139,7 +151,6 @@
 				 :release-time when
 				 :ontology-source-file source-file
 				 :namespace namespace
-				 :inferred-axiom-types (set-difference *all-inferred-axiom-types* '(:disjoint-classes :class-assertions :object-property-characteristics :sub-object-properties))
 				 initargs))
   (unless hold
     (do-release *current-release*)))
@@ -279,20 +290,20 @@
   (apply 'format *debug-io* format-string format-args)
   (force-output *debug-io*))
 
-(defmethod ontology :around ((r foundry-release))
-  (if (slot-boundp r 'ontology)
+(defmethod source-ontology :around ((r foundry-release))
+  (if (slot-boundp r 'source-ontology)
       (call-next-method)
-      (setf (ontology r) (init-ontology r))))
+      (setf (source-ontology r) (init-ontology r))))
 
 (defmethod init-ontology ((r foundry-release))
   (log-progress r  "Loading ontology")
-  (let ((ontology (load-ontology (ontology-source-file r))))
-    (instantiate-reasoner ontology (reasoner r) nil
+  (let ((source-ontology (load-ontology (ontology-source-file r))))
+    (instantiate-reasoner source-ontology (reasoner r) nil
 			  (new 'SimpleConfiguration (new 'NullReasonerProgressMonitor)))
     (log-progress r  "Checking consistency and classifying")
-    (assert (check-ontology ontology :classify t) () "Ontology is inconsistent")
-    (assert (not (unsatisfiable-classes ontology)) () "Ontology has unsatisfied classes")
-    ontology))
+    (assert (check-ontology source-ontology :classify t) () "Ontology is inconsistent")
+    (assert (not (unsatisfiable-classes source-ontology)) () "Ontology has unsatisfied classes")
+    source-ontology))
 
 (defmethod copy-ontology-annotations ((r foundry-release) source dest &optional filter)
   (loop for annotation in (jss::j2list (#"getAnnotations" (v3kb-ont source)))
@@ -310,10 +321,11 @@
   (merge-pathnames (format nil "~a-merged.owl" (namespace r)) (ensure-release-dir r)))
 
 (defmethod create-merged-ontology ((r foundry-release))
-  (let* ((source (ontology r))
+  (let* ((source (source-ontology r))
 	 (destont (new-empty-kb (make-uri (format nil "http://purl.obolibrary.org/obo/~a.owl" (namespace r)))))
 	 (dispositions (dispositions r))
 	 (license-annotations (license-annotations r)))
+    (setf (built-ontology r) destont)
     (copy-ontology-annotations r source destont (lambda(prop) (not (eq prop !owl:versionIRI))))
     (note-ontologies-merged r destont)
     (add-ontology-annotation `(,!owl:versionIRI ,(make-versioniri (namespace r) (version-date-string r)))  destont)
@@ -323,11 +335,12 @@
 	  for ont = (getf disp :ontology)
 	  do (each-axiom ont (lambda(ax) (add-axiom ax destont)) nil))
     (log-progress r "Adding inferences")
-;    (setq @ 
-;    (add-inferred-axioms source :types
-;			 (list :sub-object-properties)))
-;    (break)
     (add-inferred-axioms source :to-ont destont :types (inferred-axiom-types r))
+    (when (collect-inferred-axioms? r)
+      (loop for type in (inferred-axiom-types r)
+	    for inferred = (add-inferred-axioms source :types (list type))
+	    do (setf (gethash type (inferred-axioms-by-type r)) inferred)))
+		       
     (when license-annotations (log-progress r "Adding license"))
     (dolist (a license-annotations) (add-ontology-annotation a destont))
     (let ((dest (merged-ontology-pathname r)))
@@ -341,6 +354,12 @@
 		"Hey! The merged ontology (~a) has unsatisfiable classes but the original didn't!~%~a"
 		(merged-ontology-pathname r) (replace-with-labels (unsatisfiable-classes destont) destont))))
     ))
+
+(defmethod display-inferences ((r foundry-release) type)
+  (let ((*default-kb* (built-ontology r)))
+    (if (gethash type (inferred-axioms-by-type r))
+	(each-axiom (gethash type (inferred-axioms-by-type r)) 'ppax)
+	(princ "Didn't compute ~a inferences"))))
 
 (defun make-v3kb-facade (ontology-path)
   (let ((manager (#"createOWLOntologyManager" 'org.semanticweb.owlapi.apibinding.OWLManager)))
@@ -384,7 +403,7 @@
    nil if we're not going to copy it) the ontologyiri the versioniri and
    where the import was loaded from"
   (loop with date = (version-date-string r)
-	for (loaded-from uri ont) in (loaded-documents (ontology r))
+	for (loaded-from uri ont) in (loaded-documents (source-ontology r))
 	for id = (#"getOntologyID" ont)
 	for ontologyiri = (#"toString" (#"get" (#"getOntologyIRI" id)))
 	for versioniri = (ignore-errors (#"toString" (#"get" (#"getVersionIRI" id))))
