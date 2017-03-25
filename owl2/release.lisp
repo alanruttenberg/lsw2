@@ -123,7 +123,9 @@
    ))
 
 (defvar *default-inferred-axiom-types* 
-  (set-difference *all-inferred-axiom-types* '(:disjoint-classes :class-assertions :object-property-characteristics :sub-object-properties)))
+  (set-difference *all-inferred-axiom-types*
+		  '(:disjoint-classes :class-assertions :object-property-characteristics :sub-object-properties)
+		  :data-property-characteristics :inverse-properties :equivalent-data-properties))
 
 
 (defmethod initialize-instance ((r foundry-release) &rest initiargs)
@@ -355,11 +357,16 @@
 		(merged-ontology-pathname r) (replace-with-labels (unsatisfiable-classes destont) destont))))
     ))
 
-(defmethod display-inferences ((r foundry-release) type)
+(defmethod display-inferences ((r foundry-release) &optional type)
   (let ((*default-kb* (built-ontology r)))
-    (if (gethash type (inferred-axioms-by-type r))
-	(each-axiom (gethash type (inferred-axioms-by-type r)) 'ppax)
-	(princ "Didn't compute ~a inferences"))))
+    (if type
+	(if (gethash type (inferred-axioms-by-type r))
+	    (each-axiom (gethash type (inferred-axioms-by-type r)) 'ppax)
+	    (princ "Didn't compute ~a inferences"))
+	(maphash (lambda (type ignore) 
+		   (format t "~%~%Inferences of type ~s" type)
+		   (display-inferences r type))
+		 (inferred-axioms-by-type r)))))
 
 (defun make-v3kb-facade (ontology-path)
   (let ((manager (#"createOWLOntologyManager" 'org.semanticweb.owlapi.apibinding.OWLManager)))
