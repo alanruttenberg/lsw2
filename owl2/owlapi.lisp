@@ -512,7 +512,7 @@
 	  when value do (return-from entity-label
 		       (if (jclass-superclass-p (find-java-class "OWLLiteral") (jobject-class value))
 			   (cond ((#"isRDFPlainLiteral" value) (#"getLiteral" value))
-				     (t value))
+				 ((t (#"getLiteral" value))))
 			   value
 			   ))))))
 
