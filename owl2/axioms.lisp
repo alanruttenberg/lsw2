@@ -232,8 +232,10 @@
   "Pretty print one or more axioms. Thing a URI get all relevant axioms. Thing a list of lists, print each as axiom. Thing a list, print just that axiom. Thing a string - should parse but don't yet"
   (if (uri-p thing)
       (setq thing (all-relevant-axioms thing)))
-  (if (not (consp (car thing)))
-      (ppax (list thing))
+  (if (not (consp thing))
+      (if (java-object-p thing)
+	  (ppax (list (axiom-to-lisp-syntax thing)))
+	  (ppax (list thing)))
       (loop for ax in thing
 	    do
 	       (pprint (replace-with-labels
