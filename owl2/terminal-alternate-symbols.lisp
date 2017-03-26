@@ -83,7 +83,9 @@
 	 (setf (gethash worded table) entry)
 	 (setf (gethash capitalized table) entry)
 	 (and third (setf (gethash third table) entry))
-	 )
+	  )
+    ;; PATCH
+    (setf (gethash "InverseOf" table) '(objectinverseof object-inverse-of "ObjectInverseOf" nil))
     table))
 
 

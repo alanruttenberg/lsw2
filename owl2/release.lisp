@@ -118,14 +118,14 @@
    (additional-products :accessor additional-products :initarg :additional-products)
    (inferred-axiom-types :accessor inferred-axiom-types :initarg :inferred-axiom-types 
 			 :initform *default-inferred-axiom-types*)
-   (collect-inferred-axioms? :accessor collect-inferred-axioms? :initarg :collect-inferred-axioms?)
+   (collect-inferred-axioms? :accessor collect-inferred-axioms? :initarg :collect-inferred-axioms? :initform nil)
    (inferred-axioms-by-type :accessor inferred-axioms-by-type :initform (make-hash-table))
    ))
 
 (defvar *default-inferred-axiom-types* 
   (set-difference *all-inferred-axiom-types*
-		  '(:disjoint-classes :class-assertions :object-property-characteristics :sub-object-properties)
-		  :data-property-characteristics :inverse-properties :equivalent-data-properties))
+		  '(:disjoint-classes :class-assertions :object-property-characteristics :sub-object-properties
+		    :data-property-characteristics :inverse-properties :equivalent-data-properties)))
 
 
 (defmethod initialize-instance ((r foundry-release) &rest initiargs)
@@ -155,7 +155,8 @@
 				 :namespace namespace
 				 initargs))
   (unless hold
-    (do-release *current-release*)))
+    (do-release *current-release*))
+  *current-release*)
 
 (defmethod do-release  ((r foundry-release))
   (create-merged-ontology r)
