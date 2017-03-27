@@ -19,7 +19,7 @@
 
 (prove:is 
  (with-ontology f () 
-   ((asq (< (annotation !this !one) !a !b) (= !b (not !a)))) 
+   ((asq (subclassof (annotation !this !one) !a !b) (= !b (not !a)))) 
    (check-ontology f)
    (explain-unsatisfiable-class f !a))
  (evurl '((:entailment (sub-class-of !ex:a !owl:Nothing) 
@@ -38,5 +38,64 @@
       :signature (!owl:Nothing !ex:a !owl:Thing)))))
 
 (prove:finalize)
+
+(prove:plan 6)
+
+(prove::is
+ (with-ontology f () 
+   ((asq  (declaration (object-property !c))
+	  (declaration (object-property !d))
+	  (equivalent-object-properties !c !d)))
+   (instantiate-reasoner f :hermit :config (quiet-reasoner-config))
+   (property-equivalents !c))
+ (list  !c !d))
+
+(prove::is
+ (with-ontology f () 
+   ((asq  (declaration (data-property !c))
+	  (declaration (data-property !d))
+	  (equivalent-data-properties !c !d)))
+   (instantiate-reasoner f :hermit :config (quiet-reasoner-config))
+   (property-equivalents !c))
+ (list  !c !d))
+
+(prove::is
+ (with-ontology f () 
+   ((asq (declaration (object-property !a))
+	 (declaration (object-property !b))
+	 (sub-object-property-of !a !b)))
+   (instantiate-reasoner f :hermit :config (quiet-reasoner-config))
+   (property-parents !a))
+ (list !b))
+
+(prove::is
+ (with-ontology f () 
+   ((asq (declaration (object-property !a))
+	 (declaration (object-property !b))
+	 (sub-object-property-of !a !b)))
+   (instantiate-reasoner f :hermit :config (quiet-reasoner-config))
+   (property-ancestors !a))
+ (list !b))
+
+(prove::is
+ (with-ontology f () 
+   ((asq (declaration (object-property !a))
+	 (declaration (object-property !b))
+	 (sub-object-property-of !a !b)))
+   (instantiate-reasoner f :hermit :config (quiet-reasoner-config))
+   (property-children !b))
+ (list !a))
+
+(prove::is
+ (with-ontology f () 
+   ((asq (declaration (object-property !a))
+	 (declaration (object-property !b))
+	 (sub-object-property-of !a !b)))
+   (instantiate-reasoner f :hermit :config (quiet-reasoner-config))
+   (property-descendants !b))
+ (list !a))
+
+(prove:finalize)
+
 
 

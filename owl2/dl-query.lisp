@@ -14,7 +14,7 @@
   (class-query class kb (lambda(ce reasoner) (#"getSuperClasses" reasoner ce t))))
 
 (defun property-parents (property &optional (kb *default-kb*))
-  (property-query property kb (lambda(pe reasoner)  (#"getSuperObjectProperties" reasoner pe t))))p
+  (property-query property kb (lambda(pe reasoner)  (#"getSuperObjectProperties" reasoner pe t))))
 
 (defun ancestors (class &optional (kb *default-kb*))
   (class-query class kb (lambda(ce reasoner) (setq @ reasoner)(#"getSuperClasses" reasoner ce nil))))
@@ -30,6 +30,11 @@
   
 (defun direct-instances (class &optional (kb *default-kb*))
   (class-query class kb (lambda(ce reasoner) (#"getInstances" reasoner ce t))))
+
+(defun property-equivalents (property &optional (kb *default-kb*))
+  (property-query property kb 
+		  (lambda(pe reasoner) 
+		    (#"getEquivalentObjectProperties" reasoner pe))))
 
 (defun equivalents (class &optional (kb *default-kb*))
   (class-query class kb (lambda(ce reasoner) (#"getEquivalentClasses" reasoner ce)) nil t))

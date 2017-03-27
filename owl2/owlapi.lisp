@@ -460,9 +460,13 @@
 		for uri = (and iri (make-uri string))
 		unless (or (null iri) (and (eq uri !owl:Nothing) (not include-nothing))) collect (make-uri string)))))))
 
+
+
 (defun property-query (property kb fn &optional (flatten t) include-top filter )
   (instantiate-reasoner kb (or (v3kb-default-reasoner kb) *default-reasoner*) nil)
-  (let ((expression (car (find :object-property (gethash property (v3kb-uri2entity kb)) :key 'second))))
+  (let* ((data-expression (get-entity property :data-property kb))
+	 (object-expression (get-entity property :object-property kb))
+	 (expression (or data-expression object-expression)))
     (when expression
       (let ((reasoner (v3kb-reasoner kb)))
 	(let ((nodes (funcall fn expression reasoner)))
@@ -474,7 +478,8 @@
 			       res))
 		for string = (and iri (#"toString" (#"getIRI" iri)))
 		for uri = (and iri (make-uri string))
-		unless (or (null iri) (and (not include-top) (eq uri !owl:topObjectProperty))) collect uri))))))
+		unless (or (null iri) (and (not include-top) (eq uri (if data-expression !owl:topDataProperty !owl:topObjectProperty))))
+		  collect uri))))))
 
 
 (defun annotation-properties (kb)
