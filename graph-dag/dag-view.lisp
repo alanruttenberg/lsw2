@@ -30,7 +30,8 @@
 					   "Thing"
 					   (entity-annotation-value (caar tree) kb !rdfs:label))
 				:parents (rest tree)
-				:tooltip (tree-tooltip kb (caar tree) :include-referencing nil))))
+				:tooltip (snomed-tree-tooltip kb (caar tree) :include-referencing nil)
+				)))
 		     (setf (dag-term-node-index new) (vector-push-extend new nodes))
 		     new))))
 	  (when last
@@ -57,7 +58,7 @@
 	   (format s "edges.push({from: ~a, to: ~a});~%" from to))
     )))
 
-(defun emit-dagre-d3-javascript (trees kb &optional (label-format-fn 'remove-parenthetical))
+(defun emit-dagre-d3-javascript (trees kb &optional (label-format-fn 'remove-parenthetical) &key)
   (multiple-value-bind (nodes edges) (levelize trees kb)
     (with-output-to-string (s)
       (write-string "function initialize_data(g){" s )
@@ -84,7 +85,7 @@
 ;	 for dummy = 	   (print-db node)
 	 for label =  (funcall (or label-format-fn 'identity) (dag-term-node-label node))
 	 for id = (dag-term-node-index node)
-	 for tooltip = (dag-term-node-tooltip node)
+	 for tooltip = "";(dag-term-node-tooltip node)
 	 with props = nil
 	 do
 	   (format s "g.setNode(~a,  { label: ~s , tip: ~s ~{,~a:~s~} });~%"  id label tooltip (mapcar 'car props) (mapcar 'cdr props))

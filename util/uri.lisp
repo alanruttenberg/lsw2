@@ -95,6 +95,7 @@ Which can then be used as !material-entity
   `(make-uri ,(uri-full object) ,(uri-abbreviated object)))
 
 (defvar *print-uri-with-labels-from*)
+(defvar *print-uri-with-labels-show-source* t)
 (defvar *print-uri-full* nil)
 
 (defun print-uri (object stream depth)
@@ -102,7 +103,7 @@ Which can then be used as !material-entity
       (loop for source in *print-uri-with-labels-from*
 	   for label = (label-from-uri source object)
 	   when label
-	   do (let ((*print-case* :downcase)) (format stream "!'~a'@~a" label source))
+	   do (let ((*print-case* :downcase)) (format stream "!'~a'~a~a" label (if *print-uri-with-labels-show-source* "@" "") (if *print-uri-with-labels-show-source* source "")))
 	   (return-from print-uri nil)))
   (let ((abbreviated (uri-abbreviated object))
 	(full (uri-full object)))
