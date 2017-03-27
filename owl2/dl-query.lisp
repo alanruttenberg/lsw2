@@ -32,9 +32,13 @@
   (class-query class kb (lambda(ce reasoner) (#"getInstances" reasoner ce t))))
 
 (defun property-equivalents (property &optional (kb *default-kb*))
-  (property-query property kb 
-		  (lambda(pe reasoner) 
-		    (#"getEquivalentObjectProperties" reasoner pe))))
+  (property-query property kb
+		  (if (get-entity property :data-property kb)
+		      (lambda(pe reasoner)
+			(#"getEquivalentDataProperties" reasoner pe))
+		      (lambda(pe reasoner)
+			(#"getEquivalentObjectProperties" reasoner pe)))
+		  nil))
 
 (defun equivalents (class &optional (kb *default-kb*))
   (class-query class kb (lambda(ce reasoner) (#"getEquivalentClasses" reasoner ce)) nil t))
