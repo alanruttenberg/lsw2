@@ -289,7 +289,7 @@
 
 (defun quiet-reasoner-config ()
   (let ((standard (new 'SimpleConfiguration (new 'NullReasonerProgressMonitor)))
-	(progressMonitor (new 'owlapi.reasoner.ConsoleProgressMonitor)))
+	(progressMonitor (new 'NullReasonerProgressMonitor)))
     (new 'org.semanticweb.owlapi.reasoner.SimpleConfiguration progressMonitor
 	 (#"getFreshEntityPolicy" standard)
 	 (new 'long "9223372036854775807")
@@ -719,6 +719,11 @@
      do (return-from get-entity entity)))
 
   
+(defun is-property-simple? (property &optional (ont *default-kb*))
+  (let* ((opm (new 'OWLObjectPropertyManager (v3kb-manager ont) (v3kb-ont ont))))
+    (let ((entity (get-entity property :object-property ont))))
+    (not (#"isNonSimple" opm entity))))
+
 (defun little-test-ont ()
   (with-ontology foo (:collecting t)
       ((asq
