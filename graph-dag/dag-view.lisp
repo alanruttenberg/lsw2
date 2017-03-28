@@ -21,6 +21,8 @@
 	  (dag-term-node-label (dag-term-edge-to edge)) (dag-term-node-level (dag-term-edge-to edge))))
 
 (defun levelize (trees kb &optional (level 0) last (table (make-hash-table :test 'equal)) (nodes (make-array 100 :adjustable t :fill-pointer 0)) edges)
+  "Take in a parent tree as built by the parent-tree function. Assign a vertical position to each class so that any
+superclass is on a higher level and any subclass is on a different level. Create a dag-term-node for each class (bad modularity)"
   (loop for tree in trees 
      do (let ((treetop
 	       (or (gethash (caar tree) table)

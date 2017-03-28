@@ -1,5 +1,10 @@
 ;; looks correct
 (defun parents-tree (x &optional (kb *default-kb*) (table (make-hash-table :test 'equalp)))
+  "Starting from a node in the ontology, build up the hierarchy to !owl:Thing. Each element is a pair of term and label. The tree is built up recursively from the bottom. 
+(tree x) = (x (tree (parent_1 x)) (tree (parent_2 x)) ...)
+!owl:Thing has no parents.
+parent_i is the ith direct parent of x.
+Because there is multiple inheritence, the portions of the parents tree can be duplicated. Elements (term label) are made unique by registering them in a hash table."
   (let ((child (list x (if (eq x !owl:Thing) "Thing" (entity-annotation-value x kb !rdfs:label))))
 	(parents (mapcar
 		  (lambda(c)
