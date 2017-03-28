@@ -11,3 +11,13 @@
                    :duration ,duration
 		   ;; 
 		   :got-form (cl-user::eval-uri-reader-macro ',got))))))))
+
+(in-package :prove.suite)
+
+(defun plan (num &optional description)
+  (and description (princ description prove.output:*test-result-output*))
+  (let ((suite (current-suite)))
+    (setf (slot-value suite 'plan) num)
+    (reset-suite suite))
+  (print-plan-report nil num *test-result-output*))
+

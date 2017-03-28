@@ -7,7 +7,7 @@
 	    (subobjectpropertyof !a !b)
 	    (object-property-domain !a !b))))
 
-    (prove:plan (length expressions))
+    (prove:plan (length expressions) "Lispy axioms")
 
     (loop for expression in expressions 
 	  do
@@ -15,7 +15,7 @@
 
 (prove:finalize)
 
-(prove:plan 2)
+(prove:plan 2 "Explanation")
 
 
 (prove:is 
@@ -40,7 +40,7 @@
 
 (prove:finalize)
 
-(prove:plan 6)
+(prove:plan 6 "Property queries")
 
 (prove::is
  (with-ontology f () 
@@ -98,7 +98,7 @@
 
 (prove:finalize) 
 
-(prove:plan 4)
+(prove:plan 4 "OWL syntax terminals")
 
 (prove::is
  (all-owl2-term-alternatives 'class)
