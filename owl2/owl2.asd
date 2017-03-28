@@ -65,9 +65,11 @@
 	    ))
   :depends-on (util xmls owl2libs-mvn))
 
-(defun cl-user::test-owlapi ()
-  (require :testing)
+(defun cl-user::test-lsw2-owlapi ()
+  (let ((*load-verbose* nil))
+    (uiop/utility:with-muffled-conditions ((find-class 'style-warning))
+      (require :testing)))
   (let ((cl-user::*read-time-uri* t))
-    (funcall (intern "RUN" 'prove) #P"owl2:test-owlapi.lisp")))
+    (funcall (intern "RUN" 'prove) #P"owl2:test-lsw2-owl2.lisp")))
 
 ;;;; eof

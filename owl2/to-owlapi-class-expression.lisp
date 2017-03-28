@@ -97,6 +97,9 @@
 (defun to-owlapi-data-property-expression (arg data-factory)
   (#"getOWLDataProperty" data-factory (to-iri arg)))
 
+(defun to-owlapi-annotation-property (arg data-factory)
+  (#"getOWLAnnotationProperty" data-factory (to-iri arg)))
+
 (defun data-factory-constructor (arg)
   (let ((normalized (third (gethash arg *owl2-vocabulary-forms*))))
     (read-from-string (format nil "#\"getOWL~a\"" normalized))))

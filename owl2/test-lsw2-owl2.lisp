@@ -17,6 +17,7 @@
 
 (prove:plan 2)
 
+
 (prove:is 
  (with-ontology f () 
    ((asq (subclassof (annotation !this !one) !a !b) (= !b (not !a)))) 
@@ -95,7 +96,27 @@
    (property-descendants !b))
  (list !a))
 
-(prove:finalize)
+(prove:finalize) 
 
+(prove:plan 4)
+
+(prove::is
+ (all-owl2-term-alternatives 'class)
+ '(class class "Class"))
+
+
+(prove::is
+ (all-owl2-term-alternatives 'sub-class-of)
+ '(subclassof sub-class-of "SubClassOf" sub-class-of subclass-of < :<))
+
+(prove::is
+ (all-owl2-term-alternatives '<)
+ '(subclassof sub-class-of "SubClassOf" sub-class-of subclass-of < :<))
+
+(prove::is
+ (all-owl2-term-alternatives "InverseOf")
+ '(objectinverseof object-inverse-of "ObjectInverseOf" "InverseOf"))
+
+(prove:finalize)
 
 
