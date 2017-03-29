@@ -144,6 +144,9 @@
       (print-unreadable-object (r stream :type t)
 	(format stream "~a@~a~a~{~a~^,~}" (namespace r) (version-date-string r) (if (phases r) " : " ", not yet started") (phases r)))))
 
+(defmethod note-phase-done ((r foundry-release) phase)
+  (setf (phases r) (append (phases r) (list phase))))
+
 (defvar *current-release* )
 
 ;; this is the main call
@@ -161,10 +164,12 @@
 (defmethod do-release  ((r foundry-release))
   (create-merged-ontology r)
   (copy-files-to-release-directory r)
+  (note-phase :release-directory-filled)
   (log-progress r "Creating catalog-v0001.xml for protege")
   (write-catalog.xml r)
   (log-progress r "Creating purl.yaml with lines to be pasted into the PURL config")
-  (write-purl-yaml r))
+  (write-purl-yaml r)
+  (note-phase :done))
 
 ;; (make-release "iao" "~/repos/information-artifact-ontology/src/ontology/iao.owl" when
 ;;    :additional-products '("ontology-metadata.owl"))
@@ -337,8 +342,10 @@
     (loop for disp in dispositions
 	  for ont = (getf disp :ontology)
 	  do (each-axiom ont (lambda(ax) (add-axiom ax destont)) nil))
+    (note-phase r :merged)
     (log-progress r "Adding inferences")
     (add-inferred-axioms source :to-ont destont :types (inferred-axiom-types r))
+    (note-phase r :inferred)
     (when (collect-inferred-axioms? r)
       (loop for type in (inferred-axiom-types r)
 	    for inferred = (add-inferred-axioms source :types (list type))
@@ -348,6 +355,7 @@
     (dolist (a license-annotations) (add-ontology-annotation a destont))
     (let ((dest (merged-ontology-pathname r)))
       (to-owl-syntax destont :rdfxml dest))
+    (note-phase :written)
     (multiple-value-bind (res errorp) (ignore-errors (check-ontology destont))
       (assert (not errorp) (destont) "Hey! The merged ontology (~a) has an error during the consistency test but the original didn't!~%~a" (merged-ontology-pathname r) errorp)
       (unless errorp
@@ -356,6 +364,12 @@
 	(assert (null (unsatisfiable-classes destont)) (destont) 
 		"Hey! The merged ontology (~a) has unsatisfiable classes but the original didn't!~%~a"
 		(merged-ontology-pathname r) (replace-with-labels (unsatisfiable-classes destont) destont))))
+    (multiple-value-bind (profile-violations errorp) (ignore-errors (check-profile destont))
+      (if errorp
+	  (format t "There was a java error ~a when running the profile checker (KNOWN TO BE BROKEN AT THE MOMENT)" errorp)
+	  (assert (null profile-violations) (profile-violations)
+		  "Ontology falls outside OWL-DL: ~% ~{- ~a~^~%~}"  profile-violations)))
+    (note-phase :verified)
     ))
 
 (defmethod display-inferences ((r foundry-release) &optional type)
