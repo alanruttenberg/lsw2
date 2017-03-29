@@ -558,8 +558,10 @@
     (make-uri (#"toString" (#"get" (#"getOntologyIRI" (#"getOntologyID" ontology)))))))
 
 (defun get-version-iri (kb)
-  (let ((ontology (if (v3kb-p kb) (v3kb-ont kb) kb)))
-    (make-uri (#"toString" (#"get" (#"getVersionIRI" (#"getOntologyID" ontology)))))))
+  (let* ((ontology (if (v3kb-p kb) (v3kb-ont kb) kb))
+	 (maybe-iri (#"getVersionIRI" (#"getOntologyID" ontology))))
+    (and (#"isPresent" maybe-iri)
+	 (make-uri (#"toString" (#"get" maybe-iri))))))
 
 (defun get-imports-declarations (kb)
   (mapcar (compose 'make-uri #"toString" #"getIRI")

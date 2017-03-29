@@ -293,7 +293,7 @@
   (labels ((one (exp)
 	     (cond ((atom exp)
 		    (if (uri-p exp)
-			(uri-label exp kb)
+			(or (uri-label exp kb) exp)
 			exp))
 		   ((consp exp)
 		    (mapcar #'one exp))
