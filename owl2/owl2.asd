@@ -59,6 +59,7 @@
 	     (:file "domain-and-range")
 	     (:file "short-form-providers")
 	     (:file "release")
+	     (:file "html-description")
 	     (:file "logger-control")
 	     )
 	    :depends-on (matcher basics)
