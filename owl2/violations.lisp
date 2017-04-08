@@ -58,14 +58,15 @@
     "UseOfTopDataPropertyAsSubPropertyInSubPropertyAxiom"
     ))
 
-(defun check-profile (ont &key (profile 'dl))
+(defun check-profile (ont &key (profile 'dl) (skip-annotations nil))
   (let* ((profiler (new (intern (format nil "OWL2~aPROFILE" profile))))
 	 (workaround (new-empty-kb !<https://github.com/owlcs/owlapi/issues/650>)))
-    (each-axiom (v3kb-ont ont)
-	(lambda(ax) (add-axiom ax workaround)))
-    (let* ((report (#"checkOntology" profiler (v3kb-ont workaround)))
-	  (violations (set-to-list (#"getViolations" report)))
-					;(axioms (mapcar #"getAxiom"  violations))
+    (when skip-annotations
+	(each-axiom (v3kb-ont ont)
+	    (lambda(ax) (add-axiom ax workaround))))
+    (let* ((report (#"checkOntology" profiler (if skip-annotations (v3kb-ont workaround) (v3kb-ont ont))))
+	   (violations (set-to-list (#"getViolations" report)))
+	   ;; (axioms (mapcar #"getAxiom"  violations))
 	  )
       (values
        violations
