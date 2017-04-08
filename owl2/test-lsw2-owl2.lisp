@@ -1,5 +1,44 @@
 (in-package :cl-user)
 
+(setq *default-reasoner-config* (quiet-reasoner-config))
+
+(prove:plan 4 "Supported reasoners")
+
+(prove.test::ok
+ (with-ontology f () 
+   ((asq (subclassof !a !b)))
+   (ignore-errors
+    (instantiate-reasoner f :hermit)
+    (check-ontology f :classify t :show-progress nil)))
+ "ontology can be classified with hermit")
+
+(prove.test::ok
+ (with-ontology f () 
+   ((asq (subclassof !a !b)))
+   (ignore-errors
+    (instantiate-reasoner f :elk)
+    (check-ontology f :classify t :show-progress nil)))
+ "ontology can be classified with elk")
+
+(prove.test::ok
+ (with-ontology f () 
+   ((asq (subclassof !a !b)))
+   (ignore-errors
+    (instantiate-reasoner f :factpp)
+    (check-ontology f :classify t :show-progress nil)))
+ "ontology can be classified with fact++")
+
+(prove.test::ok
+ (with-ontology f () 
+   ((asq (subclassof !a !b)))
+   (ignore-errors 
+    (instantiate-reasoner f :pellet)
+    (check-ontology f :classify t :show-progress nil)))
+ "ontology can be classified with pellet")
+
+(prove:finalize)
+
+
 (with-ontology test-ontology ()
   ()
   (let ((expressions
@@ -20,7 +59,7 @@
 (prove.test::ok
  (with-ontology f () 
    ((asq (subclassof !a !b))) 
-   (check-ontology f :classify t))
+   (check-ontology f :classify t :show-progress nil))
  "ontology can be classified")
 
 (prove.test::ok
@@ -31,7 +70,7 @@
 	 (declaration (named-individual !h))
 	 (class-assertion !a !h)
 	 (class-assertion !b !h)))
-   (not (check-ontology f)))
+   (not (check-ontology f :show-progress nil)))
  "inconsistent ontology recognized")
 
 (prove.test::ok
@@ -42,6 +81,7 @@
 	 (declaration (class !c))
 	 (equivalent-classes !c (and !a !b))
 	 ))
+   (instantiate-reasoner f :hermit)
    (unsatisfiable-classes f))
  "unsatisfiable class recognized")
 
@@ -53,7 +93,7 @@
 (prove:is 
  (with-ontology f () 
    ((asq (subclassof (annotation !this !one) !a !b) (= !b (not !a)))) 
-   (check-ontology f)
+   (check-ontology f :show-progress nil)
    (explain-unsatisfiable-class f !a))
  (evurl '((:entailment (sub-class-of !ex:a !owl:Nothing) 
     :support ((sub-class-of !ex:a !ex:b)
@@ -81,7 +121,7 @@
    ((asq  (declaration (object-property !c))
 	  (declaration (object-property !d))
 	  (equivalent-object-properties !c !d)))
-   (instantiate-reasoner f :hermit :config (quiet-reasoner-config))
+   (instantiate-reasoner f :hermit )
    (property-equivalents !c))
  (list  !c !d)
  "property-equivalents (object-property)")
@@ -91,7 +131,7 @@
    ((asq  (declaration (data-property !c))
 	  (declaration (data-property !d))
 	  (equivalent-data-properties !c !d)))
-   (instantiate-reasoner f :hermit :config (quiet-reasoner-config))
+   (instantiate-reasoner f :hermit )
    (property-equivalents !c))
  (list  !c !d)
  "property-equivalents (data-property)")
@@ -101,7 +141,7 @@
    ((asq (declaration (object-property !a))
 	 (declaration (object-property !b))
 	 (sub-object-property-of !a !b)))
-   (instantiate-reasoner f :hermit :config (quiet-reasoner-config))
+   (instantiate-reasoner f :hermit )
    (property-parents !a))
  (list !b)
  "property-parents")
@@ -111,7 +151,7 @@
    ((asq (declaration (object-property !a))
 	 (declaration (object-property !b))
 	 (sub-object-property-of !a !b)))
-   (instantiate-reasoner f :hermit :config (quiet-reasoner-config))
+   (instantiate-reasoner f :hermit  )
    (property-ancestors !a))
  (list !b)
  "property-ancestors")
@@ -121,7 +161,7 @@
    ((asq (declaration (object-property !a))
 	 (declaration (object-property !b))
 	 (sub-object-property-of !a !b)))
-   (instantiate-reasoner f :hermit :config (quiet-reasoner-config))
+   (instantiate-reasoner f :hermit )
    (property-children !b))
  (list !a)
  "property-children")
@@ -131,7 +171,7 @@
    ((asq (declaration (object-property !a))
 	 (declaration (object-property !b))
 	 (sub-object-property-of !a !b)))
-   (instantiate-reasoner f :hermit :config (quiet-reasoner-config))
+   (instantiate-reasoner f :hermit )
    (property-descendants !b))
  (list !a)
  "property-descendants")
@@ -157,5 +197,4 @@
  '(objectinverseof object-inverse-of "ObjectInverseOf" "InverseOf"))
 
 (prove:finalize)
-
 

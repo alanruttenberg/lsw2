@@ -339,43 +339,45 @@
 	      (:chainsaw (new 'uk.ac.manchester.cs.chainsaw.ChainsawReasonerFactory))
 	      ))))
 	     
-    
-(defun instantiate-reasoner (ont  &optional (reasoner *default-reasoner*) (profile nil) (config nil))
+(defvar *default-reasoner-config* nil)
+
+(defun instantiate-reasoner (ont  &optional (reasoner *default-reasoner*) (profile nil) (config *default-reasoner-config*))
   (apply-changes ont)
-  (when (boundp '*factpp-natives*)
-    (#"setProperty" 'system "factpp.jni.path" *factpp-jni-path*))
-  (unless (null reasoner)
-    (unless (v3kb-reasoner ont)
-      (setf (v3kb-default-reasoner ont) reasoner)
-      (let* ((config (or config
-			 (ecase reasoner 
-			   (:hermit (hermit-reasoner-config profile ont))
-			   ((:pellet :pellet-sparql) (pellet-reasoner-config))
-			   (:factpp (factpp-reasoner-config))
-			   (:elk (elk-reasoner-config))
-			   (:jfact (jfact-reasoner-config))
-			   (:chainsaw (chainsaw-reasoner-config )))))
-	     (factory (ecase reasoner
-			(:hermit (new "org.semanticweb.HermiT.Reasoner$ReasonerFactory"))
-			((:pellet :pellet-sparql) (new 'com.clarkparsia.pellet.owlapiv3.PelletReasonerFactory))
-			(:factpp (new 'uk.ac.manchester.cs.factplusplus.owlapiv3.FaCTPlusPlusReasonerFactory))
-			(:elk  (new 'org.semanticweb.elk.owlapi.ElkReasonerFactory))
-			(:jfact (new 'uk.ac.manchester.cs.jfact.JFactFactory))
-			(:chainsaw (new 'uk.ac.manchester.cs.chainsaw.ChainsawReasonerFactory))
-			))
-	     (reasoner-instance
-	      (if (eq reasoner :pellet-sparql)
-		  (#"createNonBufferingReasoner" factory (v3kb-ont ont) config)
-		  (#"createReasoner" factory (v3kb-ont ont) config))))
-	(setf (v3kb-reasoner ont) reasoner-instance)
-	(when (member reasoner '(:pellet :pellet-sparql))
-	  (setf (v3kb-pellet-jena-model ont) 
-		(let ((graph (new 'org.mindswap.pellet.jena.PelletReasoner)))
-		  (#"createInfModel" 'com.hp.hpl.jena.rdf.model.ModelFactory
-				     (#"bind" graph (#"getKB" reasoner-instance)))
-		  )))
-	t)
-      )))
+  (unless (v3kb-reasoner ont)
+    (when (boundp '*factpp-natives*)
+      (#"setProperty" 'system "factpp.jni.path" *factpp-jni-path*))
+    (unless (null reasoner)
+      (unless (v3kb-reasoner ont)
+	(setf (v3kb-default-reasoner ont) reasoner)
+	(let* ((config (or config
+			   (ecase reasoner 
+			     (:hermit (hermit-reasoner-config profile ont))
+			     ((:pellet :pellet-sparql) (pellet-reasoner-config))
+			     (:factpp (factpp-reasoner-config))
+			     (:elk (elk-reasoner-config))
+			     (:jfact (jfact-reasoner-config))
+			     (:chainsaw (chainsaw-reasoner-config )))))
+	       (factory (ecase reasoner
+			  (:hermit (new "org.semanticweb.HermiT.Reasoner$ReasonerFactory"))
+			  ((:pellet :pellet-sparql) (new 'com.clarkparsia.pellet.owlapiv3.PelletReasonerFactory))
+			  (:factpp (new 'uk.ac.manchester.cs.factplusplus.owlapiv3.FaCTPlusPlusReasonerFactory))
+			  (:elk  (new 'org.semanticweb.elk.owlapi.ElkReasonerFactory))
+			  (:jfact (new 'uk.ac.manchester.cs.jfact.JFactFactory))
+			  (:chainsaw (new 'uk.ac.manchester.cs.chainsaw.ChainsawReasonerFactory))
+			  ))
+	       (reasoner-instance
+		 (if (eq reasoner :pellet-sparql)
+		     (#"createNonBufferingReasoner" factory (v3kb-ont ont) config)
+		     (#"createReasoner" factory (v3kb-ont ont) config))))
+	  (setf (v3kb-reasoner ont) reasoner-instance)
+	  (when (member reasoner '(:pellet :pellet-sparql))
+	    (setf (v3kb-pellet-jena-model ont) 
+		  (let ((graph (new 'org.mindswap.pellet.jena.PelletReasoner)))
+		    (#"createInfModel" 'com.hp.hpl.jena.rdf.model.ModelFactory
+				       (#"bind" graph (#"getKB" reasoner-instance)))
+		    )))
+	  t)
+	))))
 
 ;; for later.
 ;;	setPhysicalURIForOntology(OWLOntology ontology, java.net.URI physicalURI) 
