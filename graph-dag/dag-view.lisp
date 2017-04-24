@@ -81,7 +81,6 @@ superclass is on a higher level and any subclass is on a different level. Create
       )))
 
 (defun emit-dagre-d3-javascript-ne (nodes edges &key (label-format-fn 'remove-parenthetical) )
-  (inspect nodes)
   (with-output-to-string (s)
       (write-string "function initialize_data(g){" s )
       (loop for node in nodes
