@@ -80,14 +80,15 @@ superclass is on a higher level and any subclass is on a different level. Create
       (write-string "} window.intialize_data=initialize_data;" s )
       )))
 
-(defun emit-dagre-d3-javascript-ne (nodes edges &optional (label-format-fn 'remove-parenthetical) )
+(defun emit-dagre-d3-javascript-ne (nodes edges &key (label-format-fn 'remove-parenthetical) )
+  (inspect nodes)
   (with-output-to-string (s)
       (write-string "function initialize_data(g){" s )
       (loop for node in nodes
 ;	 for dummy = 	   (print-db node)
 	 for label =  (funcall (or label-format-fn 'identity) (dag-term-node-label node))
 	 for id = (dag-term-node-index node)
-	 for tooltip = "";(dag-term-node-tooltip node)
+	 for tooltip = (dag-term-node-tooltip node)
 	 with props = nil
 	 do
 	   (format s "g.setNode(~a,  { label: ~s , tip: ~s ~{,~a:~s~} });~%"  id label tooltip (mapcar 'car props) (mapcar 'cdr props))

@@ -230,6 +230,9 @@
 
 (defun ppax (thing)
   "Pretty print one or more axioms. Thing a URI get all relevant axioms. Thing a list of lists, print each as axiom. Thing a list, print just that axiom. Thing a string - should parse but don't yet"
+  (when (null thing)
+    (print nil)
+    (return-from ppax nil))
   (if (uri-p thing)
       (setq thing (all-relevant-axioms thing)))
   (if (not (consp thing))

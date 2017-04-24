@@ -34,7 +34,10 @@ Because there is multiple inheritence, the portions of the parents tree can be d
 					 "Thing"
 					 (entity-annotation-value term kb !rdfs:label))
 			      :parents (unless (eq term start) (parents term kb))
-			      :tooltip (tree-tooltip kb term :include-referencing include-referencing)
+			      :tooltip 
+			      (if (#"matches" (uri-full term) "http://snomed.info/.*")
+				  (snomed-tree-tooltip *snomed* term)
+				  "")
 			      :index (incf count))))
 		   (setf (gethash term nodes-lookup) node)))))
       (loop for term in (cons start (descendants start kb))
@@ -50,8 +53,8 @@ Because there is multiple inheritence, the portions of the parents tree can be d
 
 
 (defun browse-subclass-tree (title &optional (ont *default-kb*) &key (orientation "BT") (start !owl:Thing))
-  (multiple-value-bind (nodes edges) (ontology-subclass-dag ont :start start)
-      (let ((spec (emit-dagre-d3-javascript-ne  nodes edges))
+  (multiple-value-bind (nodes edges) (ontology-subclass-dag ont :start start :include-referencing nil)
+      (let ((spec (emit-dagre-d3-javascript-ne nodes edges))
 	    (data-path (temp-directory-path (concatenate 'string title ".js"))))
 	(with-open-file (out data-path :direction :output :if-exists :supersede)
 	  (write-string spec out))

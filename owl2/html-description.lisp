@@ -16,12 +16,13 @@
 	"<i><font color=\"red\">Thing</font></i>")))
 
 (defmethod html-describing-class ((kb v3kb) entity &optional include-referencing)
-  (let ((parents (html-describing-class-parents kb (make-uri entity))))
+  (let ((parents (html-describing-class-parents kb (make-uri entity)))
+	(leading-entity-name-regex (format nil "^'{0,1}~a'{0,1}" (quote-for-regex (label-from-uri kb entity)))))
     (with-output-to-string (s)
       (unless (equal entity (uri-full !owl:Nothing))
 	(format s "<b>~a:  ~a</b><br>" *super-label* parents))
       (loop for sentence in (manchester-logical-axioms-for-class entity kb include-referencing)
-	   do (format s "&nbsp;&nbsp;<span class=\"logical\">~a</span><br>" sentence))
+	   do (format s "&nbsp;&nbsp;<span class=\"logical\">~a</span><br>" (#"replaceFirst" sentence leading-entity-name-regex "")))
       (let* ((apv (annotation-property-values-for-description kb entity)))
 	(loop for (p val) in apv
 	   with need-hrule = t
