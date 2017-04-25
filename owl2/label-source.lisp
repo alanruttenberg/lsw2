@@ -161,7 +161,7 @@
 (defmethod make-uri-from-label-source ((instance v3kb) name &optional actual)
   
   (setq name (#"replaceAll" name "'" "''")) ;; idiosyncracy of provider. They don't really need to quote it when it isn't the first or last of string, but hey.
-  (let  ((found (#"getEntity" (short-form-provider *snomed*) (if (find #\space name) (concatenate 'string "'" name "'") name))))
+  (let  ((found (#"getEntity" (short-form-provider instance) (if (find #\space name) (concatenate 'string "'" name "'") name))))
     (assert found (name) "Didn't find term called ~a in ~a" name instance)
     (make-uri (#"toString" (#"getIRI" found)))))
 
