@@ -94,7 +94,6 @@
     (let* ((manager (#"createOWLOntologyManager" 'org.semanticweb.owlapi.apibinding.OWLManager)))
 ;      (#"setSilentMissingImportsHandling" manager silent-missing)
       (and mapper (#"addIRIMapper" manager mapper))
-      (setq @ mapper)
       (let ((ont
 	     (if uri
 		 (#"loadOntologyFromOntologyDocument" manager (to-iri uri))
@@ -153,7 +152,6 @@
 (defun load-kb-jena (file &key (format "RDF/XML"))    
   (let ((url (if (search "//" file :test 'equalp) file (format nil "file://~a" (namestring (truename file)))))
 	(in-model (#"createDefaultModel" 'hp.hpl.jena.rdf.model.ModelFactory)))
-    (setq @ in-model)
     (#"read" in-model
 	     (new 'bufferedinputstream
 		  (#"getInputStream" (#"openConnection" (new 'java.net.url url))))
@@ -504,7 +502,9 @@
 				   ((equal (#"toString" (#"getDatatype" value)) "xsd:string")
 				    (#"getLiteral" value))
 				   (t value))
-			     value
+			     (if (jinstance-of-p value (find-java-class 'owlapi.model.IRI))
+				 (make-uri (#"toString" value))
+				 value)
 			     ))))))
 
 (defun entity-annotation-value (uri kb prop)
