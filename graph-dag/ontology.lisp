@@ -36,7 +36,7 @@ Because there is multiple inheritence, the portions of the parents tree can be d
 			      :parents (unless (eq term start) (parents term kb))
 			      :tooltip 
 			      (if (#"matches" (uri-full term) "http://snomed.info/.*")
-				  (snomed-tree-tooltip *snomed* term)
+				  (snomed-tree-tooltip *snomed* term :include-referencing nil)
 				  "")
 			      :index (incf count))))
 		   (setf (gethash term nodes-lookup) node)))))

@@ -100,10 +100,17 @@ Which can then be used as !material-entity
 
 (defun print-uri (object stream depth)
   (when (boundp '*print-uri-with-labels-from*)
-      (loop for source in *print-uri-with-labels-from*
+    (loop for source in *print-uri-with-labels-from*
 	   for label = (label-from-uri source object)
 	   when label
-	   do (let ((*print-case* :downcase)) (format stream "!'~a'~a~a" label (if *print-uri-with-labels-show-source* "@" "") (if *print-uri-with-labels-show-source* source "")))
+	   do (let ((*print-case* :downcase)) 
+		(format stream "!'~a'~a~a" label 
+			(if *print-uri-with-labels-show-source* "@" "") 
+			(if *print-uri-with-labels-show-source* 
+			    (cond ((keywordp source) source)
+				  ((boundp '*default-label-source*) *default-label-source*)
+				  ((boundp '*default-kb*) (v3kb-name *default-kb*)))
+			     "")))
 	   (return-from print-uri nil)))
   (let ((abbreviated (uri-abbreviated object))
 	(full (uri-full object)))
@@ -143,22 +150,29 @@ Which can then be used as !material-entity
 		  (let ((string
 			  (cond ((eql peek #\")
 				 (read stream))
-				((eql peek #\')
+				((eql peek #\') (read-char stream)
 				 (loop for char = (peek-char nil stream nil :eof)
 				       while (not (or (eq char :eof)
-						      (eql char #\@)))
+						      (eql char #\'))) 
 				       for the-char-first-part = (read-char stream)
 				       collect the-char-first-part into first-chars
-				       finally (progn
-						 (if (not (eql (read-char stream) #\@))
-						     (error "Unterminated URI by name missing source")
-						     (return
-						       (loop for char = (peek-char nil stream nil :eof)
-							     while (not (or (eq char :eof)
-									    (system::whitespacep char)
-									    (char= char #\))))
-							     collect (read-char stream) into second-chars
-							     finally (return  (coerce (append first-chars (list #\@) second-chars) 'string))))))))
+				       finally (progn  
+						      (if (eql char :eof)
+							  (error "Unterminated URI by name missing source")
+							  (progn (read-char stream) ;; the '
+							  (if (not (eql (peek-char t stream nil :eof) #\@))
+							      (return
+								(progn 
+								  (return  (coerce (append '(#\') first-chars '(#\' #\@ #\@) ) 'string))))
+							      (return
+								(progn
+								  (read-char stream) ;; the @
+								  (loop for char = (peek-char nil stream nil :eof)
+									while (not (or (eq char :eof)
+										       (system::whitespacep char)
+										       (char= char #\))))
+									collect (read-char stream) into second-chars
+									finally (return  (coerce (append '(#\') first-chars '(#\') (list #\@) second-chars) 'string)))))))))))
 				((eql peek #\<)
 				 (read-char stream)
 				 (return-from read-uri
@@ -181,8 +195,10 @@ Which can then be used as !material-entity
 				  'string))
 				)))
 		    (if (find #\' string)
-			(if (#"matches" string ".*@@$")
-			    `(make-uri-from-label-source *default-label-source* ,(subseq string 1 (- (length string) 3)))
+			(if (or (#"matches" string ".*@@$") (#"matches" string ".*'"))
+			    `(make-uri-from-label-source (or (and (boundp '*default-label-source*) *default-label-source*)
+							     (and (boundp '*default-kb*) *default-kb*))
+							 ,(subseq string 1 (- (length string) 3)))
 			    (let ((matched (car (all-matches string "'(.*?)'@([A-Za-z0-9-]+){0,1}(\\((.*)\\)){0,1}" 1 2 4))))
 			      (if matched
 				  (destructuring-bind (label source original) matched
