@@ -6,12 +6,17 @@
     (mapcar 'justified-entailments (j2list (#"getExplanations" eg (subclassof-axiom !owl:Thing !owl:Nothing ontology) max-explanations)))))
 
 (defun explain-unsatisfiable-class (ontology class &key (max-explanations 2)  (timeout 10000))
+  (justify-axiom ontology (subclassof-axiom class !owl:Nothing ontology) :max-explanations max-explanations :timeout timeout))
+
+(defun justify-axiom (ontology axiom &key (max-explanations 2)  (timeout 10000))
   (let* ((egf (#"createExplanationGeneratorFactory" 'api.ExplanationManager (get-reasoner-factory ontology))))
     (let ((eg (#"createExplanationGenerator" egf (v3kb-ont ontology))))
       ;; don't know why there isn't a constructor that takes timeout like with InconsistentOntologyExplanationGeneratorFactory
       (let ((checkerfactory #"{eg}.checkerFactory"))
 	(setf #"{checkerfactory}.entailmentCheckTimeOutMS" (new 'Long (prin1-to-string timeout))))
-      (mapcar 'justified-entailments (set-to-list (#"getExplanations" eg (subclassof-axiom class !owl:Nothing ontology) max-explanations))))))
+      (mapcar 'justified-entailments (set-to-list (#"getExplanations" eg
+								      (to-owlapi-axiom axiom ontology)
+								      max-explanations))))))
 
 (defparameter has-axiom-id-iri !<http://purl.obolibrary.org/obo/IAO_0010000>)
 

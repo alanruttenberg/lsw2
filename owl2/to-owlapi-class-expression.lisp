@@ -13,7 +13,6 @@
      ("ObjectComplementOf" class-expression)
      ("ObjectOneOf" (* individual))
      ("ObjectSomeValuesFrom" object-property-expression class-expression)
-     ("ObjectSomeValuesFrom" object-property-expression class-expression)
      ("ObjectAllValuesFrom" object-property-expression class-expression)
      ("ObjectHasValue" object-property-expression individual)
      ("ObjectHasSelf" object-property-expression)

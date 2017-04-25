@@ -17,7 +17,7 @@
 
 (defmethod html-describing-class ((kb v3kb) entity &optional include-referencing)
   (let ((parents (html-describing-class-parents kb (make-uri entity)))
-	(leading-entity-name-regex (format nil "^'{0,1}~a'{0,1}" (quote-for-regex (label-from-uri kb entity)))))
+	(leading-entity-name-regex (format nil "^'{0,1}~a'{0,1}" (quote-for-regex (or (label-from-uri kb entity) "")))))
     (with-output-to-string (s)
       (unless (equal entity (uri-full !owl:Nothing))
 	(format s "<b>~a:  ~a</b><br>" *super-label* parents))

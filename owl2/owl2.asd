@@ -60,6 +60,7 @@
 	     (:file "short-form-providers")
 	     (:file "release")
 	     (:file "html-description")
+	     (:file "describe")
 	     (:file "logger-control")
 	     )
 	    :depends-on (matcher basics)
@@ -68,7 +69,7 @@
 
 (defun cl-user::test-lsw2-owlapi ()
   (let ((*load-verbose* nil))
-    (uiop/utility:with-muffled-conditions ((find-class 'style-warning))
+    (uiop/utility:with-muffled-conditions ((list 'style-warning 'asdf::bad-system-name))
       (require :testing)))
   (let ((cl-user::*read-time-uri* t))
     (funcall (intern "RUN" 'prove) #P"owl2:test-lsw2-owl2.lisp")))
