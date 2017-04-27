@@ -381,23 +381,39 @@
 ;;	setPhysicalURIForOntology(OWLOntology ontology, java.net.URI physicalURI) 
 ;;          Overrides the current physical URI for a given ontology.
 
-(defun check-ontology (ont  &key classify reasoner (log "OFF") profile (show-progress t))
-  (let ((reasoner (or reasoner (v3kb-default-reasoner ont) *default-reasoner*)))
-    (instantiate-reasoner ont reasoner profile (unless show-progress (new 'SimpleConfiguration (new 'NullReasonerProgressMonitor))))
-    (when (or (eq reasoner :pellet) (eq reasoner :pellet-sparql))
-      (pellet-log-level (#"getKB" (v3kb-reasoner ont)) log))
-    ;;  (if classify (#"prepareReasoner" (v3kb-reasoner ont)))
-    (when classify
-      (#"precomputeInferences" 
-       (v3kb-reasoner ont)
-       (jnew-array-from-array
-	(find-java-class 'org.semanticweb.owlapi.reasoner.InferenceType)
-	(make-array 1 :initial-contents (list (get-java-field 'inferencetype "CLASS_HIERARCHY")))))) 
-    (prog1
-	(#"isConsistent" (v3kb-reasoner ont))
-      (when (or (eq reasoner :pellet) (eq reasoner :pellet-sparql) )
-	(pellet-log-level (#"getKB" (v3kb-reasoner ont)) "OFF")
-	))))
+(defun check-ontology (ont  &key classify reasoner (log "OFF") profile (show-progress t) (background nil))
+  (flet ((do-check-ontology ()
+	   (let ((reasoner (or reasoner (v3kb-default-reasoner ont) *default-reasoner*)))
+	     (instantiate-reasoner ont reasoner profile (unless show-progress (new 'SimpleConfiguration (new 'NullReasonerProgressMonitor))))
+	     (when (or (eq reasoner :pellet) (eq reasoner :pellet-sparql))
+	       (pellet-log-level (#"getKB" (v3kb-reasoner ont)) log))
+	     ;;  (if classify (#"prepareReasoner" (v3kb-reasoner ont)))
+	     (when classify
+	       (#"precomputeInferences" 
+		(v3kb-reasoner ont)
+		(jnew-array-from-array
+		 (find-java-class 'org.semanticweb.owlapi.reasoner.InferenceType)
+		 (make-array 1 :initial-contents (list (get-java-field 'inferencetype "CLASS_HIERARCHY")))))) 
+	     (prog1
+		 (#"isConsistent" (v3kb-reasoner ont))
+	       (when (or (eq reasoner :pellet) (eq reasoner :pellet-sparql) )
+		 (pellet-log-level (#"getKB" (v3kb-reasoner ont)) "OFF")
+		 )))))
+    (if background
+	(let ((background background))
+	  (threads:make-thread 
+	   (lambda()
+	     (let ((result  (do-check-ontology)))
+	       (if (functionp background)
+		   (funcall background ont reasoner result)
+		   (system::notify (format t "~a done, result: ~a" 
+					      `(check-ontology ,ont :classify ,classify :reasoner ,reasoner :profile ,profile)
+					      result)))))
+	   :name (format nil "Check ontology ~a" (v3kb-name ont))
+	   ))
+	(do-check-ontology)
+	)))
+
 
 	 
 ;; (set-to-list (#"getViolations" (setq a2 (#"checkOntology" (setq a1 (new 'owl2dlprofile)) (v3kb-ont f)))))
