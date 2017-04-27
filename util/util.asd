@@ -41,6 +41,7 @@
 	     (:file "print-java-object-by-class")
 	     (:file "jargrep")
 	     (:file "datetime")
-	     (:file "applescript")))))
+	     (:file "applescript")
+	     (:file "browse-url")))))
 
 
