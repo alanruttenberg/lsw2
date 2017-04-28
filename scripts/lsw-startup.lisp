@@ -10,7 +10,14 @@
 (unless (member 'ql:quickload sys::*module-provider-functions*)
   (setq sys::*module-provider-functions*  (append sys::*module-provider-functions*  '(ql:quickload))))
 
-(ql:quickload 'owl2)
-(ql:quickload 'inspect)
-  
+(push (make-pathname :directory (butlast (pathname-directory *load-pathname*))) asdf/find-system:*central-registry*)
 
+(flet ((load ()
+	 (ql:quickload 'owl2 :verbose nil)
+	 (ql:quickload 'inspect :verbose nil)))
+  (if *load-verbose*
+      (load)
+      (let ((ext:*suppress-compiler-warnings* (not *load-verbose*))
+	    (*compile-verbose* *load-verbose*))
+	(uiop/utility:with-muffled-conditions ((list 'style-warning))
+	  (load)))))

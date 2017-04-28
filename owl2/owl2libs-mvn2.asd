@@ -20,7 +20,7 @@
 (asdf:defsystem owl2libs-mvn2
   :description "Non-Lisp dependencies necessary for OWL to function."
   :components
-  ((:mvn-module "maven"
+  ((:mvn-module maven
 		:dependencies 
 		("net.sourceforge.owlapi/pellet-cli-ignazio1977/2.4.0-ignazio1977"
 		  "org.semanticweb.elk/elk-owlapi/0.4.3"
@@ -40,7 +40,7 @@
 	     (:jar-file "LSWTreeview-1.0.0")
 	     (:jar-file "QuotedStringAnnotationVisitor-1.0.0")))
    (:module lib :pathname "lib"
-    :depends-on ("maven" rest)))
+    :depends-on (maven rest)))
     :perform (load-op :after (o c)
 		      (progn
 			(#"configure" 'org.apache.log4j.BasicConfigurator (jss::new 'NullAppender))

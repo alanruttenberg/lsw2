@@ -15,7 +15,9 @@
       (let ((checkerfactory #"{eg}.checkerFactory"))
 	(setf #"{checkerfactory}.entailmentCheckTimeOutMS" (new 'Long (prin1-to-string timeout))))
       (mapcar 'justified-entailments (set-to-list (#"getExplanations" eg
-								      (to-owlapi-axiom axiom ontology)
+								      (if (java-object-p axiom)
+									  axiom
+									  (to-owlapi-axiom axiom ontology))
 								      max-explanations))))))
 
 (defparameter has-axiom-id-iri !<http://purl.obolibrary.org/obo/IAO_0010000>)

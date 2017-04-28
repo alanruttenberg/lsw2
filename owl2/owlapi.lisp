@@ -104,7 +104,7 @@
 									   (let ((model (apply 't-jena (maybe-reorder-assertions source) nil)))
 									     (let ((sw (new 'StringWriter)))
 									       (setq *last-jena-model*  model)
-									       (#"write" model sw "RDF/XML")
+									       (#"write" model sw "RDF/XML" "urn:lsw:")
 									       (#0"getBytes" (#0"toString" sw) "UTF-8"))))
 								       (#0"toString" source))))
 		 )))

@@ -95,7 +95,8 @@
 	   (append 
 	    `((:action "Access on web" ,(lambda() (browse-url uri))) (:newline)
 	      (:action "GET to buffer" ,(lambda() 
-					  (swank::ed-in-emacs `(:string ,(get-url (uri-full uri) :dont-cache t :force-refetch t :persist nil)))))
+					  (funcall (intern "ED-IN-EMACS" swank)
+						   `(:string ,(get-url (uri-full uri) :dont-cache t :force-refetch t :persist nil)))))
 	      (:newline))
 	    (or (swank-emacs-inspect uri)
 		(call-next-method))))))
