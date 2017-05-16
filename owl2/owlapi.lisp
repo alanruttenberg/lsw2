@@ -503,25 +503,26 @@
 
 (defun entity-annotations (uri  &optional (kb *default-kb*) prop)
   (loop for ont in (set-to-list (#"getImportsClosure" (v3kb-ont kb)))
-     append
-     (let ((annots (set-to-list (#"getAnnotations" 'EntitySearcher (#"getOWLNamedIndividual" (v3kb-datafactory kb) (to-iri uri)) ont))))
-       (loop for annot in annots
-	  for property = (#"toString" (#"getIRI" (#"getProperty" annot)))
-	  for value = (#"getValue" annot)
-	  for prop-uri = (make-uri property)
-	  when (or (not prop) (eq prop prop-uri))
-	  collect (list  prop-uri
-			 (if (jclass-superclass-p (find-java-class "OWLLiteral") (jobject-class value))
-			     (cond ((#"isRDFPlainLiteral" value) (#"getLiteral" value))
-				   ((#"isBoolean" value) (let ((string (#"getLiteral" value)))
-							   (if (equal string "true") :true :false)))
-				   ((equal (#"toString" (#"getDatatype" value)) "xsd:string")
-				    (#"getLiteral" value))
-				   (t value))
-			     (if (jinstance-of-p value (find-java-class 'owlapi.model.IRI))
-				 (make-uri (#"toString" value))
-				 value)
-			     ))))))
+	append
+	(let ((annots (set-to-list (#"getAnnotations" 'EntitySearcher (#"getOWLNamedIndividual" (v3kb-datafactory kb) (to-iri uri)) ont))))
+	  (loop for annot in annots
+		for property = (#"toString" (#"getIRI" (#"getProperty" annot)))
+		for value = (print (#"getValue" annot))
+		for prop-uri = (make-uri property)
+		when (or (not prop) (eq prop prop-uri))
+		  collect (list  prop-uri
+				 (if (jclass-superclass-p (find-java-class "OWLLiteral") (jobject-class value))
+				     (cond ((#"isRDFPlainLiteral" value) (#"getLiteral" value))
+					   ((#"isBoolean" value) (let ((string (#"getLiteral" value)))
+								   (if (equal string "true") :true :false)))
+					   ((member (#"toString" (#"getDatatype" value))
+						    '("http://www.w3.org/2001/XMLSchema#string" "xsd:string") :test 'equal)
+					    (#"getLiteral" value))
+					   (t value))
+				     (if (jinstance-of-p value (find-java-class 'owlapi.model.IRI))
+					 (make-uri (#"toString" value))
+					 value)
+				     ))))))
 
 (defun entity-annotation-value (uri kb prop)
   (second (car (entity-annotations uri kb prop))))
