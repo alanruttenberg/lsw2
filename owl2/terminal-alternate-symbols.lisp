@@ -12,6 +12,14 @@
   "For a given (potential synonym for) an OWL term, return the canonical term. By preference that's the one where changes in case are changed to dashes. E.g. (canonical-owl2-term '<) -> sub-class-of"
   (or (second (gethash term *owl2-vocabulary-forms*))
       (error "~a isn't an OWL2 terminal symbol at the moment" term)))
+
+(defun rewrite-owl-canonical-functional (expression)
+  (if (atom expression)
+      (or (car (gethash expression *owl2-vocabulary-forms*)) expression)
+      (mapcar 'rewrite-owl-canonical-functional expression)))
+  
+	 
+	 
   
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
