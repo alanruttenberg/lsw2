@@ -58,7 +58,7 @@
 (defun l-equal (a b)
   `(:= ,a ,b))
 
-(defmacro o-class-expression (expression)
+(defun o-class-expression (expression)
   (if (atom expression)
       (pred-class expression *classinstancevar*)
       (macroexpand expression)))
@@ -66,14 +66,14 @@
 
 (defmacro o-subclassof (sub-expression super-expression)
   (with-logic-var *classinstancevar*
-    (l-forall (list *classinstancevar*) (l-implies (macroexpand `(o-class-expression ,sub-expression)) (macroexpand `(o-class-expression ,super-expression))))))
+    (l-forall (list *classinstancevar*) (l-implies (o-class-expression sub-expression) (o-class-expression super-expression)))))
 
 (defmacro o-equivalentclasses (class-expression-1 class-expression-2 &rest more-class-expressions)
   (let ((equivalence
 	  (with-logic-var *classinstancevar*
 	    (l-forall (list *classinstancevar*)
-		      (l-iff (macroexpand `(o-class-expression ,class-expression-1))
-			     (macroexpand `(o-class-expression ,class-expression-2))
+		      (l-iff (o-class-expression class-expression-1)
+			     (o-class-expression class-expression-2)
 			     )))))
     (if more-class-expressions
 	(l-and equivalence 
@@ -87,8 +87,8 @@
 			    collect 
 			    (with-logic-var *classinstancevar*
 			      (l-forall (list *classinstancevar*)
-					(l-not (l-and (macroexpand `(o-class-expression ,c1))
-						      (macroexpand `(o-class-expression ,c2))))))))))
+					(l-not (l-and (o-class-expression c1)
+						      (o-class-expression c2)))))))))
 (defmacro o-disjointunion (class &rest class-expressions)
   (l-and (macroexpand `(o-equivalent-classes ,class (o-objectunionof ,@class-expressions)))
 	 (macroexpand `(o-disjointclasses ,@class-expressions))))
@@ -97,13 +97,13 @@
   (with-logic-var e
     (l-exists (list e) (l-and (pred-property property-expression *classinstancevar* e)
 			      (let ((*classinstancevar* e))
-				(macroexpand `(o-class-expression ,class-expression)))))))
+				(o-class-expression class-expression))))))
 
 (defmacro o-objectallvaluesfrom (property-expression class-expression)
   (with-logic-var e
     (l-forall (list e) (l-implies (pred-property property-expression *classinstancevar* e)
 				  (let ((*classinstancevar* e))
-				    (macroexpand `(o-class-expression ,class-expression)))))))
+				    (o-class-expression class-expression))))))
 
 (defmacro o-objecthasself (property-expression)
   (pred-property property-expression *classinstancevar*  *classinstancevar*))
@@ -166,19 +166,26 @@
       (l-forall (list a b)
 		(l-iff (pred-property p1 a b) (pred-property p2 b a))))))
 
+(defmacro o-equivalentobjectproperties (&rest properties)
+  (with-logic-var a
+    (with-logic-var b
+      (apply 'l-and
+	     (loop for (p1 p2) on properties while p2
+		   collect (l-iff (pred-property p1 a b) (pred-property p2 a b)))))))
+
 (defmacro o-objectpropertydomain (property class-expression)
   (with-logic-var *classinstancevar*
     (with-logic-var b
       (l-forall (list *classinstancevar* b)
 		(l-implies (pred-property property *classinstancevar* b)
-			   (macroexpand `(o-class-expression ,class-expression)))))))
+			   (o-class-expression class-expression))))))
 
 (defmacro o-objectpropertyrange (property class-expression)
   (with-logic-var *classinstancevar*
     (with-logic-var b
       (l-forall (*classinstancevar* b)
 	       (implies (pred-property property b *classinstancevar*)
-			(macroexpand `(o-class-expression ,class-expression)))))))
+			(o-class-expression class-expression))))))
 
 (defun reduce-objectinversof (prop)
   (cond ((atom prop) prop)
@@ -222,95 +229,112 @@
 (defmacro o-objectoneof (&rest individuals)
   (apply 'l-or (loop for i in individuals collect (l-equal i *classinstancevar*))))
 
-declaration 
-- objectinverseof 
-dataintersectionof 
-dataunionof 
-datacomplementof 
-dataoneof 
-datatyperestriction
-- objectintersectionof 
-- objectunionof 
-- objectcomplementof 
-- objectoneof 
-- objectsomevaluesfrom 
-- objectallvaluesfrom 
-- objecthasvalue 
-- objecthasself 
-objectmincardinality 
-objectmincardinality 
-objectmaxcardinality 
-objectmaxcardinality 
-objectexactcardinality 
-objectexactcardinality 
-datasomevaluesfrom 
-datasomevaluesfrom 
-dataallvaluesfrom 
-dataallvaluesfrom 
-datahasvalue 
-datamincardinality 
-datamincardinality 
-datamaxcardinality 
-datamaxcardinality 
-dataexactcardinality 
-dataexactcardinality 
--subclassof 
--equivalentclasses 
--disjointclasses 
-disjointunion 
-- subobjectpropertyof 
-- equivalentobjectproperties 
-- disjointobjectproperties 
--objectpropertydomain 
--objectpropertyrange 
-inverseobjectproperties 
-functionalobjectproperty 
-inversefunctionalobjectproperty 
-reflexiveobjectproperty 
-irreflexiveobjectproperty 
-symmetricobjectproperty 
-asymmetricobjectproperty 
-transitiveobjectproperty 
-subdatapropertyof 
-equivalentdataproperties 
-disjointdataproperties 
-disjointdataproperties 
-datapropertydomain 
-datapropertyrange 
-functionaldataproperty 
-datatypedefinition 
-haskey
-sameindividual 
-differentindividuals 
-differentindividuals 
--classassertion 
--objectpropertyassertion 
--negativeobjectpropertyassertion 
-datapropertyassertion 
-negativedatapropertyassertion 
-annotationassertion 
-subannotationpropertyof 
-annotationpropertydomain 
-annotationpropertyrange 
-
 (defmacro o-classassertion (class individual)
   (let ((*classinstancevar* individual))
-    (macroexpand `(o-class-expression ,class))))
+    (o-class-expression class)))
 
 (defmacro o-objectintersectionof  (&rest classes)
-  (apply 'l-and (loop for c in classes collect (macroexpand `(o-class-expression ,c)))))
+  (apply 'l-and (loop for c in classes collect (o-class-expression c))))
 
 (defmacro o-objectunionof  (&rest classes)
-  (apply 'l-or (loop for c in classes collect (macroexpand `(o-class-expression ,c)))))
+  (apply 'l-or (loop for c in classes collect (o-class-expression c))))
 
-(defmacro o-objectcomplement-of  (class)
-  (l-not (macroexpand `(o-class-expression ,class))))
+(defmacro o-objectcomplementof  (class)
+  (l-not (o-class-expression class)))
 
 (defmacro o-objectpropertyassertion (prop x y)
   (pred-property prop x y))
 
 (defmacro o-negativeobjectpropertyassertion (prop x y)
   (l-not (o-objectpropertyassertion prop x y)))
+
+(defmacro o-sameindividual (&rest individuals)
+  (apply 'l-and
+	 (loop for (a b) on individuals until (null b)
+	       collect (l-equal a b))))
+
+(defmacro o-differentindividuals (&rest individuals)
+  (apply 'l-and (loop for (a . rest) on individuals
+		      append
+		      (loop for b in rest 
+			    collect (l-not (l-equal a b))))))
+
+(defmacro o-objectmincardinality (property number)
+  (with-logic-vars (is number)
+    (apply 'l-and
+	   (list*
+	    (macroexpand `(o-differentindividuals ,@is))
+	    (loop for i in is collect (pred-property property *classinstancevar* i))))))
+
+(defmacro o-objectexactcardinality (property number)
+  (with-logic-vars (is number)
+    (apply 'l-and
+	   (list*
+	    (macroexpand `(o-differentindividuals ,@is))
+	    (with-logic-var other
+	     (l-forall (list other) 
+		       (l-implies (pred-property property *classinstancevar* other)
+				  (apply 'l-or
+					 (loop for i in is collect (l-equal i other)))))
+	     )
+	    (loop for i in is collect (pred-property property *classinstancevar* i)))
+	   )))
+
+(defmacro o-objectmaxcardinality (property number)
+  (with-logic-vars (is number)
+    (apply 'l-and
+	   (list*
+	    (with-logic-var other
+	     (l-forall (list other) 
+		       (l-implies (pred-property property *classinstancevar* other)
+				  (apply 'l-or
+					 (loop for i in is collect (l-equal i other)))))
+	     )
+	    (loop for i in is collect (pred-property property *classinstancevar* i)))
+	   )))
+
+;HasKey( CE ( OPE1 ... OPEm ) ( DPE1 ... DPEn ) )
+
+;; This is too strong at the moment, as it
+;; should only hold for a, b named individuals, but we aren't dealing
+;; with declarations at the moment.
+(defmacro o-haskey (class-expression object-properties data-properties)
+  (with-logic-var a
+    (with-logic-var b
+      (with-logic-vars (vals (+ (length object-properties) (length data-properties)))
+	(l-forall (list* a b vals)
+		  (l-implies (apply 'l-and
+				    (list* (pred-class class-expression a)
+					   (pred-class class-expression b)
+					   (loop for p in (append object-properties data-properties)
+						 for v in vals
+						collect (pred-property p a v)
+						collect (pred-property p b v))))
+			     (l-equal a b)))))))
+
+;; For now these are the same as their object equivalences. Todo: Ensure args are data  
+(loop for head in '(dataallvaluesfrom 
+		    dataallvaluesfrom 
+		    datacomplementof 
+		    dataexactcardinality 
+		    datahasvalue 
+		    dataintersectionof 
+		    datamaxcardinality 
+		    datamincardinality 
+		    dataoneof 
+		    datapropertyassertion 
+		    datapropertydomain 
+		    datapropertyrange 
+		    datasomevaluesfrom 
+		    dataunionof 
+		    negativedatapropertyassertion
+		    disjointdataproperties 
+		    equivalentdataproperties 
+		    functionaldataproperty )
+      for d-name = (intern(concatenate 'string "O-" (string head)))
+      for o-equivalent = (intern(concatenate 'string "O-" (#"replaceFirst" (string head) "DATA" "OBJECT" )))
+      do (setf (macro-function d-name) (macro-function o-equivalent)))
+
 
 (defun owl-sexp-to-fol (expression)
   (labels ((o-rewrite (expression)
@@ -322,6 +346,72 @@ annotationpropertyrange
     (macroexpand (o-rewrite (mapcar 'rewrite-owl-canonical-functional expression)))))
 
 
+#|
+- haskey
+- objectexactcardinality 
+- differentindividuals
+- objectmaxcardinality 
+- objectmincardinality 
+- sameindividual 
+- asymmetricobjectproperty 
+- classassertion 
+- disjointunion 
+- disjointclasses 
+- disjointobjectproperties 
+- equivalentclasses 
+- equivalentobjectproperties 
+- functionalobjectproperty 
+- inversefunctionalobjectproperty 
+- inverseobjectproperties 
+- irreflexiveobjectproperty 
+- negativeobjectpropertyassertion 
+- objectallvaluesfrom 
+- objectcomplementof 
+- objecthasself 
+- objecthasvalue 
+- objectintersectionof 
+- objectinverseof 
+- objectoneof 
+- objectpropertyassertion 
+- objectpropertydomain 
+- objectpropertyrange 
+- objectsomevaluesfrom 
+- objectunionof 
+- reflexiveobjectproperty 
+- subclassof 
+- subobjectpropertyof 
+- symmetricobjectproperty 
+- transitiveobjectproperty 
+
+annotationassertion 
+annotationpropertydomain 
+annotationpropertyrange 
+declaration
+subannotationpropertyof 
+subdatapropertyof 
+
+dataallvaluesfrom 
+dataallvaluesfrom 
+datacomplementof 
+dataexactcardinality 
+datahasvalue 
+dataintersectionof 
+datamaxcardinality 
+datamincardinality 
+dataoneof 
+datapropertyassertion 
+datapropertydomain 
+datapropertyrange 
+datasomevaluesfrom 
+dataunionof 
+negativedatapropertyassertion
+disjointdataproperties 
+equivalentdataproperties 
+functionaldataproperty 
+
+datatypedefinition 
+datatyperestriction
+|#
 
 
 			
