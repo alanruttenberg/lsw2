@@ -19,7 +19,7 @@
 ;; 1: UI - something to show. First one is fine.
 ;; 2: Reading !'....' need to be careful that label to uri is 1:1
 
-(defclass careful-label-source (label-source))
+(defclass careful-label-source (label-source) ())
 
 (defmethod initialize-instance ((ls label-source) &rest ignore)
   (call-next-method)

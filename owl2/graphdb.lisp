@@ -1,27 +1,34 @@
 (in-package :cl-user)
 
 (defclass sparql-repository-set ()
-  ((root :initarg :root :accessor repository-root)
-   (repositories :accessor repositories :initarg :repositories :initform (make-hash-table :test 'equal))
-   (name :accessor name :initarg :name))
-  (:documentation "Some system that manages multiple sparql endpoints")
+  ((root :initarg :root :accessor repository-root
+	 :documentation "A root URL providing services, or below which services are provided")
+   (repositories :accessor repositories :initarg :repositories :initform (make-hash-table :test 'equal)
+		 :documentation "Each repository has a separate set of triples and is capable of SPARQL")
+   (name :accessor name :initarg :name :documentation "A label for printing and debugging"))
+  (:documentation "Some system that manages multiple sparql endpoints. The example would be Sesame's openRDF.")
 )
 
 (defclass openrdf-sesame-instance (sparql-repository-set)
-  ((system-endpoint :accessor system-endpoint :initarg system-endpoint))
+  ((system-endpoint :accessor system-endpoint :documentation "The SYSTEM repository, instance of class determined by endpoint-class method"))
   (:documentation "An OpenRDF Sesame repository set. There is a distinguished SYSTEM repo for configuring other repositories in the set")
   ) 
 
 (defmethod system-endpoint :around ((instance openrdf-sesame-instance))
-  "Lazy initialization of system endpoint the first time its asked for"
+  "Lazy initialization of system endpoint by querying the sesame instance."
   (or (and (slot-boundp instance 'system-endpoint) (call-next-method))
       (progn (get-repositories instance)
-	     (setf (system-endpoint instance) (gethash "SYSTEM" (repositories instance))))))
+	     (setf (system-endpoint instance) (assert (gethash "SYSTEM" (repositories instance))
+						      ()
+						      "No SYSTEM repository found in ~a" (name instance))))))
 
-(defmethod endpoint-named ((instance openrdf-sesame-instance) name)
-  "Allways refresh the list of repositories as they might be added from outside"
+(defmethod endpoint-named ((instance openrdf-sesame-instance) name b &optional (errorp t) f g)
+  "Returns the endpoint named the given name. If the repository is not found and errorp is t signal an error. Always refresh the list of repositories as they might be added by actions outside of this program."
   (get-repositories instance)
-  (gethash name (repositories instance)))
+  (let ((found (gethash name (repositories instance))))
+    (if (and errorp (not found))
+	(error "endpoint ~a not found in ~a" name (name instance))
+	found)))
   
 (defclass graphdb-instance (openrdf-sesame-instance)
   ()
@@ -32,7 +39,7 @@
    (update-endpoint :accessor update-endpoint :initarg :update-endpoint))
   (:documentation "A sparql endpoint migtht actually consist of a number of different services, in particular query and update"))
 
-(defclass sesame-sparql-endpoint ()
+(defclass sesame-sparql-endpoint (sparql-endpoint)
   ((repo-id :accessor repo-id :initarg :repo-id)
    (readable :accessor readable :initarg :readable)
    (writeable :accessor writeable :initarg :writeable)
@@ -51,7 +58,8 @@
 
 (defmethod repositories-endpoint ((instance openrdf-sesame-instance))
   "The repositories endpoint of a Sesame endpoint is a service location for accessing information about the repositories in the set" 
-  (make-uri (concatenate 'string (uri-full (root instance)) "/namespaces")))
+  (make-uri (concatenate 'string (if (stringp (repository-root instance))
+				     (repository-root instance)) "/repositories")))
 
 (defmethod repositories-endpoint ((endpoint sesame-sparql-endpoint))
   (repositories-endpoint (instance endpoint)))
@@ -68,7 +76,7 @@
 (defmethod endpoint-class  ((g graphdb-instance))
   'graphdb-sparql-endpoint)
   
-(defvar *default-graphdb* (make-instance 'graphdb-instance :root "http://127.0.0.1:8080/graphdb-workbench-ee/" :name :local-graphdb))
+(defvar *default-graphdb* (make-instance 'graphdb-instance :root "http://127.0.0.1:8080/openrdf-sesame/" :name :local-graphdb))
 
 (register-namespace "sesamerep:" "http://www.openrdf.org/config/repository#") ;; called rep: sometimes
 (register-namespace "owlim:" "http://www.ontotext.com/trree/owlim#") 
@@ -77,7 +85,7 @@
 
 (defmethod get-repositories ((instance openrdf-sesame-instance))
   "Get the list of repositories (sparql endpoint objects) for a sesame instance"
-  (with-input-from-string (s (get-url (repositories-endpoint instance) :accept  "text/csv" :force-refetch t))
+  (with-input-from-string (s (get-url (uri-full (repositories-endpoint instance)) :accept  "text/csv" :force-refetch t))
     (read-line s)
     (loop with endpoint-class = (endpoint-class instance)
 	  for line =  (read-line s nil :eof)
@@ -243,7 +251,13 @@
 					  (!owlim:transaction-isolation ,transaction-isolation))))
 			  (:insert 
 			   (,context !rdf:type !sesamerep:RepositoryContext)))
-	       :command :update :trace t))))
+			     :command :update :trace t))))
+
+(defmethod delete-repository ((repo sesame-sparql-endpoint))
+  (get-url (uri-fill (query-endpoint repo))  :verb "DELETE")
+  (remhash (repo-id repo) (repositories (instance repo))))
+  
+  
 #|
 :_sail owlim:entity-index-size "500000" ;
 :_sail owlim:cache-memory "7686m" ;

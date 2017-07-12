@@ -507,7 +507,7 @@
 	(let ((annots (set-to-list (#"getAnnotations" 'EntitySearcher (#"getOWLNamedIndividual" (v3kb-datafactory kb) (to-iri uri)) ont))))
 	  (loop for annot in annots
 		for property = (#"toString" (#"getIRI" (#"getProperty" annot)))
-		for value = (print (#"getValue" annot))
+		for value = (#"getValue" annot)
 		for prop-uri = (make-uri property)
 		when (or (not prop) (eq prop prop-uri))
 		  collect (list  prop-uri

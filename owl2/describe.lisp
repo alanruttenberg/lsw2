@@ -36,10 +36,11 @@
 ;; predicate is called on uri. If non-nil then add a :action element where action is called with inspected uri and label labels it.
 
 (defun swank-emacs-inspect (uri &aux mentioned)
-  (if (and *default-kb*
+  (if (and (boundp '*default-kb*) *default-kb*
 	   (some (lambda(type) (get-entity uri type *default-kb*))
 		 '(:class :object-property :data-property :individual)))
-      (let ((*print-uri-with-labels-from* (or *print-uri-with-labels-from* (list *default-kb*)))
+      (let ((*print-uri-with-labels-from* (or (and (boundp '*print-uri-with-labels-from*) *print-uri-with-labels-from*)
+					      (list *default-kb*)))
 	    (*print-uri-with-labels-show-source* nil)
 	    (*print-circle* nil)
 	    (*print-case* :downcase))

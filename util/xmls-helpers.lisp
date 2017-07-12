@@ -39,7 +39,7 @@
 (defun find-elements-with-tag (element tag &rest more-tags)
   (let ((found
 	 (loop with q = (list element)
-	    for this = (pop q)
+	    for this =  (pop q)
 	    for (name nil . children) = this
 	    if (cond ((consp name) 
 		      (if (consp tag)
@@ -50,10 +50,15 @@
 			    (string-equal name tag))))
 	    collect this
 	    else do (when (listp children) (setq q (nconc q (remove-if-not 'consp children))))
-	    while q)))
+	       while q)))
     (if (and found more-tags)
 	(loop for el in found append (apply 'find-elements-with-tag el more-tags))
 	found)))
+
+(defun element-with-attribute (elements attribute value)
+  (loop for element in elements
+	when (equalp (attribute-named element attribute) value)
+	  do (return-from element-with-attribute element)))
 
 (defvar seen! nil)
 (defvar yikes! 0)
