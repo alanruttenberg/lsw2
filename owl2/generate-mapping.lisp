@@ -122,7 +122,7 @@
 (defun t-jena-serialize (input format &rest prefixes)
   (let ((model (apply 't-jena input prefixes)))
     (let ((sw (new 'StringWriter)))
-      (#"write" model sw format)
+      (#"write" model sw format "http://example.com/")
       (values (#"toString" sw) model))))
 
 (defun t-owlapi (input name)
