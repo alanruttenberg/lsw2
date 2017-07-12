@@ -1,6 +1,8 @@
 (defpackage :asdf/owl2libs (:use :asdf :cl))
 (in-package :asdf/owl2libs)
 
+(require 'asdf-mvn-module)
+
 (defun open-osgi-for-lsw ()
   (loop for wedge in '("org.osgi.framework.system.packages.extra" "org.osgi.framework.bootdelegation")
 	do (jss::add-to-comma-separated-osgi-config
