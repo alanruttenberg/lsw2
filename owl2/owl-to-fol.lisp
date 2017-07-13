@@ -1,5 +1,8 @@
 (in-package cl-user)
-(use-package :logic)
+
+(eval-when (:compile-toplevel :execute :load-toplevel)
+  (use-package :logic))
+
 (defvar *classinstancevar* )
 
 (defun o-pred-property (head &rest args)
@@ -289,8 +292,8 @@
 (defun owl-sexp-to-fol (expression)
   (labels ((o-rewrite (expression)
 	     (if (atom expression)
-		 (if (gethash expression *owl2-vocabulary-forms*) 
-		     (intern (concatenate 'string "O-" (string expression)))
+		 (if (gethash (intern (string expression) 'cl-user) *owl2-vocabulary-forms*) 
+		     (intern (concatenate 'string "O-" (string expression)) 'cl-user)
 		     expression)
 		 (mapcar #'o-rewrite expression))))
     (macroexpand-1 (o-rewrite (mapcar 'rewrite-owl-canonical-functional expression)))))

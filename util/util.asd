@@ -42,6 +42,7 @@
 	     (:file "jargrep")
 	     (:file "datetime")
 	     (:file "applescript")
-	     (:file "browse-url")))))
+	     (:file "browse-url")
+	     (:file "eval-with-timeout")))))
 
 
