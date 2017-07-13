@@ -62,10 +62,11 @@
 	     (:file "html-description")
 	     (:file "describe")
 	     (:file "logger-control")
+	     (:file "owl-to-fol")
 	     )
 	    :depends-on (matcher basics)
 	    ))
-  :depends-on (util xmls owl2libs-mvn))
+  :depends-on (util xmls owl2libs-mvn2 logic))
 
 (defun cl-user::test-lsw2-owlapi ()
   (let ((*load-verbose* nil))
