@@ -11,7 +11,7 @@
   ((:file "logic-generator")
    (:file "snark-logic-generator")
    (:file "prover9-logic-generator")
-   (:file "prover-with-prover9"))
+   (:file "prove-with-prover9"))
   :depends-on ()
   :serial t)
 
