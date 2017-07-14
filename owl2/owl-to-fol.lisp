@@ -71,7 +71,7 @@
 	(l-forall (list a b c)
 		  (l-implies (l-and (o-pred-property property c a)
 				    (o-pred-property property c b))
-			     (l-equal a b)))))))
+			     (l-= a b)))))))
 
 (defmacro o-inversefunctionalobjectproperty (property)
   (with-logic-var a
@@ -80,7 +80,7 @@
 	(l-forall (list *classinstancevar* a b)
 		  (l-implies (l-and (o-pred-property property a c)
 				    (o-pred-property property b c))
-			     (l-equal a b)))))))
+			     (l-= a b)))))))
 
 (defmacro o-transitiveobjectproperty (property)
   (with-logic-var a
@@ -122,9 +122,10 @@
 (defmacro o-equivalentobjectproperties (&rest properties)
   (with-logic-var a
     (with-logic-var b
-      (apply 'l-and
-	     (loop for (p1 p2) on properties while p2
-		   collect (l-iff (o-pred-property p1 a b) (o-pred-property p2 a b)))))))
+      (l-forall (list a b)
+		(apply 'l-and
+		       (loop for (p1 p2) on properties while p2
+			     collect (l-iff (o-pred-property p1 a b) (o-pred-property p2 a b))))))))
 
 (defmacro o-objectpropertydomain (property class-expression)
   (with-logic-var *classinstancevar*
@@ -180,7 +181,7 @@
 					  (l-not (l-and (o-pred-property p1 x y) (o-pred-property p2 x y))))))))))
 						  
 (defmacro o-objectoneof (&rest individuals)
-  (apply 'l-or (loop for i in individuals collect (l-equal i *classinstancevar*))))
+  (apply 'l-or (loop for i in individuals collect (l-= i *classinstancevar*))))
 
 (defmacro o-classassertion (class individual)
   (let ((*classinstancevar* individual))
@@ -204,13 +205,13 @@
 (defmacro o-sameindividual (&rest individuals)
   (apply 'l-and
 	 (loop for (a b) on individuals until (null b)
-	       collect (l-equal a b))))
+	       collect (l-= a b))))
 
 (defmacro o-differentindividuals (&rest individuals)
   (apply 'l-and (loop for (a . rest) on individuals
 		      append
 		      (loop for b in rest 
-			    collect (l-not (l-equal a b))))))
+			    collect (l-not (l-= a b))))))
 
 (defmacro o-objectmincardinality (property number)
   (with-logic-vars (is number)
@@ -228,7 +229,7 @@
 	     (l-forall (list other) 
 		       (l-implies (o-pred-property property *classinstancevar* other)
 				  (apply 'l-or
-					 (loop for i in is collect (l-equal i other)))))
+					 (loop for i in is collect (l-= i other)))))
 	     )
 	    (loop for i in is collect (o-pred-property property *classinstancevar* i)))
 	   )))
@@ -241,7 +242,7 @@
 	     (l-forall (list other) 
 		       (l-implies (o-pred-property property *classinstancevar* other)
 				  (apply 'l-or
-					 (loop for i in is collect (l-equal i other)))))
+					 (loop for i in is collect (l-= i other)))))
 	     )
 	    (loop for i in is collect (o-pred-property property *classinstancevar* i)))
 	   )))
@@ -263,7 +264,7 @@
 						 for v in vals
 						collect (o-pred-property p a v)
 						collect (o-pred-property p b v))))
-			     (l-equal a b)))))))
+			     (l-= a b)))))))
 
 ;; For now these are the same as their object equivalences. Todo: Ensure args are data  
 (loop for head in '(dataallvaluesfrom 
@@ -291,11 +292,12 @@
 
 (defun owl-sexp-to-fol (expression)
   (labels ((o-rewrite (expression)
-	     (if (atom expression)
-		 (if (gethash (intern (string expression) 'cl-user) *owl2-vocabulary-forms*) 
-		     (intern (concatenate 'string "O-" (string expression)) 'cl-user)
-		     expression)
-		 (mapcar #'o-rewrite expression))))
+	     (cond ((or (stringp expression) (symbolp expression))
+		    (if (gethash (intern (string expression) 'cl-user) *owl2-vocabulary-forms*) 
+			(intern (concatenate 'string "O-" (string expression)) 'cl-user)
+			expression))
+		   ((uri-p expression) expression)
+		   (t (mapcar #'o-rewrite expression)))))
     (macroexpand-1 (o-rewrite (mapcar 'rewrite-owl-canonical-functional expression)))))
 
 

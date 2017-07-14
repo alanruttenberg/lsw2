@@ -18,7 +18,7 @@
 (defgeneric logical-or ((g logic-generator) expressions))
 (defgeneric logical-iff ((g logic-generator) antecedent consequent))
 (defgeneric logical-not ((g logic-generator) expression))
-(defgeneric logical-equal ((g logic-generator) a b))
+(defgeneric logical-= ((g logic-generator) a b))
 (defgeneric logical-holds ((g logic-generator) &rest args))
 (defgeneric logical-class ((g logic-generator) class el))
 (defgeneric logical-relation ((g logic-generator) head &rest args))
@@ -35,19 +35,15 @@
       (logical-holds g class el)
       `(,class ,el)))
 
-(defclass debug-logic-generator (logic-generator) ())
-
-(defmethod logical-forall ((g debug-logic-generator) vars expressions) `(:forall ,vars ,@expressions))
-(defmethod logical-exists ((g debug-logic-generator) vars expressions) `(:exists ,vars ,@expressions))
-(defmethod logical-implies ((g debug-logic-generator) antecedent consequent) `(:implies ,antecedent ,consequent))
-(defmethod logical-and ((g debug-logic-generator) expressions) `(:and ,@expressions))
-(defmethod logical-or ((g debug-logic-generator) expressions) `(:or ,@expressions))
-(defmethod logical-iff ((g debug-logic-generator) antecedent consequent) `(:iff ,antecedent ,consequent))
-(defmethod logical-not ((g debug-logic-generator) expression) `(:not ,expression))
-(defmethod logical-equal ((g debug-logic-generator) a b) `(:= ,a ,b))
-(defmethod logical-holds ((g debug-logic-generator) &rest args) `(:holds ,@args))
-
-(defvar *logic-generator* (make-instance 'debug-logic-generator))
+(defmethod logical-forall ((g logic-generator) vars expressions) `(:forall ,vars ,@expressions))
+(defmethod logical-exists ((g logic-generator) vars expressions) `(:exists ,vars ,@expressions))
+(defmethod logical-implies ((g logic-generator) antecedent consequent) `(:implies ,antecedent ,consequent))
+(defmethod logical-and ((g logic-generator) expressions) `(:and ,@expressions))
+(defmethod logical-or ((g logic-generator) expressions) `(:or ,@expressions))
+(defmethod logical-iff ((g logic-generator) antecedent consequent) `(:iff ,antecedent ,consequent))
+(defmethod logical-not ((g logic-generator) expression) `(:not ,expression))
+(defmethod logical-= ((g logic-generator) a b) `(:= ,a ,b))
+(defmethod logical-holds ((g logic-generator) &rest args) `(:holds ,@args))
 
 (defparameter *logic-symbols* "PQRSUVWXYZABCDEFGHIJKLMNOT")
 
@@ -93,5 +89,23 @@
 (defun l-not (expression)
   (logical-not *logic-generator* expression))
 
-(defun l-equal (a b)
-  (logical-equals *logic-generator* a b))
+(defun l-= (a b)
+  (logical-= *logic-generator* a b))
+
+(defmethod generate-from-sexp ((generator logic-generator) expression)
+  (let ((keys '((:if l-if) (:iff l-iff) (:and l-and) (:or l-or) (:forall l-forall) (:exists l-exists)
+		(:not l-not) (:= l-=))))
+    (labels ((rewrite (expression)
+	       (cond ((and (consp expression) (member (car expression) keys :key 'car))
+		      `(,(second (assoc (car expression) keys))
+			,@(mapcar (lambda(e) 
+				    (if (and (consp e) (or (find (car e) keys :key 'car) (find (car e) keys :key 'second)))
+					e
+					`(quote ,e)))
+				  (mapcar #'rewrite (cdr expression)))))
+		     (t expression))))
+      
+      (let ((*logic-generator* generator))
+	(eval (if (not (member (car expression) keys :key 'car))
+		  `(l-and (quote ,expression))
+		  (rewrite expression)))))))
