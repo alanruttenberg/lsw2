@@ -16,7 +16,9 @@
   (defvar *interpformat-executable* (prover-binary "interpformat")))
 
 
-(defun mace-or-prover9 (which assumptions goals &key (timeout 10) (interpformat :cooked) (show-translated-axioms nil))
+(defun mace-or-prover9 (which assumptions goals &key (timeout 10) (interpformat :baked) (show-translated-axioms nil)
+						  domain-min-size domain-max-size)
+  (assert (numberp timeout) (timeout) "Timeout should be a number of seconds") 
   (maybe-remind-to-install)
   (let ((generator (make-instance 'prover9-logic-generator)))
     (let ((assumptions
@@ -36,7 +38,11 @@
 							(if (typep e 'axiom)
 							    (logic::render generator e)
 							    (concatenate 'string (generate-from-sexp generator e) ".")
-							    ))) goals)))))
+							    ))) goals))))
+	  (settings '("set(prolog_style_variables)")))
+      (when (eq which :mace4)
+	(when domain-max-size (push (format nil "assign(end_size, ~a)" domain-max-size) settings))
+	(when domain-min-size (push (format nil "assign(start_size, ~a)" domain-min-size) settings)))
       (when (or show-translated-axioms *debug*)
 	(format t "Prover Assumptions:~% ~a~%" assumptions)
 	(format t "Prover Goal:~%~a~%" goals))
@@ -45,7 +51,8 @@
 					 (:prover9 *prover9-executable*))
 				       `(,@(if (eq which :mace4) '("-c") nil) "-t" ,(prin1-to-string timeout))))
 	    (input 
-	      (format nil "set(prolog_style_variables).formulas(sos).~%~aend_of_list.~%formulas(goals).~%~a~%end_of_list.~%"
+	      (format nil "~{~a.~%~}formulas(sos).~%~aend_of_list.~%formulas(goals).~%~a~%end_of_list.~%"
+		      settings
 		      assumptions
 		      goals)))
 	(write-string input (sys::process-input process))
@@ -69,11 +76,26 @@
 		  (let ((output
 			  (multiple-value-list
 			   (ecase which
-			    (:mace4 (if interpformat (reformat-interpretation output interpformat) output))
-			    (:prover9 output)))))
+			     (:mace4
+			      (cook-mace4-output output interpformat))
+			     (:prover9 output)))))
 		    (when *debug* (princ (car output)))
 		    output)
 		  ))))))
+
+(defun cook-mace4-output (output format)
+  (if (or (eq format :cooked) (eq format :baked))
+      (let ((it (reformat-interpretation output :cooked)))
+	(if (eq format :baked)
+	    (let ((reduced (#"replaceAll"  (#"replaceAll" it "\\s(-|f\\d+|c\\d+).*" "") "\\n{2,}" (string #\newline))))
+	      (let ((matched (reverse (jss::all-matches reduced "\\n([A-Za-z]+) = (\\d+)\\." 1 2))))
+		(setq reduced (#"replaceAll" reduced "\\n([A-Za-z]+) = (\\d+)\\." ""))
+		  (loop for (name number) in matched
+		    do (setq reduced (#"replaceAll" reduced (concatenate 'string "([^0-9])(" number ")([^0-9])") 
+						    (concatenate 'string "$1" name "$3")))))
+	      reduced)
+	    it))
+      (reformat-interpretation output format)))
 
 (defun maybe-remind-to-install ()
   (when (or (not (probe-file *prover9-executable*))
@@ -104,6 +126,7 @@
 (defun prover9-prove (assumptions goals  &key (timeout 10) (show-translated-axioms nil))
   (mace-or-prover9  :prover9 assumptions goals :timeout timeout :show-translated-axioms show-translated-axioms))
 
-(defun mace4-find-model (assumptions goals  &key (timeout 10) (format :cooked) (show-translated-axioms nil))
-  (mace-or-prover9 :mace4 assumptions goals :timeout timeout :interpformat format :show-translated-axioms show-translated-axioms))
+(defun mace4-find-model (assumptions goals  &key (timeout 10) (format :baked) (show-translated-axioms nil) domain-max-size domain-min-size)
+  (mace-or-prover9 :mace4 assumptions goals :timeout timeout :interpformat format :show-translated-axioms show-translated-axioms
+		   :domain-min-size domain-min-size :domain-max-size domain-max-size))
 
