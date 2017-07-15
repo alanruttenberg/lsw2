@@ -36,6 +36,7 @@
 (defmethod logical-not ((g snark-logic-generator) expression) `(,(ss :not) ,expression))
 (defmethod logical-= ((g snark-logic-generator) a b) `(,(ss :=) ,a ,b))
 (defmethod logical-holds ((g snark-logic-generator) &rest args) `(holds ,@args))
+(defmethod logical-fact ((g snark-logic-generator) fact) `(quote ,fact))
 
 (defmethod generate-from-snark ((generator logic-generator) expression)
   (ensure-snark-tables)

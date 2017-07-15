@@ -1,11 +1,5 @@
 (defpackage :logic (:use cl))
-
 (in-package :logic)
-(export '(l-forall l-exists l-and l-or l-iff l-equal l-implies
-	  logical-forall logical-exists logical-and logical-or logical-iff
-	  logical-equal logical-implies pred-property pred-class *use-holds*
-	  logical-holds logic-generator logical-class logical-relation with-logic-var with-logic-vars)
-	:logic)
 
 ;(loop for s in '(l-forall l-exists l-and l-or l-iff l-equal l-implies logical-forall logical-exists logical-and logical-or logical-iff logical-equal logical-implies pred-property pred-class pred-property pred-class *use-holds* logic-generator logical-holds) do (shadowing-import s 'cl-user))
 	      
@@ -22,6 +16,7 @@
 (defgeneric logical-holds ((g logic-generator) &rest args))
 (defgeneric logical-class ((g logic-generator) class el))
 (defgeneric logical-relation ((g logic-generator) head &rest args))
+(defgeneric logical-fact ((g logic-generator) fact))
 
 (defvar *use-holds* nil)
 
@@ -44,6 +39,9 @@
 (defmethod logical-not ((g logic-generator) expression) `(:not ,expression))
 (defmethod logical-= ((g logic-generator) a b) `(:= ,a ,b))
 (defmethod logical-holds ((g logic-generator) &rest args) `(:holds ,@args))
+(defmethod logical-fact ((g logic-generator) fact) fact)
+
+(defvar *logic-generator* (make-instance 'logic-generator))
 
 (defparameter *logic-symbols* "PQRSUVWXYZABCDEFGHIJKLMNOT")
 
@@ -92,9 +90,12 @@
 (defun l-= (a b)
   (logical-= *logic-generator* a b))
 
+(defun l-fact (a)
+  (logical-fact *logic-generator* a))
+
 (defmethod generate-from-sexp ((generator logic-generator) expression)
-  (let ((keys '((:if l-if) (:iff l-iff) (:and l-and) (:or l-or) (:forall l-forall) (:exists l-exists)
-		(:not l-not) (:= l-=))))
+  (let ((keys '((:implies l-implies) (:iff l-iff) (:and l-and) (:or l-or) (:forall l-forall) (:exists l-exists)
+		(:not l-not) (:= l-=) (:fact l-fact))))
     (labels ((rewrite (expression)
 	       (cond ((and (consp expression) (member (car expression) keys :key 'car))
 		      `(,(second (assoc (car expression) keys))

@@ -1,35 +1,54 @@
 (in-package :logic)
 
+(defvar *debug* nil)
+
 (flet ((prover-binary (name)
 	 (asdf::system-relative-pathname
 	  "logic"
 	  (make-pathname :directory
 			 (list :relative
 			       (string-downcase (string (uiop/os:operating-system)))
-			       "prover9"))
-	  :name name)))
+			       "prover9")
+			 :name name))))
 
   (defvar *prover9-executable* (prover-binary "prover9"))
   (defvar *mace4-executable* (prover-binary "mace4"))
   (defvar *interpformat-executable* (prover-binary "interpformat")))
 
 
-(defun mace-or-prover9 (which assumptions goals &key (timeout 10) (interpformat :cooked))
+(defun mace-or-prover9 (which assumptions goals &key (timeout 10) (interpformat :cooked) (show-translated-axioms nil))
   (maybe-remind-to-install)
   (let ((generator (make-instance 'prover9-logic-generator)))
     (let ((assumptions
-	    (if (stringp assumptions) assumptions
-		(format nil "~{   ~a.~%~}" (mapcar (lambda(e) (if (stringp e) e (generate-from-sexp generator e))) assumptions))))
+	    (if (stringp assumptions) 
+		assumptions
+		(format nil "~{   ~a~%~}" (mapcar (lambda(e) 
+						    (if (stringp e) e
+							(if (typep e 'axiom)
+							    (logic::render generator e)
+							    (concatenate 'string (generate-from-sexp generator e) ".")
+							    )))
+						  assumptions))))
 	  (goals
 	    (if (stringp goals) goals
-		(format nil "~{   ~a.~%~}" (mapcar (lambda(e) (if (stringp e) e (generate-from-sexp generator e))) goals)))))
+		(format nil "~{   ~a~%~}" (mapcar (lambda(e) 
+						    (if (stringp e) e
+							(if (typep e 'axiom)
+							    (logic::render generator e)
+							    (concatenate 'string (generate-from-sexp generator e) ".")
+							    ))) goals)))))
+      (when (or show-translated-axioms *debug*)
+	(format t "Prover Assumptions:~% ~a~%" assumptions)
+	(format t "Prover Goal:~%~a~%" goals))
       (let ((process (sys::run-program (ecase which
 					 (:mace4 *mace4-executable*)
 					 (:prover9 *prover9-executable*))
-				       `(,@(if (eq which :mace4) '("-c") nil) "-t" ,(prin1-to-string timeout)))))
-	(format (sys::process-input process) "formulas(sos).~%~aend_of_list.~%formulas(goals).~%~a~%end_of_list.~%"
-		assumptions
-		goals)
+				       `(,@(if (eq which :mace4) '("-c") nil) "-t" ,(prin1-to-string timeout))))
+	    (input 
+	      (format nil "set(prolog_style_variables).formulas(sos).~%~aend_of_list.~%formulas(goals).~%~a~%end_of_list.~%"
+		      assumptions
+		      goals)))
+	(write-string input (sys::process-input process))
 	(close (sys::process-input process))
 	(let ((output 
 		(with-output-to-string (s)
@@ -40,14 +59,20 @@
 	  (let ((error (caar (jss::all-matches output "%%ERROR:(.*)"  1))))
 	    (when error
 	      (let ((what (caar (jss::all-matches output "(?s)%%START ERROR%%(.*)%%END ERROR%%" 1))))
+		(setq @ (cons input output))
+		(inspect @)
 		(error "~a error: ~a in: ~a" (string-downcase (string which)) error what))))
 	  (values (if (ecase which
 			(:mace4 (search "interpretation" output))
 			(:prover9 (search "THEOREM PROVED" output)))
 		      t)
-		  (ecase which
-		    (:mace4 (if interpformat (reformat-interpretation output interpformat) output))
-		    (:prover9 output))
+		  (let ((output
+			  (multiple-value-list
+			   (ecase which
+			    (:mace4 (if interpformat (reformat-interpretation output interpformat) output))
+			    (:prover9 output)))))
+		    (when *debug* (princ (car output)))
+		    output)
 		  ))))))
 
 (defun maybe-remind-to-install ()
@@ -76,9 +101,9 @@
 		  (close (sys::process-output process)))))
 	  output)))
 
-(defun prover9-prove (assumptions goals  &key (timeout 10))
-  (mace-or-prover9  :prover9 assumptions goals :timeout timeout))
+(defun prover9-prove (assumptions goals  &key (timeout 10) (show-translated-axioms nil))
+  (mace-or-prover9  :prover9 assumptions goals :timeout timeout :show-translated-axioms show-translated-axioms))
 
-(defun mace4-find-model (assumptions goals  &key (timeout 10) (format :cooked))
-  (mace-or-prover9 :mace4 assumptions goals :timeout timeout :interpformat format))
+(defun mace4-find-model (assumptions goals  &key (timeout 10) (format :cooked) (show-translated-axioms nil))
+  (mace-or-prover9 :mace4 assumptions goals :timeout timeout :interpformat format :show-translated-axioms show-translated-axioms))
 
