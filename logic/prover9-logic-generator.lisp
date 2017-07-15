@@ -35,10 +35,10 @@
   (format nil "(~a) -> (~a)" (prover-expression g antecedent) (prover-expression g consequent)))
 
 (defmethod logical-and ((g prover9-logic-generator) expressions) 
- (format nil "(~{~a~^ & ~})"  (mapcar (lambda(e) (prover-expression g e)) expressions)))
+ (format nil "(~{(~a)~^ & ~})"  (mapcar (lambda(e) (prover-expression g e)) expressions)))
 
 (defmethod logical-or ((g prover9-logic-generator) expressions) 
-  (format nil "(~{~a~^ | ~})"  (mapcar (lambda(e) (prover-expression g e)) expressions)))
+  (format nil "(~{(~a)~^ | ~})"  (mapcar (lambda(e) (prover-expression g e)) expressions)))
 
 (defmethod logical-iff ((g prover9-logic-generator) antecedent consequent)
   (format nil "(~a) <-> (~a)" (prover-expression g antecedent) (prover-expression g consequent)))
