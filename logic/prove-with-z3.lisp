@@ -35,5 +35,5 @@
     (concatenate 'string
 		 (render-axioms (make-instance 'z3-logic-generator) (apply 'logic::collect-axioms-from-spec axioms))
 		 (format nil "(check-sat)~%")
-		 ))
-   "\\bsat\\b"))
+		 )))
+  )
