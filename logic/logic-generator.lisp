@@ -93,6 +93,35 @@
 (defun l-fact (a)
   (logical-fact *logic-generator* a))
 
+(defun formula-sexp-p (it)
+  (and (consp it) (member (car it) '(:forall :exists :and :or :iff :not := :fact :=))))
+
+(defmethod predicates ((exp list))
+  (let ((them nil))
+    (labels ((walk (form)
+	       (unless (atom form) 
+		 (case (car form)
+		   ((:forall :exists) (walk (third form)))
+		   ((:implies :iff :and :or :not := :fact) (map nil #'walk (rest form)))
+		   (otherwise 
+		    (pushnew (list (intern (string (car form))) (1- (length form)))  them :test 'equalp)
+		    (map nil #'walk (rest form)))))))
+      (walk exp)
+      them)))
+
+(defmethod constants ((exp list))
+  (let ((them nil))
+    (labels ((walk (form)
+	       (if (and (symbolp form) (not (char= (char (string form) 0) #\?))) 
+		   (pushnew (intern (string form)) them)
+		   (unless (atom form)
+		     (case (car form)
+		       ((:forall :exists) (walk (third form)))
+		       ((:implies :iff :and :or :not :=) (map nil #'walk (rest form)))
+		       (otherwise (map nil #'walk (rest form))))))))
+      (walk exp)
+      them)))
+
 (defmethod render-axiom ((g logic-generator) (a axiom))
   (let ((*logic-generator* g))
     (eval (axiom-generation-form a))))
@@ -103,22 +132,13 @@
 (defmethod render-axiom ((g logic-generator) (a string))
   a)
 
+(defmethod render-axiom ((g symbol) (a string))
+  (render-axiom (make-instance g) a))
+
 (defmethod render-axioms ((g logic-generator b) axs)
   (if (stringp axs)
       axs
       (mapcar (lambda(e) (render-axiom g e)) axs)))
 
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
+(defmethod render-axioms ((g symbol) axs)
+  (render-axioms (make-instance g) axs))

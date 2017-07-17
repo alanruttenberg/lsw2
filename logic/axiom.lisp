@@ -4,10 +4,11 @@
 
 (defclass axiom () 
   ((sexp :accessor axiom-sexp :initarg :sexp)
-   (name :accessor axiom-name :initarg :name)
-   (description :accessor axiom-description :initarg :description)
-   (plist :accessor axiom-plist :initarg :plist)
-   (generation-form :accessor axiom-generation-form)))
+   (name :accessor axiom-name :initarg :name :initform nil)
+   (description :accessor axiom-description :initarg :description :initform nil)
+   (plist :accessor axiom-plist :initarg :plist :initform nil)
+   (generation-form :accessor axiom-generation-form)
+   (from :accessor axiom-from :initform nil :initarg :from)))
 
 (defmacro def-logic-axiom (name sexp &optional description &rest key-values)
   `(progn
@@ -51,46 +52,24 @@
 (defun delete-axiom (name)
   (remhash (intern (string name) 'keyword) *axioms*))
 
-(defun collect-axioms-from-spec (&rest specs)
-  "specs: list each element of which is either an axiom name, a list of key values, or a logic sexp. Output a list of axioms or unchanged logic sexps"
-  (loop for spec in specs
-	if (and (consp spec) (member (car spec) '(:forall :exists :and :or :iff :not := :fact)))
-	  collect spec else
-	if (atom spec) collect (get-axiom spec)
-	  else append (apply 'logic::get-axioms spec)))
-
+(defun collect-axioms-from-spec (specs)
+  "specs: either a single formuala or an axiom name or a list each element of which is either an axiom name, a list of key values, or a logic sexp. Output a list of axioms or unchanged logic sexps"
+  (if (formula-sexp-p specs) 
+      (list specs)
+      (if (keywordp specs)
+	  (list (get-axiom specs))
+	  (loop for spec in specs
+		if (formula-sexp-p spec)
+		  collect spec
+		else if (atom spec)
+		       collect (get-axiom spec)
+		else append (apply 'get-axioms spec)))))
 
 (defmethod predicates ((a axiom))
   (predicates (axiom-sexp a)))
 
 (defmethod constants ((a axiom))
   (constants (axiom-sexp a)))
-
-(defmethod predicates ((exp list))
-  (let ((them nil))
-    (labels ((walk (form)
-	       (unless (atom form) 
-		 (case (car form)
-		   ((:forall :exists) (walk (third form)))
-		   ((:implies :iff :and :or :not := :fact) (map nil #'walk (rest form)))
-		   (otherwise 
-		    (pushnew (list (car form) (1- (length form)))  them :test 'equalp)
-		    (map nil #'walk (rest form)))))))
-      (walk exp)
-      them)))
-
-(defmethod constants ((exp list))
-  (let ((them nil))
-    (labels ((walk (form)
-	       (if (and (symbolp form) (not (char= (char (string form) 0) #\?))) 
-		   (pushnew form them)
-		   (unless (atom form)
-		     (case (car form)
-		       ((:forall :exists) (walk (third form)))
-		       ((:implies :iff :and :or :not :=) (map nil #'walk (rest form)))
-		       (otherwise (map nil #'walk (rest form))))))))
-      (walk exp)
-      them)))
 
 (defmethod  axiom-generation-form ((a axiom))
   (if (slot-boundp a 'generation-form)
@@ -109,10 +88,19 @@
 		   ))
 	  (let ((form (axiom-sexp a)))
 	    (setf (slot-value a 'generation-form)
-
-	    (when (member (car form) keys :key 'car)
-	      (rewrite form)
-	      (rewrite `(:fact ,form)))))))))
+		  (when (member (car form) keys :key 'car)
+		    (rewrite form)
+		    (rewrite `(:fact ,form)))))))))
 
 (defmethod axiom-sexp ((a list))
   a)
+
+(defmethod negate-axiom ((a list)) `(:not ,a))
+
+(defmethod negate-axiom ((a axiom))
+  (make-instance 'axiom 
+		 :sexp `(:not ,(axiom-sexp a))
+		 :name (intern (concatenate 'string "NEGATED-" (string (axiom-name a))) 'keyword)
+		 :description (concatenate 'string "(negated) " (axiom-description a))
+		 :from a))
+			
