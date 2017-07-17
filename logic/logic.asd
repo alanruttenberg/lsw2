@@ -8,20 +8,24 @@
   :author "Alan Ruttenberg"
   :license "BSD"
   :components
-  ((:module "package"
-	    :pathname ""
- 	    :components
-	    ((:file "package")))
-   (:module "main"
-	    :pathname ""
- 	    :components
-	    ((:file "logic-generator")
-	     (:file "axiom")
-	     (:file "snark-logic-generator")
-	     (:file "prover9-logic-generator")
-	     (:file "prove-with-prover9"))
-	    :depends-on ("package")))
+  ((:module "package" :pathname ""
+    :components
+    ((:file "package")))
+   (:module "main" :pathname ""
+    :components
+    ((:file "axiom")
+     (:file "logic-generator"))
+    :serial t
+    :depends-on ("package"))
+   (:module "provers" :pathname ""
+    :components 
+    ((:file "snark-logic-generator")
+     (:file "prover9-logic-generator")
+     (:file "z3-logic-generator")
+     (:file "prove-with-prover9")
+     (:file "prove-with-z3"))
+    :depends-on ("package" "main")))
   :depends-on ()
-  :serial t)
+  )
 
 

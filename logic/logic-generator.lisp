@@ -93,20 +93,32 @@
 (defun l-fact (a)
   (logical-fact *logic-generator* a))
 
-(defmethod generate-from-sexp ((generator logic-generator) expression)
-  (let ((keys '((:implies l-implies) (:iff l-iff) (:and l-and) (:or l-or) (:forall l-forall) (:exists l-exists)
-		(:not l-not) (:= l-=) (:fact l-fact))))
-    (labels ((rewrite (expression)
-	       (cond ((and (consp expression) (member (car expression) keys :key 'car))
-		      `(,(second (assoc (car expression) keys))
-			,@(mapcar (lambda(e) 
-				    (if (and (consp e) (or (find (car e) keys :key 'car) (find (car e) keys :key 'second)))
-					e
-					`(quote ,e)))
-				  (mapcar #'rewrite (cdr expression)))))
-		     (t expression))))
-      
-      (let ((*logic-generator* generator))
-	(eval (if (not (member (car expression) keys :key 'car))
-		  `(l-and (quote ,expression))
-		  (rewrite expression)))))))
+(defmethod render-axiom ((g logic-generator) (a axiom))
+  (let ((*logic-generator* g))
+    (eval (axiom-generation-form a))))
+
+(defmethod render-axiom ((g logic-generator) (a list))
+  (render g (make-instance 'axiom :sexp a)))
+
+(defmethod render-axiom ((g logic-generator) (a string))
+  a)
+
+(defmethod render-axioms ((g logic-generator b) axs)
+  (if (stringp axs)
+      axs
+      (mapcar (lambda(e) (render-axiom g e)) axs)))
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+

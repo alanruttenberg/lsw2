@@ -9,3 +9,4 @@ bootstrap.lisp
 bootstrap
 .DS_store
 .webcache
+logic/macosx/*

@@ -2,7 +2,7 @@
 
 (defclass prover9-logic-generator (logic-generator) ())
 
-(defun normalize-names (e)
+(defmethod normalize-names ((g prover9-logic-generator) e)
   (cond ((and (symbolp e) (char= (char (string e) 0) #\?))
 	 (cl-user::camelCase (subseq (string e) 1) t))
 	((symbolp e) (cl-user::camelCase (string e) nil))
@@ -12,16 +12,16 @@
 						    (cl-user::uri-label e)
 						    (#"replaceAll" (cl-user::uri-full e) ".*/" "")) nil) )
 	((atom e) e)
-	(t (mapcar 'normalize-names e))))
+	(t (mapcar (lambda(e) (normalize-names g e)) e))))
 
 (defmethod prover-expression ((g prover9-logic-generator) expression)
   (if (consp expression)
-      (format nil "~a(~{~a~^,~})" (normalize-names (car expression)) (normalize-names (cdr expression)))
-      (normalize-names expression))
+      (format nil "~a(~{~a~^,~})" (normalize-names g (car expression)) (normalize-names g (cdr expression)))
+      (normalize-names g expression))
   )
 
 (defmethod prover-quantifier-vars ((g prover9-logic-generator) vars)
-  (normalize-names vars))
+  (normalize-names g vars))
 
 (defmethod logical-forall ((g prover9-logic-generator) vars expressions) 
   (format nil "~{~a ~} (~{~a~})"  (mapcar (lambda(e) (format nil "all ~a" e)) (prover-quantifier-vars g vars))
@@ -55,11 +55,17 @@
 (defmethod logical-fact ((g prover9-logic-generator) fact)
   (prover-expression g fact))
 
-(defmethod render ((g prover9-logic-generator) (a axiom))
-  (concatenate 'string
-	       (format nil "~{% ~a~%~}" (and (axiom-description a) (jss::split-at-char (axiom-description a) #\newline)))
-	       (generate-from-sexp g (axiom-sexp a))
-	       (format nil " # label(\"~a\") .~%" (axiom-name a))))
+(defmethod render-axiom ((g prover9-logic-generator) (a axiom))
+  (let ((ax (call-next-method)))
+    (concatenate 'string
+		 (format nil "~{% ~a~%~}" (and (axiom-description a) (jss::split-at-char (axiom-description a) #\newline)))
+		 ax
+		 (format nil " # label(\"~a\") .~%" (axiom-name a)))))
 
-;all x all y all t(continuantOverlapAt(x,y,t) <-> (exists z(continuantPartOfAt(z,x,t) & continuantPartOfAt(z,y,t)))).
+
+(defmethod render-axioms ((generator prover9-logic-generator) axs)
+  (if (stringp axs)
+      axs
+      (apply 'concatenate 'string (call-next-method))))
+
 
