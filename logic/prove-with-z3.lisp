@@ -23,12 +23,18 @@
    input
    ))
 
-(defun z3-syntax-check (assumptions goals)
+(defun z3-syntax-check (assumptions &optional goals)
   (let ((answer 
-	  (run-z3
-	   (z3-render '()  (collect-axioms-from-spec assumptions)
-		      (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals)))
-	   10)))
+	  (if (stringp assumptions)
+	      (run-z3 assumptions 10)
+	      (run-z3
+	       (z3-render '()  
+			  (collect-axioms-from-spec assumptions)
+			  (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals)))
+	       10))))
+    (when (search "error" answer)
+         (princ (z3-render '()  (collect-axioms-from-spec assumptions)
+		      (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals)))))
     (or (z3-output-errors answer)
 	t)))
   
@@ -39,6 +45,7 @@
 	       (mapcar (lambda(e) (format nil "~a" e)) commands)))
   
 (defun z3-prove (assumptions goals &key (timeout 30) (return-contradiction nil))
+  (assert (z3-syntax-check assumptions goals) (assumptions goals) "Z3 syntax error")
   (let ((answer 
 	  (run-z3
 	   (z3-render '("(check-sat)")  (collect-axioms-from-spec assumptions)
@@ -69,13 +76,24 @@
    timeout))
 
 (defun z3-check-satisfiability (axioms &optional (timeout 10))
-  (does-z3-output-say-sat
-   (run-program-string->string
-    *z3-executable* 
-    (list  "-in" (format nil "-T:~a" timeout))
-   (concatenate 'string
-		(render-axioms 'z3-logic-generator
-			       (collect-axioms-from-spec axioms))
-		(format nil "(check-sat)~%")
-		))))
-
+  (let* ((input (concatenate 'string
+			(render-axioms 'z3-logic-generator
+				       (collect-axioms-from-spec axioms))
+			))
+	 (check (z3-syntax-check input)))
+    (or (and (not (eq check t)) check)
+	(let ((answer
+		(run-program-string->string
+		 *z3-executable* 
+		 (list  "-in" (format nil "-T:~a" timeout))
+		 (setq *last-z3-input*
+		       (concatenate 'string input
+				    "(check-sat)"
+				    (string #\newline))))))
+	  (if (does-z3-output-say-timeout answer)
+	    :timeout
+	    (if (does-z3-output-say-unsat answer)
+		:unsat
+		(if (does-z3-output-say-sat answer)
+		    :sat
+		    answer)))))))

@@ -64,7 +64,7 @@
   (apply 'logical-relation *logic-generator* head args))
 
 (defun pred-class (class arg)
-  (apply 'logical-class *logic-generator*  class arg))
+  (logical-class *logic-generator*  class arg))
 
 (defun l-forall (vars &rest expressions)
   (logical-forall *logic-generator* vars expressions))
@@ -94,7 +94,7 @@
   (logical-fact *logic-generator* a))
 
 (defun formula-sexp-p (it)
-  (and (consp it) (member (car it) '(:forall :exists :and :or :iff :not := :fact :=))))
+  (and (consp it) (member (car it) '(:implies :forall :exists :and :or :iff :not := :fact :=))))
 
 (defmethod predicates ((exp list))
   (let ((them nil))

@@ -137,8 +137,8 @@
 (defmacro o-objectpropertyrange (property class-expression)
   (with-logic-var *classinstancevar*
     (with-logic-var b
-      (l-forall (*classinstancevar* b)
-	       (implies (o-pred-property property b *classinstancevar*)
+      (l-forall (list *classinstancevar* b)
+	       (l-implies (o-pred-property property b *classinstancevar*)
 			(o-class-expression class-expression))))))
 
 (defun reduce-objectinversof (prop)

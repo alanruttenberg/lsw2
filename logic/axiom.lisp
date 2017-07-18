@@ -30,10 +30,12 @@
 		(axiom-sexp a)))))
 
 (defun get-axiom (name &optional (errorp t))
-  (let ((found (gethash (intern (string name) 'keyword) *axioms*)))
-    (if (and (not found) errorp)
-	(error "Couldn't find axiom named ~s" name))
-    found))
+  (if (typep name 'axiom)
+      name
+      (let ((found (gethash (intern (string name) 'keyword) *axioms*)))
+	(if (and (not found) errorp)
+	    (error "Couldn't find axiom named ~s" name))
+	found)))
 
 (defun get-axioms ( &rest key-values &key (errorp t) &allow-other-keys)
   (remf key-values :errorp)
@@ -54,6 +56,7 @@
 
 (defun collect-axioms-from-spec (specs)
   "specs: either a single formuala or an axiom name or a list each element of which is either an axiom name, a list of key values, or a logic sexp. Output a list of axioms or unchanged logic sexps"
+  (remove-duplicates 
   (if (formula-sexp-p specs) 
       (list specs)
       (if (keywordp specs)
@@ -63,7 +66,7 @@
 		  collect spec
 		else if (atom spec)
 		       collect (get-axiom spec)
-		else append (apply 'get-axioms spec)))))
+		else append (apply 'get-axioms spec)))) :test 'equalp))
 
 (defmethod predicates ((a axiom))
   (predicates (axiom-sexp a)))
