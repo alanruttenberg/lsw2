@@ -54,7 +54,7 @@
       (let ((*print-case* nil))
 	(format nil "~a~%"
 		(cl-user::replace-all
-		 (format nil "~a" exp) "\\b([A-Z-]+)\\b"
+		 (format nil "~a" exp) "\\b([A-Z-0-9]+)\\b"
 		 (lambda(e)
 		   (if (some 'lower-case-p e)
 		       e

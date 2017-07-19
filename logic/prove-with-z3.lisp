@@ -33,8 +33,9 @@
 			  (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals)))
 	       10))))
     (when (search "error" answer)
-         (princ (z3-render '()  (collect-axioms-from-spec assumptions)
-		      (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals)))))
+         (princ (if (stringp assumptions) assumptions
+		    (z3-render '()  (collect-axioms-from-spec assumptions)
+		      (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals))))))
     (or (z3-output-errors answer)
 	t)))
   
@@ -44,14 +45,17 @@
 			      (apply 'append axiom-lists))
 	       (mapcar (lambda(e) (format nil "~a" e)) commands)))
   
-(defun z3-prove (assumptions goals &key (timeout 30) (return-contradiction nil))
+(defun z3-prove (assumptions goals &key (timeout 30) (return-contradiction nil) )
   (assert (z3-syntax-check assumptions goals) (assumptions goals) "Z3 syntax error")
   (let ((answer 
+	  (setq *last-z3-answer* 
 	  (run-z3
-	   (z3-render '("(check-sat)")  (collect-axioms-from-spec assumptions)
-		      (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals)))
+	   (setq *last-z3-input*
+		 (z3-render '("(check-sat)")  (collect-axioms-from-spec assumptions)
+			    (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals))))
 	   timeout)
-	  ))
+	  )))
+
     (or (z3-output-errors answer)
 	(if (does-z3-output-say-timeout answer)
 	    :timeout
