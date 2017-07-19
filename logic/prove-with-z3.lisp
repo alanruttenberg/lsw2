@@ -43,11 +43,7 @@
   
 (defun z3-render (assumptions &optional goals commands)
   (apply 'concatenate 'string
-	 (render-axioms 'z3-logic-generator
-			(append (if (stringp assumptions) assumptions
-				    (collect-axioms-from-spec assumptions))
-				(if (stringp goals) goals
-				    (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals)))))
+	 (render :z3 assumptions goals)
 	 (mapcar (lambda(e) (format nil "~a" e)) commands)))
   
 (defun z3-prove (assumptions goals &key (timeout 30) (return-contradiction nil) )
@@ -79,17 +75,17 @@
 	 (check (z3-syntax-check input)))
     (or (and (not (eq check t)) check)
 	(let ((answer
-		(run-program-string->string
-		 *z3-executable* 
-		 (list  "-in" (format nil "-T:~a" timeout))
-		 (setq *last-z3-input*
-		       (concatenate 'string input
-				    "(check-sat)"
-				    (string #\newline))))))
+		(setq *last-z3-output* (run-program-string->string
+					*z3-executable* 
+					(list  "-in" (format nil "-T:~a" timeout))
+					(setq *last-z3-input*
+					      (concatenate 'string input
+							   "(check-sat)"
+							   (string #\newline)))))))
 	  (if (does-z3-output-say-timeout answer)
-	    :timeout
-	    (if (does-z3-output-say-unsat answer)
-		:unsat
-		(if (does-z3-output-say-sat answer)
-		    :sat
-		    answer)))))))
+	      :timeout
+	      (if (does-z3-output-say-unsat answer)
+		  :unsat
+		  (if (does-z3-output-say-sat answer)
+		      :sat
+		      answer)))))))

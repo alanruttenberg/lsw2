@@ -81,7 +81,6 @@
 		     (to-string g `(assert ,(normalize-names g bare))))
 	(to-string g `(assert ,(normalize-names g bare))))))
 
-  
 (defmethod render-axioms ((g z3-logic-generator) (a list))
   (apply 'concatenate 'string
 	 (generate-declarations g a)

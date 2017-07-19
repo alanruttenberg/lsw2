@@ -44,12 +44,13 @@
 	       (declare (ignore name))
 	       (when
 		   (loop for (k v) on key-values by #'cddr
-			 always (find (list k v) (axiom-plist axiom) :test 'equalp))
+			     always (find (list k v) (axiom-plist axiom) :test 'equalp))
 		 (push axiom them)))
 	     *axioms*)
     (if (and (not them) errorp)
 	(error "Couldn't find axiom with keys ~s" key-values))
     them))
+
 
 (defun delete-axiom (name)
   (remhash (intern (string name) 'keyword) *axioms*))

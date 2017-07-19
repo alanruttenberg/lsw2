@@ -127,7 +127,7 @@
     (eval (axiom-generation-form a))))
 
 (defmethod render-axiom ((g logic-generator) (a list))
-  (render g (make-instance 'axiom :sexp a)))
+  (render-axiom g (make-instance 'axiom :sexp a)))
 
 (defmethod render-axiom ((g logic-generator) (a string))
   a)
@@ -142,3 +142,15 @@
 
 (defmethod render-axioms ((g symbol) axs)
   (render-axioms (make-instance g) axs))
+
+(defun render (which assumptions &optional goals)
+  (let ((generator-class
+	  (ecase which
+	    (:z3 'z3-logic-generator)
+	    (:prover9 'prover9-logic-generator))))
+    (render-axioms generator-class
+		   (append (if (stringp assumptions) assumptions
+			       (collect-axioms-from-spec assumptions))
+			   (if (stringp goals) goals
+			       (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals)))))
+    ))

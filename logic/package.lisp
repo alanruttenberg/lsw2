@@ -12,6 +12,8 @@
    #:collect-axioms-from-spec
    #:z3-prove #:z3-find-model
    #:z3-check-satisfiability
+   #:z3-syntax-check
+   #:render
    #:render-axiom #:render-axioms
    #:prover9-prove
    #:mace4-find-model
