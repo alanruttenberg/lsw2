@@ -143,14 +143,22 @@
 (defmethod render-axioms ((g symbol) axs)
   (render-axioms (make-instance g) axs))
 
-(defun render (which assumptions &optional goals)
+(defun render (which assumptions &optional goals &key path at-beginning at-end)
   (let ((generator-class
 	  (ecase which
 	    (:z3 'z3-logic-generator)
 	    (:prover9 'prover9-logic-generator))))
-    (render-axioms generator-class
-		   (append (if (stringp assumptions) assumptions
-			       (collect-axioms-from-spec assumptions))
-			   (if (stringp goals) goals
-			       (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals)))))
-    ))
+    (flet ((doit ()
+	     (concatenate
+	      'string
+	      (or at-beginning "")
+	      (render-axioms generator-class
+			     (append (if (stringp assumptions) assumptions
+					 (collect-axioms-from-spec assumptions))
+				     (if (stringp goals) goals
+					 (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals)))))
+	      (or at-end ""))))
+      (if path
+	(with-open-file (f path :direction :output :if-does-not-exist :create :if-exists :supersede)
+	  (progn (write-string (doit) f) (truename path)))
+	(doit)))))
