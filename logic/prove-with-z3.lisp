@@ -3,6 +3,8 @@
 ;; brew install z3
 
 (defvar *z3-executable* "/usr/local/bin/z3")
+(defvar *last-z3-output* nil)
+(defvar *last-z3-input* nil)
 
 (defun does-z3-output-say-sat (output)
   (if (jss::all-matches output "\\bsat\\b") t nil))
@@ -34,28 +36,26 @@
 	       10))))
     (when (search "error" answer)
          (princ (if (stringp assumptions) assumptions
-		    (z3-render '()  (collect-axioms-from-spec assumptions)
-		      (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals))))))
+		    (z3-render assumptions
+			       goals))))
     (or (z3-output-errors answer)
 	t)))
   
-(defun z3-render (commands &rest axiom-lists)
+(defun z3-render (assumptions &optional goals commands)
   (apply 'concatenate 'string
-	       (render-axioms 'z3-logic-generator
-			      (apply 'append axiom-lists))
-	       (mapcar (lambda(e) (format nil "~a" e)) commands)))
+	 (render-axioms 'z3-logic-generator
+			(append (if (stringp assumptions) assumptions
+				    (collect-axioms-from-spec assumptions))
+				(if (stringp goals) goals
+				    (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals)))))
+	 (mapcar (lambda(e) (format nil "~a" e)) commands)))
   
 (defun z3-prove (assumptions goals &key (timeout 30) (return-contradiction nil) )
   (assert (z3-syntax-check assumptions goals) (assumptions goals) "Z3 syntax error")
   (let ((answer 
-	  (setq *last-z3-answer* 
-	  (run-z3
-	   (setq *last-z3-input*
-		 (z3-render '("(check-sat)")  (collect-axioms-from-spec assumptions)
-			    (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals))))
-	   timeout)
+	  (setq *last-z3-output* 
+	  (run-z3 (setq *last-z3-input* (z3-render assumptions goals '("(check-sat)"))) timeout)
 	  )))
-
     (or (z3-output-errors answer)
 	(if (does-z3-output-say-timeout answer)
 	    :timeout
@@ -69,21 +69,13 @@
 			:disproved)))))))
 
 
-(defun z3-find-model (axioms &optional (timeout 10))
+(defun z3-find-model (assumptions &optional (timeout 10))
   (run-z3
-   (concatenate 'string
-		(render-axioms 'z3-logic-generator
-			       (append (collect-axioms-from-spec axioms)))
-		(format nil "(check-sat)~%")
-		(format nil "(get-model)~%")
-		)
+   (z3-render assumptions nil (list "(check-sat)" "(get-model)"))
    timeout))
 
-(defun z3-check-satisfiability (axioms &optional (timeout 10))
-  (let* ((input (concatenate 'string
-			(render-axioms 'z3-logic-generator
-				       (collect-axioms-from-spec axioms))
-			))
+(defun z3-check-satisfiability (assumptions &optional (timeout 10))
+  (let* ((input (z3-render assumptions))
 	 (check (z3-syntax-check input)))
     (or (and (not (eq check t)) check)
 	(let ((answer
