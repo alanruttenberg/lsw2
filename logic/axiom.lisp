@@ -19,7 +19,7 @@
 			       ',sexp
 			       (list :fact ',sexp))
 			  :description ,description :name ',name
-			  :plist ',(loop for (k v) on key-values by #'cddr collect (list k v))))))
+			  :plist ',(loop for (k v) on key-values by #'cddr collect (list k (if (symbolp k) (intern (string v) :keyword) k)))))))
 
 (defmethod print-object ((a axiom) stream)
   (print-unreadable-object (a stream :type nil :identity nil)
@@ -37,6 +37,33 @@
 	    (error "Couldn't find axiom named ~s" name))
 	found)))
 
+
+
+
+(defun delete-axiom (name)
+  (remhash (intern (string name) 'keyword) *axioms*))
+
+;; Specifications of axioms - basically a way to have a databasish
+;; query for axioms instead of having to name each one. A specification is a list.
+;; Each element of the list is either
+;;   a keyword, in which case it is considered the name of an axioms
+;;   a list starting with a logic connective (:and, :iff ...) is considered an axiom sexp and used as it
+;;   index lookup.
+;;     The simplest index lookup is a series of key value
+;;     pairs, and matches any axioms that have all those keys with those
+;;     values.  e.g. (:kind :transtivity :kind mereology) will collect
+;;     any axioms which have two :kind keys, one with each of
+;;     :transtivity and :mereology
+;;     An element of a lookup can also be one of a few forms
+;;     if for a key you use (:if <key>) then it will match key as usual, when the axiom has that key, but also if there is no value for the key.
+;;     If for a value you use (:not value) then it will match anything that doesn't have that value
+;;     If for a value you use (:or <value1> <value2> ..) it will match if the key has any of those values.
+;;     :not and :or can be nested
+;;     There are two special values, which shouldn't be used for actual values
+;;      :none matches if the key is not present
+;;      :any-value matches if the key is present, regardless of value 
+
+
 (defun get-axioms ( &rest key-values &key (errorp t) &allow-other-keys)
   (remf key-values :errorp)
   (let ((them nil))
@@ -44,16 +71,46 @@
 	       (declare (ignore name))
 	       (when
 		   (loop for (k v) on key-values by #'cddr
-			     always (find (list k v) (axiom-plist axiom) :test 'equalp))
+			     always (check-key-spec k v (axiom-plist axiom)));(find (list k v) (axiom-plist axiom) :test 'equalp))
 		 (push axiom them)))
 	     *axioms*)
     (if (and (not them) errorp)
 	(error "Couldn't find axiom with keys ~s" key-values))
     them))
 
-
-(defun delete-axiom (name)
-  (remhash (intern (string name) 'keyword) *axioms*))
+;; see whether spec key value match the axiom keys.
+;; 
+(defun check-key-spec (key value keys)
+  (labels ((check-value (spec-value value)
+	     (cond ((eq spec-value :any-value)
+		    t)
+		   ((and (consp spec-value) (eq (car spec-value) :or))
+		    (some (lambda(conjunct)
+			     (some (lambda(e) (check-value conjunct (second e))) keys))
+			   (rest spec-value)))
+		   ((and (consp spec-value) (eq (car spec-value) :not))
+		    (not (some (lambda(e) (check-value (second spec-value) (second e))) keys)))
+		   ((and (consp spec-value) (eq (car spec-value) :and))
+		    (every (lambda(conjunct)
+			     (some (lambda(e) (check-value conjunct (second e))) keys))
+			   (rest spec-value)))
+		   ((consp spec-value)
+		    (spec-error key value))
+		   ((eq spec-value :any-value) t)
+		   (t (eq spec-value value)))))
+    (if (eq value :none)
+	(not (assoc (if (consp key) (second key) key) keys))
+	(let* ((if (and (consp key) (eq (car key) :if)))
+	       (key-to-check (if if (second key) (if (atom key) key (spec-error key value)))))
+	  (if key-to-check (assoc key-to-check keys))
+	  (or (and if (not (assoc key-to-check keys)))
+	      (if (or if (atom key))
+		  (some
+		   (lambda(kv)
+		     (and (eq (first kv) key-to-check)
+			  (check-value  value (second kv))))
+		   keys)
+		  (spec-error key value)))))))
 
 (defun collect-axioms-from-spec (specs)
   "specs: either a single formuala or an axiom name or a list each element of which is either an axiom name, a list of key values, or a logic sexp. Output a list of axioms or unchanged logic sexps"

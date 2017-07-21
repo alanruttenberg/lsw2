@@ -151,13 +151,13 @@
     (flet ((doit ()
 	     (concatenate
 	      'string
-	      (or at-beginning "")
+	      (or (and at-beginning (format nil "~a~%" at-beginning)) "")
 	      (render-axioms generator-class
 			     (append (if (stringp assumptions) assumptions
 					 (collect-axioms-from-spec assumptions))
 				     (if (stringp goals) goals
 					 (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals)))))
-	      (or at-end ""))))
+	      (or (and at-end (format nil "~a~%" at-end))  ""))))
       (if path
 	(with-open-file (f path :direction :output :if-does-not-exist :create :if-exists :supersede)
 	  (progn (write-string (doit) f) (truename path)))
