@@ -28,8 +28,8 @@
       (close (sys::process-output process)))))
 
 (defun prepare-prover9-input (assumptions goals &key (generator (make-instance 'prover9-logic-generator)) settings hints show-translated-axioms)
-  (let ((assumptions (render-axioms generator assumptions))
-	(goals (render-axioms generator goals))
+  (let ((assumptions (render-axioms generator (collect-axioms-from-spec assumptions)))
+	(goals (render-axioms generator (collect-axioms-from-spec goals)))
 	(settings (append settings '("set(prolog_style_variables)"))))
     (when (or show-translated-axioms *debug*)
       (format t "Prover Assumptions:~% ~a~%" assumptions)

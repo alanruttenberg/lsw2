@@ -30,9 +30,8 @@
 	  (if (stringp assumptions)
 	      (run-z3 assumptions 10)
 	      (run-z3
-	       (z3-render '()  
-			  (collect-axioms-from-spec assumptions)
-			  (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals)))
+	       (z3-render (collect-axioms-from-spec assumptions)
+			  (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals)) nil)
 	       10))))
     (when (search "error" answer)
          (princ (if (stringp assumptions) assumptions
@@ -47,7 +46,7 @@
 	 (mapcar (lambda(e) (format nil "~a" e)) commands)))
   
 (defun z3-prove (assumptions goals &key (timeout 30) (return-contradiction nil) )
-  (assert (z3-syntax-check assumptions goals) (assumptions goals) "Z3 syntax error")
+  (assert (eq (z3-syntax-check assumptions goals) t) (assumptions goals) "Z3 syntax error")
   (let ((answer 
 	  (setq *last-z3-output* 
 	  (run-z3 (setq *last-z3-input* (z3-render assumptions goals '("(check-sat)"))) timeout)
