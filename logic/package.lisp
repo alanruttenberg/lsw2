@@ -21,6 +21,7 @@
    #:vampire-prove
    #:vampire-render
    #:pprint-spec-axioms
-   *last-z3-input* *last-z3-output*
-   *last-vampire-input* *last-vampire-output*
+   #:*last-z3-input* #:*last-z3-output*
+   #:*last-vampire-input* #:*last-vampire-output*
+   #:def-expect-satisfiable #:def-expect-unsatisfiable #:def-expect-provable
   ))
