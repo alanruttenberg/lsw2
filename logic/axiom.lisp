@@ -128,6 +128,8 @@
 		      collect spec
 		    else if (atom spec)
 			   collect (get-axiom spec)
+		    else if (eq (car spec) :negate)
+			    collect (negate-axiom (get-axiom (second spec)) )
 		    else append (apply 'get-axioms spec))))
       (and nots (collect-axioms-from-spec (mapcar 'second nots)))
       :test 'equalp)
@@ -142,7 +144,7 @@
 (defmethod  axiom-generation-form ((a axiom))
   (if (slot-boundp a 'generation-form)
       (slot-value a 'generation-form)
-      (let ((keys '((:implies l-implies) (:iff l-iff) (:and l-and) (:or l-or) (:forall l-forall) (:exists l-exists)
+      (let ((keys '((:distinct l-distinct) (:implies l-implies) (:iff l-iff) (:and l-and) (:or l-or) (:forall l-forall) (:exists l-exists)
 		    (:not l-not) (:= l-=) (:fact l-fact))))
 	(labels ((rewrite (expression)
 		   (cond ((and (consp expression) (member (car expression) keys :key 'car))
@@ -180,7 +182,9 @@
 	     (if (formula-sexp-p e)
 		 nil
 		 (loop for ((k v) . more) on (axiom-plist e) do (format t "~a:~a" k v) (when more (format t ", "))))
-	     (pprint (axiom-sexp e))
+	     (terpri)
+	     (let ((*print-pretty* t))
+	       (format t "~a" (axiom-sexp e)))
 	     (terpri))
        (logic::collect-axioms-from-spec spec)
        ))
