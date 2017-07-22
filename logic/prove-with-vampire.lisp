@@ -4,11 +4,12 @@
 (defvar *running-in-vagrant* t)
 (defvar *vampire-box-name* "vampirebox")
 (defvar *vampire-executable* "/vagrant/linux/vampire")
-(defvar *vampire-shared-directory-local* (namestring (truename "~/repos/bfo-theory/tools/vampire/")))
+
 (defvar *vampire-shared-directory-remote* (namestring "/vagrant/"))
 (defvar *checked-vampire-box-present* nil)
 (defvar *checked-vampire-box-running* nil)
-(defvar *vampire-box-id* "5878d63")
+(defvar *vampire-box-id* (cl-user::get-vagrant-box-id "vampirebox"))
+(defvar *vampire-shared-directory-local* (make-directory (cl-user::get-vagrant-wd "vampirebox")))
 
 (defclass vampire-logic-generator (z3-logic-generator) ())
 
