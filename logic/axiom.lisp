@@ -62,7 +62,7 @@
 ;;     There are two special values, which shouldn't be used for actual values
 ;;      :none matches if the key is not present
 ;;      :any-value matches if the key is present, regardless of value 
-
+;;   (:exclude <element>) - remove any of these found in the above.
 
 (defun get-axioms ( &rest key-values &key (errorp t) &allow-other-keys)
   (remf key-values :errorp)
@@ -114,17 +114,24 @@
 
 (defun collect-axioms-from-spec (specs)
   "specs: either a single formuala or an axiom name or a list each element of which is either an axiom name, a list of key values, or a logic sexp. Output a list of axioms or unchanged logic sexps"
-  (remove-duplicates 
-  (if (formula-sexp-p specs) 
-      (list specs)
-      (if (keywordp specs)
-	  (list (get-axiom specs))
-	  (loop for spec in specs
-		if (formula-sexp-p spec)
-		  collect spec
-		else if (atom spec)
-		       collect (get-axiom spec)
-		else append (apply 'get-axioms spec)))) :test 'equalp))
+  (if (null specs) nil)
+  (let* ((nots (remove-if-not (lambda(e) (and (consp e) (eq (car e) :exclude))) specs))
+	 (specs (set-difference specs nots :test 'equalp)))
+    (remove-duplicates 
+     (set-difference
+      (if (formula-sexp-p specs) 
+	  (list specs)
+	  (if (keywordp specs)
+	      (list (get-axiom specs))
+	      (loop for spec in specs
+		    if (formula-sexp-p spec)
+		      collect spec
+		    else if (atom spec)
+			   collect (get-axiom spec)
+		    else append (apply 'get-axioms spec))))
+      (and nots (collect-axioms-from-spec (mapcar 'second nots)))
+      :test 'equalp)
+     :test 'equalp)))
 
 (defmethod predicates ((a axiom))
   (predicates (axiom-sexp a)))
@@ -165,3 +172,15 @@
 		 :description (concatenate 'string "(negated) " (axiom-description a))
 		 :from a))
 			
+(defmethod pprint-spec-axioms (spec)
+  (map nil (lambda(e)
+		 (if (formula-sexp-p e)
+		     (format t "unnamed")
+		     (format t "~a: " (axiom-name e)))
+	     (if (formula-sexp-p e)
+		 nil
+		 (loop for ((k v) . more) on (axiom-plist e) do (format t "~a:~a" k v) (when more (format t ", "))))
+	     (pprint (axiom-sexp e))
+	     (terpri))
+       (logic::collect-axioms-from-spec spec)
+       ))
