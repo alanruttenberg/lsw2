@@ -49,6 +49,9 @@
 (defmethod logical-fact ((g z3-logic-generator) fact)
    fact)
 
+(defmethod logical-distinct ((g z3-logic-generator) &rest args)
+  `(distinct ,@args))
+
 (defmethod to-string  ((g z3-logic-generator) exp)
   (if (stringp exp) exp
       (let ((*print-case* nil))

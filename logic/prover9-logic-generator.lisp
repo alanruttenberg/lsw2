@@ -55,6 +55,13 @@
 (defmethod logical-fact ((g prover9-logic-generator) fact)
   (prover-expression g fact))
 
+(defmethod logical-distinct ((g prover9-logic-generator) &rest args)
+  (logical-and g
+	 (loop for (a . rest) on args
+	       append
+	       (loop for b in rest
+		     collect (logical-not g (logical-= g a b))))))
+
 (defmethod render-axiom ((g prover9-logic-generator) (a axiom))
   (let ((ax (call-next-method)))
     (concatenate 'string
