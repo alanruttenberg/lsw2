@@ -43,6 +43,8 @@
 	     (:file "datetime")
 	     (:file "applescript")
 	     (:file "browse-url")
-	     (:file "eval-with-timeout")))))
+	     (:file "eval-with-timeout")
+	     (:file "run-program")
+	     (:file "vagrant")))))
 
 
