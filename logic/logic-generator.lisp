@@ -17,6 +17,8 @@
 (defgeneric logical-class ((g logic-generator) class el))
 (defgeneric logical-relation ((g logic-generator) head &rest args))
 (defgeneric logical-fact ((g logic-generator) fact))
+(defgeneric logical-distinct ((g logic-generator) &rest els))
+
 
 (defvar *use-holds* nil)
 
@@ -40,6 +42,12 @@
 (defmethod logical-= ((g logic-generator) a b) `(:= ,a ,b))
 (defmethod logical-holds ((g logic-generator) &rest args) `(:holds ,@args))
 (defmethod logical-fact ((g logic-generator) fact) fact)
+(defmethod logical-distinct ((g logic-generator) &rest els)
+  (list* :and (loop for (a . rest) on els
+		 append
+		 (loop for b in rest
+		       collect `(:not (:= ,a ,b))))))
+	
 
 (defvar *logic-generator* (make-instance 'logic-generator))
 
@@ -93,6 +101,9 @@
 (defun l-fact (a)
   (logical-fact *logic-generator* a))
 
+(defun l-distinct (&rest args)
+  (apply 'logical-distinct *logic-generator* args))
+
 (defun formula-sexp-p (it)
   (and (consp it) (member (car it) '(:implies :forall :exists :and :or :iff :not := :fact :=))))
 
@@ -102,7 +113,7 @@
 	       (unless (atom form) 
 		 (case (car form)
 		   ((:forall :exists) (walk (third form)))
-		   ((:implies :iff :and :or :not := :fact) (map nil #'walk (rest form)))
+		   ((:implies :iff :and :or :not := :fact :distinct) (map nil #'walk (rest form)))
 		   (otherwise 
 		    (pushnew (list (intern (string (car form))) (1- (length form)))  them :test 'equalp)
 		    (map nil #'walk (rest form)))))))
@@ -117,7 +128,7 @@
 		   (unless (atom form)
 		     (case (car form)
 		       ((:forall :exists) (walk (third form)))
-		       ((:implies :iff :and :or :not :=) (map nil #'walk (rest form)))
+		       ((:implies :iff :and :or :not := :distinct) (map nil #'walk (rest form)))
 		       (otherwise (map nil #'walk (rest form))))))))
       (walk exp)
       them)))
