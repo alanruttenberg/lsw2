@@ -13,8 +13,14 @@
    #:z3-prove #:z3-find-model
    #:z3-check-satisfiability
    #:z3-syntax-check
+   #:z3-render
    #:render
    #:render-axiom #:render-axioms
    #:prover9-prove
    #:mace4-find-model
+   #:vampire-prove
+   #:vampire-render
+   #:pprint-spec-axioms
+   *last-z3-input* *last-z3-output*
+   *last-vampire-input* *last-vampire-output*
   ))
