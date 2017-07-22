@@ -18,7 +18,10 @@
     (getf (find-if (lambda(e) (equalp (getf e :id) id-or-name) (equalp (getf e :name) id-or-name)) info) :wd)))
 
 
-
-
-
-
+(defun vagrant-tip ()
+  (format t "Install or upgrade virtualbox: brew cask [re]install virtualbox~%")
+  (format t "Download from https://www.vagrantup.com/downloads.html~%")
+  (format t "Install virtualbox guest addition dwim: vagrant plugin install vagrant-vbguest~%")
+  (format t "Name your box by adding in your Vagrantfile: config.vm.define :yourBoxName")
+  )
+	  
