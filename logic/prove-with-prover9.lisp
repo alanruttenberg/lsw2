@@ -128,7 +128,7 @@
 (defun prover9-prove (assumptions goals  &key (timeout 10) (show-translated-axioms nil))
   (mace-or-prover9  :prover9 assumptions goals :timeout timeout :show-translated-axioms show-translated-axioms))
 
-(defun mace4-find-model (assumptions goals  &key (timeout 10) (format :baked) (show-translated-axioms nil) domain-max-size domain-min-size)
-  (mace-or-prover9 :mace4 assumptions goals :timeout timeout :interpformat format :show-translated-axioms show-translated-axioms
+(defun mace4-find-model (assumptions &key (timeout 10) (format :baked) (show-translated-axioms nil) domain-max-size domain-min-size)
+  (mace-or-prover9 :mace4 assumptions nil :timeout timeout :interpformat format :show-translated-axioms show-translated-axioms
 		   :domain-min-size domain-min-size :domain-max-size domain-max-size))
 

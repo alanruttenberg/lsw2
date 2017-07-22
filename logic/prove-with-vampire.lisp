@@ -12,7 +12,7 @@
 
 (defclass vampire-logic-generator (z3-logic-generator) ())
 
-(defun run-vampire (input timeout)
+(defun run-vampire (input timeout &optional (mode :vampire) (switches nil))
   (when *running-in-vagrant* 
     (ensure-vampire-box-running)
     (let ((tmpdir (merge-pathnames (make-pathname :directory '(:relative "tmp")) *vampire-shared-directory-local*)))
@@ -23,8 +23,9 @@
 	(run-program-string->string
 	 "vagrant" 
 	 (list  "ssh" *vampire-box-id* "-c"
-		(format nil "~a --input_syntax smtlib2 --time_limit ~a --memory_limit 4096  --mode vampire  ~a"
-			*vampire-executable* timeout (merge-pathnames (make-pathname :name (pathname-name file)
+		(format nil "~a --input_syntax smtlib2 --time_limit ~a --memory_limit 4096  --mode ~a ~{--~a ~a ~} ~a "
+			*vampire-executable* timeout (string-downcase (string mode)) switches
+			(merge-pathnames (make-pathname :name (pathname-name file)
 										     :type (pathname-type file))
 								      (merge-pathnames "tmp/" *vampire-shared-directory-remote*))))
 	 ""
@@ -36,14 +37,17 @@
 (defun vampire-render (assumptions &optional goals)
   (render :z3 assumptions goals))
 
-(defun vampire-prove (assumptions goals &key (timeout 30) )
+(defun vampire-prove (assumptions goals &key (timeout 30) (mode :vampire) (switches nil))
   (assert (eq (z3-syntax-check assumptions goals) t) (assumptions goals) "smtlib2 syntax error")
   (let ((answer 
 	  (setq *last-vampire-output* 
-		(run-vampire (setq *last-z3-input* (z3-render assumptions goals '("(check-sat)"))) timeout))
+		(run-vampire (setq *last-z3-input* (z3-render assumptions goals '("(check-sat)")))  timeout mode switches))
 	  ))
-    (if (jss::all-matches answer "Termination reason: Refutation")
+    (if (and (jss::all-matches answer "Termination reason: Refutation")
+	     (not (jss::all-matches answer "Termination reason: Refutation not")))
 	:proved
-	(if (jss::all-matches answer "Termination reason: Time limit")
+	(if (or (jss::all-matches answer "Termination reason: Time limit")
+		(and (jss::all-matches answer "Proof not found in time")
+		     (jss::all-matches answer "SZS status GaveUp")))
 	    :timeout
 	    nil))))
