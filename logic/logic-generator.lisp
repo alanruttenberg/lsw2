@@ -147,7 +147,8 @@
   (let ((generator-class
 	  (ecase which
 	    (:z3 'z3-logic-generator)
-	    (:prover9 'prover9-logic-generator))))
+	    (:prover9 'prover9-logic-generator)
+	    (:vampire 'vampire-logic-generator))))
     (flet ((doit ()
 	     (concatenate
 	      'string

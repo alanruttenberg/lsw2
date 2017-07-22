@@ -9,7 +9,8 @@
 (defvar *checked-vampire-box-present* nil)
 (defvar *checked-vampire-box-running* nil)
 (defvar *vampire-box-id* "5878d63")
-(defclass vampire-logic-generator (z3-logic-generator))
+
+(defclass vampire-logic-generator (z3-logic-generator) ())
 
 (defun run-vampire (input timeout)
   (when *running-in-vagrant* 

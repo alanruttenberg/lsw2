@@ -64,12 +64,12 @@
 			:disproved)))))))
 
 
-(defun z3-find-model (assumptions &optional (timeout 10))
+(defun z3-find-model (assumptions &key (timeout 10))
   (run-z3
    (z3-render assumptions nil (list "(check-sat)" "(get-model)"))
    timeout))
 
-(defun z3-check-satisfiability (assumptions &optional (timeout 10))
+(defun z3-check-satisfiability (assumptions &key (timeout 10))
   (let* ((input (z3-render assumptions))
 	 (check (z3-syntax-check input)))
     (or (and (not (eq check t)) check)
