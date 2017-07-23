@@ -145,7 +145,7 @@
   (if (slot-boundp a 'generation-form)
       (slot-value a 'generation-form)
       (let ((keys '((:distinct l-distinct) (:implies l-implies) (:iff l-iff) (:and l-and) (:or l-or) (:forall l-forall) (:exists l-exists)
-		    (:not l-not) (:= l-=) (:fact l-fact))))
+		    (:not l-not) (:= l-=) (:fact l-fact) (:owl l-owl))))
 	(labels ((rewrite (expression)
 		   (cond ((and (consp expression) (member (car expression) keys :key 'car))
 			  `(,(second (assoc (car expression) keys))

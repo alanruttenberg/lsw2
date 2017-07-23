@@ -1,5 +1,6 @@
 (defpackage :logic
   (:use cl)
+  (:import-from :cl-user #:owl-sexp-to-fol)
   (:export
    #:l-forall #:l-exists #:l-and #:l-or #:l-iff #:l-equal #:l-not
    #:l-implies #:pred-property #:pred-class #:*use-holds*

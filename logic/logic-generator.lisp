@@ -18,6 +18,7 @@
 (defgeneric logical-relation ((g logic-generator) head &rest args))
 (defgeneric logical-fact ((g logic-generator) fact))
 (defgeneric logical-distinct ((g logic-generator) &rest els))
+(defgeneric logical-owl ((g logic-generator) &rest els))
 
 
 (defvar *use-holds* nil)
@@ -47,6 +48,8 @@
 		 append
 		 (loop for b in rest
 		       collect `(:not (:= ,a ,b))))))
+(defmethod logical-owl ((g logic-generator) &rest expression)
+  (owl-sexp-to-fol expression))
 	
 
 (defvar *logic-generator* (make-instance 'logic-generator))
@@ -104,8 +107,11 @@
 (defun l-distinct (&rest args)
   (apply 'logical-distinct *logic-generator* args))
 
+(defun l-owl (expression)
+  (apply 'logical-owl *logic-generator* expression))
+
 (defun formula-sexp-p (it)
-  (and (consp it) (member (car it) '(:implies :forall :exists :and :or :iff :not := :fact :=))))
+  (and (consp it) (member (car it) '(:implies :forall :exists :and :or :iff :not := :fact := :owl))))
 
 (defmethod predicates ((exp list))
   (let ((them nil))
@@ -113,6 +119,7 @@
 	       (unless (atom form) 
 		 (case (car form)
 		   ((:forall :exists) (walk (third form)))
+		   (:owl (walk (owl-sexp-to-fol (second form))))
 		   ((:implies :iff :and :or :not := :fact :distinct) (map nil #'walk (rest form)))
 		   (otherwise 
 		    (pushnew (list (intern (string (car form))) (1- (length form)))  them :test 'equalp)
@@ -128,6 +135,7 @@
 		   (unless (atom form)
 		     (case (car form)
 		       ((:forall :exists) (walk (third form)))
+		       (:owl (walk (owl-sexp-to-fol (second form))))
 		       ((:implies :iff :and :or :not := :distinct) (map nil #'walk (rest form)))
 		       (otherwise (map nil #'walk (rest form))))))))
       (walk exp)
