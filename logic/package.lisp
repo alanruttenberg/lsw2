@@ -1,6 +1,8 @@
+(eval-when (:load-toplevel :execute :compile-toplevel)
+  (intern "OWL-SEXP-TO-FOL" :cl-user))
 (defpackage :logic
   (:use cl)
-  (:import-from :cl-user #:owl-sexp-to-fol)
+  (:import-from :cl-user cl-user::owl-sexp-to-fol)
   (:export
    #:l-forall #:l-exists #:l-and #:l-or #:l-iff #:l-equal #:l-not
    #:l-implies #:pred-property #:pred-class #:*use-holds*
