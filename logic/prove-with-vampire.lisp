@@ -9,7 +9,7 @@
 (defvar *checked-vampire-box-present* nil)
 (defvar *checked-vampire-box-running* nil)
 (defvar *vampire-box-id* (cl-user::get-vagrant-box-id "vampirebox"))
-(defvar *vampire-shared-directory-local* (make-directory (cl-user::get-vagrant-wd "vampirebox")))
+(defvar *vampire-shared-directory-local* (make-pathname :directory (cl-user::get-vagrant-wd "vampirebox")))
 
 (defclass vampire-logic-generator (z3-logic-generator) ())
 
