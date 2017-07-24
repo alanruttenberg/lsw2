@@ -123,7 +123,7 @@
 			     (:proved "Trying proof in "))
 		name)
 	(let ((*print-pretty* t))
-	  (format t "~s" form))
+	  (format t "~a" form))
 	(let ((result (eval form)))
 	  (if (eq result (expected-result expected-proof))
 	      (format t "~%Success!! (result was ~s)~%" result)
