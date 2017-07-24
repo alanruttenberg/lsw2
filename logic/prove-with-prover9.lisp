@@ -27,6 +27,7 @@
 	    do (write-line line s))
       (close (sys::process-output process)))))
 
+;; allow assumptions to be the fully rendered assumptions + negated goal.
 (defun prepare-prover9-input (assumptions goals &key (generator (make-instance 'prover9-logic-generator)) settings hints show-translated-axioms)
   (let ((assumptions (render-axioms generator (collect-axioms-from-spec assumptions)))
 	(goals (render-axioms generator (collect-axioms-from-spec goals)))
@@ -34,9 +35,8 @@
     (when (or show-translated-axioms *debug*)
       (format t "Prover Assumptions:~% ~a~%" assumptions)
       (format t "Prover Goal:~%~a~%" goals))
-    (let ((base 
-	    (format nil "~{~a.~%~}formulas(sos).~%~aend_of_list.~%formulas(goals).~%~a~%end_of_list.~%"
-		    settings assumptions goals)))
+    (let ((base (format nil "~{~a.~%~}formulas(sos).~%~aend_of_list.~%formulas(goals).~%~a~%end_of_list.~%"
+			settings assumptions (or goals ""))))
       (if hints
 	  (concatenate 'string base hints)
 	  base))))
@@ -65,10 +65,13 @@
 	    (setq @ (cons input output))
 	    (inspect @)
 	    (error "~a error: ~a in: ~a" (string-downcase (string which)) error what))))
-      (values (if (ecase which
-		    (:mace4 (search "interpretation" output))
-		    (:prover9 (search "THEOREM PROVED" output)))
-		  t)
+    (values (ecase which
+	      (:mace4 (if (search "interpretation" output) :sat))
+	      (:prover9 (if (search "THEOREM PROVED" output)
+			    :proved
+			    (if (search "exit (max_seconds)" output)
+				:timeout
+				nil))))
 	      (let ((output
 		      (multiple-value-list
 		       (ecase which
@@ -127,6 +130,7 @@
 
 (defun prover9-prove (assumptions goals  &key (timeout 10) (show-translated-axioms nil))
   (mace-or-prover9  :prover9 assumptions goals :timeout timeout :show-translated-axioms show-translated-axioms))
+	
 
 (defun mace4-find-model (assumptions &key (timeout 10) (format :baked) (show-translated-axioms nil) domain-max-size domain-min-size)
   (mace-or-prover9 :mace4 assumptions nil :timeout timeout :interpformat format :show-translated-axioms show-translated-axioms

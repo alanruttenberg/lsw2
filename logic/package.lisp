@@ -25,4 +25,5 @@
    #:*last-z3-input* #:*last-z3-output*
    #:*last-vampire-input* #:*last-vampire-output*
    #:def-expect-satisfiable #:def-expect-unsatisfiable #:def-expect-provable
+   #:run-proof #:proof-form #:render-proof #:prove-with 
   ))
