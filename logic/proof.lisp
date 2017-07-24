@@ -9,11 +9,14 @@
    (expected-result :accessor expected-result  :initarg :expected-result)
    (timeout :accessor timeout :initarg :timeout)
    (with :accessor with :initarg :with)
-   (name :accessor name :initarg :name)))
+   (name :accessor name :initarg :name)
+   (counterexample :accessor counterexample :initarg :counterexample)))
 
 (defmethod initialize-instance ((e expected-proof) &rest rest &key &allow-other-keys )
   (call-next-method)
-  (loop for key in '(:with :timeout :goal :expected-result :assumptions :name)
+  (assert (member (expected-result e) '(:sat :unsat :proved :not-entailed)) ((expected-result e))
+	  "Don't know expected-proof type: ~a" (expected-result e))
+  (loop for key in '(:with :timeout :goal :expected-result :assumptions :name :counterexample)
 		    do (remf rest key) (remf rest key))
   (setf (options e) rest))
 
@@ -56,6 +59,19 @@
 		  :timeout ,timeout
 		  ',options))))
 
+(defmacro def-expect-not-entailed (name (&rest options &key counterexample (with 'z3-check-satisfiability) (timeout 10)) goal &body assumptions)
+  (let ((name (intern (string name) :keyword)))
+    `(setf (gethash ,name *expected-proofs*)
+	   (apply 'make-instance 'expected-proof
+		  :goal ',goal
+		  :assumptions ',assumptions
+		  :expected-result :not-entailed
+		  :counterexample ,counterexample
+		  :name ,name
+		  :with ',with
+		  :timeout ,timeout
+		  ',options))))
+
 ;; ****************************************************************
 ;; return a list of specs suitable for collect-axioms-from-spec. (def-expect-provable & friends take forms that evaluate to specs)
 (defmethod proof-assumption-specs ((expected-proof expected-proof))
@@ -66,14 +82,50 @@
 
 ;; ****************************************************************
 ;; returns a form that can be evaluated to run the proof
+
+;; To show non-entailment we offer two ways.
+;; Either directly try to show that the negation of the goal in combination is satisfiable (therefore not true in all models)
+;; Or accept a manually constructed counterexample, verify that's incompatible with the goal, and then show that the
+;; counterexample with assumptions are satisfiable
+
 (defmethod proof-form ((expected-proof expected-proof))
-  `(,(with expected-proof)
-    (append ,@(mapcar (lambda(e) (if (symbolp e) `(quote ,(list e)) e)) (assumptions expected-proof)))
-    ,@(if (goal expected-proof) (list `(quote ,(list (goal expected-proof)))) nil)
-    :timeout ,(timeout expected-proof)
-    ,@(options expected-proof)))
+ (flet ((assumptions-form (assumptions)
+	   (list* 'append (mapcar (lambda(e) (if (or (symbolp e) (and (consp e) (eq (car e) :negate))) `(quote ,(list e)) e)) assumptions))))
+   (if (eq (expected-result expected-proof) :not-entailed)
+       (if (counterexample expected-proof)
+	   (let ((sat-form
+			 `(,(with expected-proof)
+			   ,(assumptions-form (list* (counterexample expected-proof) (assumptions expected-proof)))
+			   :timeout ,(timeout expected-proof)
+			   ,@(options expected-proof)))
+		 (unsat-form
+			 `(,(with expected-proof)
+			   ,(assumptions-form (list (goal expected-proof) (counterexample expected-proof)))
+			   :timeout ,(timeout expected-proof)
+			   ,@(options expected-proof))))
+	     `(case ,unsat-form
+		(:sat :not-counterexample)
+		(:timeout :timeout)
+		(otherwise
+		 (case ,sat-form
+		   (:unsat :not-entailed)
+		   (:timeout :timeout)
+		   (otherwise :not-entailed)))))
+	   `(if (eq (,(with expected-proof)
+		     ,(assumptions-form (list* `(:negate ,(goal expected-proof)) (assumptions expected-proof)))
+		     :timeout ,(timeout expected-proof)
+		     ,@(options expected-proof)) :sat)
+		:not-entailed
+		:unsat))
+       `(,(with expected-proof)
+	 ,(assumptions-form (assumptions expected-proof))
+	 ,@(if (goal expected-proof) (list `(quote ,(list (goal expected-proof)))) nil)
+	 :timeout ,(timeout expected-proof)
+	 ,@(options expected-proof)))
+   ))
 
 (defmethod proof-form ((expected-proof symbol))
+  (assert (gethash expected-proof *expected-proofs*) (expected-proof) "Can't find proof named ~s" expected-proof)
   (proof-form (gethash expected-proof *expected-proofs*)))
 
 ;; ****************************************************************
@@ -120,7 +172,8 @@
 	(format t "~%~a~a~%" (ecase (expected-result expected-proof)
 			     (:sat "Checking satisfiability in ")
 			     (:unsat "Checking unsatisfiability in ")
-			     (:proved "Trying proof in "))
+			     (:proved "Trying proof in ")
+			     (:not-entailed "Trying to test non-entailment in "))
 		name)
 	(let ((*print-pretty* t))
 	  (format t "~a" form))
@@ -146,3 +199,5 @@
 	     (when (member (expected-result v) '(:sat))
 	       (format t "~a (:~a) ~a~%" k (expected-result v) (prove-with k 'mace4-find-model :with-goals nil))))
 	   *expected-proofs*))
+
+
