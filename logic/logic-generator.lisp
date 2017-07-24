@@ -170,7 +170,8 @@
 	  (ecase which
 	    (:z3 'z3-logic-generator)
 	    (:prover9 'prover9-logic-generator)
-	    (:vampire 'vampire-logic-generator))))
+	    (:vampire 'vampire-logic-generator)
+	    (:latex 'latex-logic-generator))))
     (flet ((doit ()
 	     (concatenate
 	      'string
