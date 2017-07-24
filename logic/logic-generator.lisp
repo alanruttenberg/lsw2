@@ -110,6 +110,9 @@
 (defun l-owl (expression)
   (apply 'logical-owl *logic-generator* expression))
 
+(defun l-parens (expression)
+  (logical-parens *logic-generator* expression))
+
 (defun formula-sexp-p (it)
   (and (consp it) (member (car it) '(:implies :forall :exists :and :or :iff :not := :fact := :owl))))
 

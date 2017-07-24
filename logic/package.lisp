@@ -12,6 +12,7 @@
    #:get-axioms
    #:prover9-logic-generator
    #:z3-logic-generator.
+   #:latex-logic-generator.
    #:collect-axioms-from-spec
    #:z3-prove #:z3-find-model
    #:z3-check-satisfiability
