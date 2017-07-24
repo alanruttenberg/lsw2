@@ -33,7 +33,11 @@
 	 )
 	))))
 
-(defun ensure-vampire-box-running () t)
+(defun ensure-vampire-box-running ()
+  (or *checked-vampire-box-running*
+      (unless (equalp (cl-user::get-vagrant-box-status *vampire-box-id*) "running")
+	(cl-user::vagrant-up  *vampire-box-id*))
+      (setq *checked-vampire-box-running* t)))
 
 (defun vampire-render (assumptions &optional goals)
   (render :z3 assumptions goals))
