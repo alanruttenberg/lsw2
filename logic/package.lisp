@@ -24,6 +24,6 @@
    #:pprint-spec-axioms
    #:*last-z3-input* #:*last-z3-output*
    #:*last-vampire-input* #:*last-vampire-output*
-   #:def-expect-satisfiable #:def-expect-unsatisfiable #:def-expect-provable
+   #:def-expect-satisfiable #:def-expect-unsatisfiable #:def-expect-provable #:def-expect-not-entailed 
    #:run-proof #:proof-form #:render-proof #:prove-with 
   ))

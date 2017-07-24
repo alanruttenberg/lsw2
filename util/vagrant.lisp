@@ -15,11 +15,11 @@
 
 (defun get-vagrant-wd (id-or-name)
   (let ((info (get-vagrant-box-info)))
-    (getf (find-if (lambda(e) (equalp (getf e :id) id-or-name) (equalp (getf e :name) id-or-name)) info) :wd)))
+    (getf (find-if (lambda(e) (or (equalp (getf e :id) id-or-name) (equalp (getf e :name) id-or-name))) info) :wd)))
 
 (defun get-vagrant-box-status (id-or-name)
   (let ((info (get-vagrant-box-info)))
-    (getf (find-if (lambda(e) (equalp (getf e :id) id-or-name) (equalp (getf e :name) id-or-name)) info) :status)))
+    (getf (find-if (lambda(e) (or (equalp (getf e :id) id-or-name) (equalp (getf e :name) id-or-name))) info) :status)))
 
 (defun vagrant-up (id)
   (run-program-string->string  "vagrant" `("up" ,id) "")
