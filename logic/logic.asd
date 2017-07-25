@@ -22,12 +22,13 @@
     ((:file "snark-logic-generator")
      (:file "prover9-logic-generator")
      (:file "z3-logic-generator")
+     (:file "latex-logic-generator")
      (:file "prove-with-prover9")
      (:file "prove-with-z3")
      (:file "prove-with-vampire")
      (:file "proof"))
     :depends-on ("package" "main")))
-  :depends-on ()
+  :depends-on (:cl-ansi-text)
   )
 
 

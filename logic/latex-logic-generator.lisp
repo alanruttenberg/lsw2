@@ -1,7 +1,8 @@
 (in-package :logic)
 
 (defclass latex-logic-generator (logic-generator) 
-  ((formula-format :accessor formula-format :initarg :formula-format :initform "~a:~%~a")))
+  ((formula-format :accessor formula-format :initarg :formula-format :initform "~a:~%~a")
+   (insert-line-breaks :accessor insert-line-breaks :initarg :insert-line-breaks :initform nil)))
 
 (defmethod normalize-names ((g latex-logic-generator) e)
   (cond ((and (symbolp e) (char= (char (string e) 0) #\?))
@@ -22,6 +23,9 @@
       (normalize-names g expression))
   )
 
+(defmethod maybe-line-break ((g latex-logic-generator))
+  (if (insert-line-breaks g) #\newline ""))
+  
 (defmethod latex-quantifier-vars ((g latex-logic-generator) vars)
   (normalize-names g vars))
 
@@ -34,16 +38,19 @@
 	  (mapcar (lambda(e)(latex-expression g e)) expressions)))
 
 (defmethod logical-implies ((g latex-logic-generator) antecedent consequent)
-  (format nil "~a \\rightarrow ~a" (latex-expression g antecedent) (latex-expression g consequent)))
+  (format nil "~a ~a\\rightarrow ~a" (latex-expression g antecedent) (maybe-line-break g) (latex-expression g consequent)))
 
-(defmethod logical-and ((g latex-logic-generator) expressions) 
- (format nil "~{~a ~^\\land ~}"  (mapcar (lambda(e) (latex-expression g e)) expressions)))
+(defmethod logical-and ((g latex-logic-generator) expressions)
+  (let ((format-string (if (eql (maybe-line-break g) #\newline)
+			   "~{~a ~^~%\\land ~}"
+			   "~{~a ~^\\land ~}")))
+    (format nil format-string  (mapcar (lambda(e) (latex-expression g e)) expressions))))
 
 (defmethod logical-or ((g latex-logic-generator) expressions) 
   (format nil "~{~a ~^\\lor ~}"  (mapcar (lambda(e) (latex-expression g e)) expressions)))
 
 (defmethod logical-iff ((g latex-logic-generator) antecedent consequent)
-  (format nil "~a \\leftrightarrow ~a" (latex-expression g antecedent) (latex-expression g consequent)))
+  (format nil "~a ~a\\leftrightarrow ~a" (latex-expression g antecedent) (maybe-line-break g) (latex-expression g consequent)))
 
 (defmethod logical-not ((g latex-logic-generator) expression)
   (format nil "\\neg ~a" (latex-expression g expression)))
@@ -58,7 +65,7 @@
   (latex-expression g fact))
 
 (defmethod logical-parens ((g latex-logic-generator) expression)
-  (format nil "(~a)" (latex-expression g expression)))
+  (format nil "~a(~a)" (maybe-line-break g) (latex-expression g expression)))
 
 ;; ugh this got ugly handling bug  (:not (:exists (?a ?b) ..)) should -> (:not (:exists (?a) (:not (:exists (?b) ...
 

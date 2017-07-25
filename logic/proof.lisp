@@ -89,40 +89,43 @@
 ;; counterexample with assumptions are satisfiable
 
 (defmethod proof-form ((expected-proof expected-proof))
- (flet ((assumptions-form (assumptions)
+  (flet ((assumptions-form (assumptions)
 	   (list* 'append (mapcar (lambda(e) (if (or (symbolp e) (and (consp e) (eq (car e) :negate))) `(quote ,(list e)) e)) assumptions))))
-   (if (eq (expected-result expected-proof) :not-entailed)
-       (if (counterexample expected-proof)
-	   (let ((sat-form
-			 `(,(with expected-proof)
-			   ,(assumptions-form (list* (counterexample expected-proof) (assumptions expected-proof)))
-			   :timeout ,(timeout expected-proof)
-			   ,@(options expected-proof)))
-		 (unsat-form
-			 `(,(with expected-proof)
-			   ,(assumptions-form (list (goal expected-proof) (counterexample expected-proof)))
-			   :timeout ,(timeout expected-proof)
-			   ,@(options expected-proof))))
-	     `(case ,unsat-form
-		(:sat :not-counterexample)
-		(:timeout :timeout)
-		(otherwise
-		 (case ,sat-form
-		   (:unsat :not-entailed)
-		   (:timeout :timeout)
-		   (otherwise :not-entailed)))))
-	   `(if (eq (,(with expected-proof)
-		     ,(assumptions-form (list* `(:negate ,(goal expected-proof)) (assumptions expected-proof)))
-		     :timeout ,(timeout expected-proof)
-		     ,@(options expected-proof)) :sat)
-		:not-entailed
-		:unsat))
-       `(,(with expected-proof)
-	 ,(assumptions-form (assumptions expected-proof))
-	 ,@(if (goal expected-proof) (list `(quote ,(list (goal expected-proof)))) nil)
-	 :timeout ,(timeout expected-proof)
-	 ,@(options expected-proof)))
-   ))
+    (if (eq (expected-result expected-proof) :not-entailed)
+	(if (counterexample expected-proof)
+	    (let ((sat-form
+		    `(,(with expected-proof)
+		      ,(assumptions-form (list* (counterexample expected-proof) (assumptions expected-proof)))
+		      :timeout ,(timeout expected-proof)
+		      ,@(options expected-proof)))
+		  (unsat-form
+		    `(,(with expected-proof)
+		      ,(assumptions-form (list (goal expected-proof) (counterexample expected-proof)))
+		      :timeout ,(timeout expected-proof)
+		      ,@(options expected-proof))))
+	      `(case ,unsat-form
+		 (:sat :not-counterexample)
+		 (:timeout :timeout)
+		 (otherwise
+		  (case ,sat-form
+		    (:unsat :not-entailed)
+		    (:timeout :timeout)
+		    (otherwise :not-entailed)))))
+	    `(let ((result
+		     (,(with expected-proof)
+		      ,(assumptions-form (list* `(:negate ,(goal expected-proof)) (assumptions expected-proof)))
+		      :timeout ,(timeout expected-proof)
+		      ,@(options expected-proof))))
+	       (case result
+		 (:timeout :timeout)
+		 (:sat :not-entailed)
+		 (t result))))
+	`(,(with expected-proof)
+	  ,(assumptions-form (assumptions expected-proof))
+	  ,@(if (goal expected-proof) (list `(quote ,(list (goal expected-proof)))) nil)
+	  :timeout ,(timeout expected-proof)
+	  ,@(options expected-proof)))
+    ))
 
 (defmethod proof-form ((expected-proof symbol))
   (assert (gethash expected-proof *expected-proofs*) (expected-proof) "Can't find proof named ~s" expected-proof)
@@ -161,26 +164,53 @@
 		(:mace4 'mace4-find-model))
 	      :timeout  timeout :with-goals with-goals))
 	
+
+(defmacro maybe-with-color (color effect format-string &rest args)
+  (if (find-package 'cl-ansi-text)
+      `(,(intern "WITH-COLOR" 'cl-ansi-text) (,color :effect ,effect)
+	(format t ,format-string ,@args))
+      `(format t ,format-string ,@args)))
+      
+  
 ;; ****************************************************************
 ;; given a name of an expected proof runs it and prints diagnostics
-(defun run-proof (name)
+
+(defun run-proof (name &key print-axiom-names print-formulas print-executed-form timeout)
   "Run a proof by name"
   (let ((expected-proof (gethash name *expected-proofs*)))
     (assert expected-proof (name) "Didn't find expected proof ~a" name)
+    (when timeout (setf (timeout expected-proof) timeout))
     (progn
       (let ((form (proof-form expected-proof)))
-	(format t "~%~a~a~%" (ecase (expected-result expected-proof)
-			     (:sat "Checking satisfiability in ")
-			     (:unsat "Checking unsatisfiability in ")
-			     (:proved "Trying proof in ")
-			     (:not-entailed "Trying to test non-entailment in "))
+	(format t "~&~a~a..." (ecase (expected-result expected-proof)
+			       (:sat "Checking satisfiability in ")
+			       (:unsat "Checking unsatisfiability in ")
+			       (:proved "Trying proof in ")
+			       (:not-entailed "Trying to test non-entailment in "))
 		name)
+
 	(let ((*print-pretty* t))
-	  (format t "~a" form))
-	(let ((result (eval form)))
-	  (if (eq result (expected-result expected-proof))
-	      (format t "~%Success!! (result was ~s)~%" result)
-	      (format t "~%Failed!! Expected ~s got ~s.~%" (expected-result expected-proof) result))
+	  (when (or print-axiom-names print-formulas)
+	    (format t "~&With:~%")
+	    (loop for f in (collect-axioms-from-spec (proof-assumption-specs expected-proof))
+		  do
+		     (if print-axiom-names (maybe-with-color (if print-formulas :blue :black) :normal  "~a~%" (axiom-name f)))
+		     (if print-formulas (format t "~a~%" (axiom-sexp f))))
+	    (when (goal expected-proof)
+	      (let ((goal (car (collect-axioms-from-spec (proof-goal-specs expected-proof)))))
+		(when print-axiom-names
+		  (maybe-with-color (if print-formulas :blue :black) :normal "~a~%" `(:negated ,(axiom-name goal))))
+		(when print-formulas
+		  (format t "~a~%" `(:not ,(axiom-sexp (car (collect-axioms-from-spec (proof-goal-specs expected-proof)))))))))
+	    )
+	  (when print-executed-form 
+	    (format t "~&~a~%" form)))
+	(let ((start  (get-internal-real-time))
+	      (result (eval form)))
+	  (let ((end (get-internal-real-time)))
+	    (if (eq result (expected-result expected-proof))
+		(format t "Success!! (result was ~s) (~a seconds)~%" result  (/ (floor (- end start) 100) 10.0))
+		(format t "Failed!! Expected ~s got ~s. (~a seconds)~%" (expected-result expected-proof) result (floor (/ (- end start) 100) 10.0))))
 	  (eq result (expected-result expected-proof)))))))
 
 ;; ****************************************************************
@@ -201,3 +231,28 @@
 	   *expected-proofs*))
 
 
+;; ****************************************************************
+
+(defun who-bad (base candidates timeout )
+  (assert (eq :sat (z3-check-satisfiability base :timeout timeout) ) ()
+	  "Oops - base wasn't even satisfied")
+  (catch :found
+    (labels ((doit (base candidates timeout vetted) 
+	       (loop for candidate in candidates
+		     for start = (get-internal-real-time)
+		     for result = (z3-check-satisfiability (list* candidate (append vetted base)) :timeout timeout)
+		     for end = (get-internal-real-time)
+		     do (format t "checked ~a, result:~s in ~a seconds" (axiom-name candidate) result (/ (floor (- end start) 100) 10.0))
+		     if  (eq result :timeout)
+		       do (throw :found `(:good ,vetted :bad ,candidate)))
+	       (doit base (cdr candidates) timeout (car candidates))))
+      (doit base candidates timeout nil))))
+
+
+
+
+
+
+
+
+    
