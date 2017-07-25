@@ -1,9 +1,7 @@
 (in-package :logic)
 
-
-
-
-(defclass latex-logic-generator (logic-generator) ())
+(defclass latex-logic-generator (logic-generator) 
+  ((formula-format :accessor formula-format :initarg :formula-format :initform "~a:~%~a")))
 
 (defmethod normalize-names ((g latex-logic-generator) e)
   (cond ((and (symbolp e) (char= (char (string e) 0) #\?))
@@ -99,10 +97,24 @@
 
 (defmethod render-axiom ((g latex-logic-generator) (a axiom))
   (let ((*logic-generator* g))
-    (eval (rewrite-to-axiom-generation-form (make-explicit-parentheses g (axiom-sexp a))))))
+    (format nil (formula-format g) (axiom-name a)
+	    (eval (rewrite-to-axiom-generation-form (make-explicit-parentheses g (axiom-sexp a)))))))
 
 (defmethod render-axioms ((generator latex-logic-generator) axs)
   (if (stringp axs)
       axs
-      (format nil "~{~a~^\\\\~%~}" (mapcar (lambda(e) (render-axiom generator e)) axs))
+      (format nil "~{~a~^~%~}" (mapcar (lambda(e) (render-axiom generator e)) axs))
       ))
+
+
+;; even using breqn there is trouble with long parenthesized expressions
+;; one strategy is that if there are more than 3 existentials, put them on a separate line with \\ and remove the surrounding parentheses.
+;; might try the "." instead of parentheses for quantifiers
+
+(defun axiom-sexp-length (sexp)
+  (cond ((atom sexp) (length (string sexp)))
+	((member (car sexp) '(:forall :exists :and :or :not :implies :iff))
+	 (+ 2 (apply '+ (mapcar 'axiom-sexp-length (rest sexp)))))
+	(t (+ (axiom-sexp-length (car sexp)) (apply '+ (mapcar 'axiom-sexp-length (rest sexp)))))))
+	 
+  
