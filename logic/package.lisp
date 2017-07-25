@@ -22,7 +22,7 @@
    #:render-axiom #:render-axioms
    #:vampire-prove
    #:vampire-render
-   #:pprint-spec-axioms
+   #:pprint-spec-axioms #:clear-axioms
    #:*last-z3-input* #:*last-z3-output*
    #:*last-vampire-input* #:*last-vampire-output*
    #:def-expect-satisfiable #:def-expect-unsatisfiable #:def-expect-provable #:def-expect-not-entailed 

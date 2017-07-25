@@ -2,6 +2,9 @@
 
 (defvar *axioms* (make-hash-table))
 
+(defun clear-axioms ()
+  (clrhash *axioms*))
+
 (defclass axiom () 
   ((sexp :accessor axiom-sexp :initarg :sexp)
    (name :accessor axiom-name :initarg :name :initform nil)
