@@ -2,7 +2,10 @@
   (intern "OWL-SEXP-TO-FOL" :cl-user))
 (defpackage :logic
   (:use cl)
-  (:import-from :cl-user cl-user::owl-sexp-to-fol)
+  (:import-from :cl-user cl-user::owl-sexp-to-fol
+		cl-user::uri-full cl-user::uri-p cl-user::uri-label cl-user::*default-kb*  
+		cl-user::camelcase cl-user::replace-all
+		cl-user::get-vagrant-box-id cl-user::get-vagrant-box-wd cl-user::vagrant-box-status cl-user::vagrant-box-up)
   (:export
    #:l-forall #:l-exists #:l-and #:l-or #:l-iff #:l-equal #:l-not
    #:l-implies #:pred-property #:pred-class #:*use-holds*
@@ -26,5 +29,7 @@
    #:*last-z3-input* #:*last-z3-output*
    #:*last-vampire-input* #:*last-vampire-output*
    #:def-expect-satisfiable #:def-expect-unsatisfiable #:def-expect-provable #:def-expect-not-entailed 
-   #:run-proof #:proof-form #:render-proof #:prove-with 
+   #:run-proof #:proof-form #:render-proof #:prove-with
+   #:clif-logic-generator #:dol-logic-generator
+   #:render-ontology
   ))

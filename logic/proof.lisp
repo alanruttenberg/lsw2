@@ -177,7 +177,8 @@
 
 (defun run-proof (name &key print-axiom-names print-formulas print-executed-form timeout)
   "Run a proof by name"
-  (let ((expected-proof (gethash name *expected-proofs*)))
+  (let ((expected-proof (if (typep name 'expected-proof) name (gethash name *expected-proofs*))))
+    (if (typep name 'expected-proof) (setq name (name name)))
     (assert expected-proof (name) "Didn't find expected proof ~a" name)
     (when timeout (setf (timeout expected-proof) timeout))
     (progn

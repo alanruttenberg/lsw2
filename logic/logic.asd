@@ -23,6 +23,8 @@
      (:file "prover9-logic-generator")
      (:file "z3-logic-generator")
      (:file "latex-logic-generator")
+     (:file "clif-logic-generator")
+     (:file "dol-logic-generator")
      (:file "prove-with-prover9")
      (:file "prove-with-z3")
      (:file "prove-with-vampire")
