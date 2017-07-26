@@ -114,15 +114,17 @@
   (logical-parens *logic-generator* expression))
 
 (defun formula-sexp-p (it)
-  (and (consp it) (member (car it) '(:implies :forall :exists :and :or :iff :not := :fact := :owl))))
+  (and (consp it) (member (car it) '(:implies :forall :exists :and :or :iff :not := :fact := :owl :expand))))
 
 (defmethod predicates ((exp list))
-  (let ((them nil))
+  (let ((them nil)
+	(exp (axiom-sexp exp))) ;; so macroexpansion happens
     (labels ((walk (form)
 	       (unless (atom form) 
 		 (case (car form)
 		   ((:forall :exists) (walk (third form)))
 		   (:owl (walk (owl-sexp-to-fol (second form))))
+		   (:expand (walk (macroexpand (second form))))
 		   ((:implies :iff :and :or :not := :fact :distinct) (map nil #'walk (rest form)))
 		   (otherwise 
 		    (pushnew (list (intern (string (car form))) (1- (length form)))  them :test 'equalp)
@@ -131,7 +133,8 @@
       them)))
 
 (defmethod constants ((exp list))
-  (let ((them nil))
+  (let ((them nil)
+	(exp (axiom-sexp exp))) ;; so macroexpansion happens
     (labels ((walk (form)
 	       (if (and (symbolp form) (not (char= (char (string form) 0) #\?))) 
 		   (pushnew (intern (string form)) them)
@@ -139,6 +142,7 @@
 		     (case (car form)
 		       ((:forall :exists) (walk (third form)))
 		       (:owl (walk (owl-sexp-to-fol (second form))))
+		       (:expand (walk (macroexpand (second form))))
 		       ((:implies :iff :and :or :not := :distinct) (map nil #'walk (rest form)))
 		       (otherwise (map nil #'walk (rest form))))))))
       (walk exp)
@@ -171,18 +175,24 @@
 	    (:z3 'z3-logic-generator)
 	    (:prover9 'prover9-logic-generator)
 	    (:vampire 'vampire-logic-generator)
-	    (:latex 'latex-logic-generator))))
+	    (:latex 'latex-logic-generator)
+	    (:clif 'clif-logic-generator)
+	    (:dol 'dol-logic-generator)
+	    )))
     (flet ((doit ()
-	     (concatenate
-	      'string
-	      (or (and at-beginning (format nil "~a~%" at-beginning)) "")
-	      (render-axioms generator-class
-			     (append (if (stringp assumptions) assumptions
+	     (let ((axioms (append (if (stringp assumptions) assumptions
 					 (collect-axioms-from-spec assumptions))
 				     (if (stringp goals) goals
-					 (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals)))))
-	      (or (and at-end (format nil "~a~%" at-end))  ""))))
+					 (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals))))))
+	       (if (eq which :dol)
+		   (render-ontology (make-instance generator-class) "Anonymous" axioms)
+		   (concatenate
+		    'string
+		    (or (and at-beginning (format nil "~a~%" at-beginning)) "")
+		    (render-axioms generator-class axioms)
+		    (or (and at-end (format nil "~a~%" at-end))  ""))))))
       (if path
 	(with-open-file (f path :direction :output :if-does-not-exist :create :if-exists :supersede)
-	  (progn (write-string (doit) f) (truename path)))
+	  (progn
+	    (write-string (doit) f) (truename path)))
 	(doit)))))

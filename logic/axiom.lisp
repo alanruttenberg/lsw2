@@ -169,8 +169,16 @@
 	(setf (slot-value a 'generation-form)
 	      (rewrite-to-axiom-generation-form form)))))
 
+(defmethod axiom-sexp :around ((a axiom))
+  (let ((usual (call-next-method)))
+    (if (tree-find :expand usual)
+	(tree-replace (lambda(e) (if (and (consp e) (eq (car e) :expand)) (macroexpand (second e)) e)) usual)
+	usual)))
+			       
 (defmethod axiom-sexp ((a list))
-  a)
+  (if (tree-find :expand a)
+      (tree-replace (lambda(e) (if (and (consp e) (eq (car e) :expand)) (macroexpand (second e)) e)) a)
+      a))
 
 (defmethod negate-axiom ((a list)) `(:not ,a))
 
