@@ -25,7 +25,7 @@
    input
    ))
 
-(defun z3-syntax-check (assumptions &optional goals)
+(defun z3-syntax-check (assumptions &optional goals (errorp t))
   (let ((answer 
 	  (if (stringp assumptions)
 	      (run-z3 assumptions 10)
@@ -37,7 +37,10 @@
          (princ (if (stringp assumptions) assumptions
 		    (z3-render assumptions
 			       goals))))
-    (or (z3-output-errors answer)
+    (if (z3-output-errors answer)
+	(if errorp
+	    (error "Z3 syntax error:~a~%"  (z3-output-errors answer))
+	    (z3-output-errors answer))
 	t)))
   
 (defun z3-render (assumptions &optional goals commands)
@@ -46,7 +49,7 @@
 	 (mapcar (lambda(e) (format nil "~a" e)) commands)))
   
 (defun z3-prove (assumptions goals &key (timeout 30) (return-contradiction nil) )
-  (assert (eq (z3-syntax-check assumptions goals) t) (assumptions goals) "Z3 syntax error")
+  (z3-syntax-check assumptions goals)
   (let ((answer 
 	  (setq *last-z3-output* 
 	  (run-z3 (setq *last-z3-input* (z3-render assumptions goals '("(check-sat)"))) timeout)
@@ -65,26 +68,26 @@
 
 
 (defun z3-find-model (assumptions &key (timeout 10))
+  (z3-syntax-check assumptions nil)
   (run-z3
    (z3-render assumptions nil (list "(check-sat)" "(get-model)"))
    timeout))
 
 (defun z3-check-satisfiability (assumptions &key (timeout 10))
-  (let* ((input (z3-render assumptions))
-	 (check (z3-syntax-check input)))
-    (or (and (not (eq check t)) check)
-	(let ((answer
-		(setq *last-z3-output* (run-program-string->string
-					*z3-executable* 
-					(list  "-in" (format nil "-T:~a" timeout))
-					(setq *last-z3-input*
-					      (concatenate 'string input
-							   "(check-sat)"
-							   (string #\newline)))))))
-	  (if (does-z3-output-say-timeout answer)
-	      :timeout
-	      (if (does-z3-output-say-unsat answer)
-		  :unsat
-		  (if (does-z3-output-say-sat answer)
-		      :sat
-		      answer)))))))
+  (let* ((input (z3-render assumptions)))
+    (z3-syntax-check input)
+    (let ((answer
+	    (setq *last-z3-output* (run-program-string->string
+				    *z3-executable* 
+				    (list  "-in" (format nil "-T:~a" timeout))
+				    (setq *last-z3-input*
+					  (concatenate 'string input
+						       "(check-sat)"
+						       (string #\newline)))))))
+      (if (does-z3-output-say-timeout answer)
+	  :timeout
+	  (if (does-z3-output-say-unsat answer)
+	      :unsat
+	      (if (does-z3-output-say-sat answer)
+		  :sat
+		  answer))))))
