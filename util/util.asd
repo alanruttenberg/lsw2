@@ -45,6 +45,7 @@
 	     (:file "browse-url")
 	     (:file "eval-with-timeout")
 	     (:file "run-program")
+	     (:file "send-prowl-notification")
 	     (:file "vagrant")))))
 
 
