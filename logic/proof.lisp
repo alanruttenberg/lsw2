@@ -175,44 +175,52 @@
 ;; ****************************************************************
 ;; given a name of an expected proof runs it and prints diagnostics
 
-(defun run-proof (name &key print-axiom-names print-formulas print-executed-form timeout)
+(defun run-proof (name &key print-axiom-names print-formulas print-executed-form timeout queue-notify)
   "Run a proof by name"
-  (let ((expected-proof (if (typep name 'expected-proof) name (gethash name *expected-proofs*))))
-    (if (typep name 'expected-proof) (setq name (name name)))
-    (assert expected-proof (name) "Didn't find expected proof ~a" name)
-    (when timeout (setf (timeout expected-proof) timeout))
-    (progn
-      (let ((form (proof-form expected-proof)))
-	(format t "~&~a~a..." (ecase (expected-result expected-proof)
-			       (:sat "Checking satisfiability in ")
-			       (:unsat "Checking unsatisfiability in ")
-			       (:proved "Trying proof in ")
-			       (:not-entailed "Trying to test non-entailment in "))
-		name)
+  (flet ((doit ()
+	   (let ((expected-proof (if (typep name 'expected-proof) name (gethash name *expected-proofs*))))
+	     (if (typep name 'expected-proof) (setq name (name name)))
+	     (assert expected-proof (name) "Didn't find expected proof ~a" name)
+	     (when timeout (setf (timeout expected-proof) timeout))
+	     (progn
+	       (let ((form (proof-form expected-proof)))
+		 (format t "~&~a~a..." (ecase (expected-result expected-proof)
+					 (:sat "Checking satisfiability in ")
+					 (:unsat "Checking unsatisfiability in ")
+					 (:proved "Trying proof in ")
+					 (:not-entailed "Trying to test non-entailment in "))
+			 name)
 
-	(let ((*print-pretty* t))
-	  (when (or print-axiom-names print-formulas)
-	    (format t "~&With:~%")
-	    (loop for f in (collect-axioms-from-spec (proof-assumption-specs expected-proof))
-		  do
-		     (if print-axiom-names (maybe-with-color (if print-formulas :blue :black) :normal  "~a~%" (axiom-name f)))
-		     (if print-formulas (format t "~a~%" (axiom-sexp f))))
-	    (when (goal expected-proof)
-	      (let ((goal (car (collect-axioms-from-spec (proof-goal-specs expected-proof)))))
-		(when print-axiom-names
-		  (maybe-with-color (if print-formulas :blue :black) :normal "~a~%" `(:negated ,(axiom-name goal))))
-		(when print-formulas
-		  (format t "~a~%" `(:not ,(axiom-sexp (car (collect-axioms-from-spec (proof-goal-specs expected-proof)))))))))
-	    )
-	  (when print-executed-form 
-	    (format t "~&~a~%" form)))
-	(let ((start  (get-internal-real-time))
-	      (result (eval form)))
-	  (let ((end (get-internal-real-time)))
-	    (if (eq result (expected-result expected-proof))
-		(format t "Success!! (result was ~s) (~a seconds)~%" result  (/ (floor (- end start) 100) 10.0))
-		(format t "Failed!! Expected ~s got ~s. (~a seconds)~%" (expected-result expected-proof) result (floor (/ (- end start) 100) 10.0))))
-	  (eq result (expected-result expected-proof)))))))
+		 (let ((*print-pretty* t))
+		   (when (or print-axiom-names print-formulas)
+		     (format t "~&With:~%")
+		     (loop for f in (collect-axioms-from-spec (proof-assumption-specs expected-proof))
+			   do
+			      (if print-axiom-names (maybe-with-color (if print-formulas :blue :black) :normal  "~a~%" (axiom-name f)))
+			      (if print-formulas (format t "~a~%" (axiom-sexp f))))
+		     (when (goal expected-proof)
+		       (let ((goal (car (collect-axioms-from-spec (proof-goal-specs expected-proof)))))
+			 (when print-axiom-names
+			   (maybe-with-color (if print-formulas :blue :black) :normal "~a~%" `(:negated ,(axiom-name goal))))
+			 (when print-formulas
+			   (format t "~a~%" `(:not ,(axiom-sexp (car (collect-axioms-from-spec (proof-goal-specs expected-proof)))))))))
+		     )
+		   (when print-executed-form 
+		     (format t "~&~a~%" form)))
+		 (let ((start  (get-internal-real-time))
+		       (result (eval form)))
+		   (let ((end (get-internal-real-time)))
+		     (if (eq result (expected-result expected-proof))
+			 (format t "Success!! (result was ~s) (~a seconds)~%" result  (/ (floor (- end start) 100) 10.0))
+			 (format t "Failed!! Expected ~s got ~s. (~a seconds)~%" (expected-result expected-proof) result (floor (/ (- end start) 100) 10.0))))
+		   (eq result (expected-result expected-proof))))))))
+    (if queue-notify
+	(threads::make-thread  (lambda() 
+				 (let ((*standard-output* (make-string-output-stream)))
+				   (doit)
+				   (cl-user::prowl-notify "Proof run" (get-output-stream-string *standard-output*)))))
+	(doit))))
+					   
 
 ;; ****************************************************************
 ;; Runs all the proofs with prover9 eor mace4, just cause I was curious.
