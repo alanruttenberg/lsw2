@@ -111,6 +111,12 @@
 (defmethod builtin-predicate ((g logic-generator) pred)
   nil)
     
+(defmethod predicates ((g logic-generator) (a axiom))
+  (predicates g (axiom-sexp a)))
+
+(defmethod constants ((g logic-generator) (a axiom))
+  (constants g (axiom-sexp a)))
+
 (defmethod predicates ((g logic-generator) (exp list))
   (let ((them nil)
 	(exp (axiom-sexp exp))) ;; so macroexpansion happens

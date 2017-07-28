@@ -66,7 +66,7 @@
 		 1)))))
 
 (defmethod builtin-predicate ((g z3-logic-generator) pred)
-  (member pred '(+ - < > * =)))
+  (member pred '(+ - < > * = <= >= ^)))
   
 (defmethod generate-declarations ((g z3-logic-generator) (a list))
   (let ((constants (remove-duplicates (mapcan (lambda(e) (constants g (axiom-sexp e))) a)))

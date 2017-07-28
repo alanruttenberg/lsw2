@@ -138,12 +138,6 @@
       :test 'equalp)
      :test 'equalp)))
 
-(defmethod predicates ((g logic-generator) (a axiom))
-  (predicates g (axiom-sexp a)))
-
-(defmethod constants ((g logic-generator) (a axiom))
-  (constants g (axiom-sexp a)))
-
 (defun rewrite-to-axiom-generation-form (form)
   (let ((keys '((:distinct l-distinct) (:implies l-implies) (:iff l-iff) (:and l-and) (:or l-or) (:forall l-forall) (:exists l-exists)
 		(:not l-not) (:= l-=) (:fact l-fact) (:owl l-owl) (:parens l-parens))))

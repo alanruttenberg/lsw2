@@ -1,5 +1,6 @@
 (eval-when (:load-toplevel :execute :compile-toplevel)
-  (intern "OWL-SEXP-TO-FOL" :cl-user))
+  (loop for early in '("OWL-SEXP-TO-FOL" "URI-LABEL" "URI-FULL")
+		      do (intern early :cl-user)))
 (defpackage :logic
   (:use cl)
   (:import-from :cl-user cl-user::owl-sexp-to-fol
