@@ -73,6 +73,12 @@
    (z3-render assumptions nil (list "(check-sat)" "(get-model)"))
    timeout))
 
+(defun z3-get-unsat-core (assumptions &key (timeout 10))
+  (z3-syntax-check assumptions nil)
+  (run-z3
+   (concatenate 'string "(set-option :produce-unsat-cores true)" (z3-render assumptions nil (list "(check-sat)""(get-unsat-core)")))
+   timeout))
+
 (defun z3-check-satisfiability (assumptions &key (timeout 10))
   (let* ((input (z3-render assumptions)))
     (z3-syntax-check input)
