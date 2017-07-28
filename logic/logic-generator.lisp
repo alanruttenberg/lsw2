@@ -174,7 +174,7 @@
 	  (ecase which
 	    (:z3 'z3-logic-generator)
 	    (:prover9 'prover9-logic-generator)
-	    (:vampire 'vampire-logic-generator)
+	    (:vampire 'z3-logic-generator)
 	    (:latex 'latex-logic-generator)
 	    (:clif 'clif-logic-generator)
 	    (:dol 'dol-logic-generator)
@@ -185,7 +185,10 @@
 				     (if (stringp goals) goals
 					 (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals))))))
 	       (if (eq which :dol)
-		   (render-ontology (make-instance generator-class) "Anonymous" axioms)
+		   (render-ontology (if (eq which :vampire)
+					(make-instance generator-class :with-names nil)
+					(make-instance generator-class))
+				    "Anonymous" axioms)
 		   (concatenate
 		    'string
 		    (or (and at-beginning (format nil "~a~%" at-beginning)) "")

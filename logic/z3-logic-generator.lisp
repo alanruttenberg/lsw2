@@ -1,7 +1,8 @@
 (in-package :logic)
 
 (defclass z3-logic-generator (logic-generator)
-  ((with-declarations :accessor with-declarations :initarg :with-declarations :initform t )))
+  ((with-declarations :accessor with-declarations :initarg :with-declarations :initform t )
+   (with-names :accessor with-names :initarg :with-names :initform nil)))
 
 (defmethod normalize-names ((g z3-logic-generator) e)
   (cond ((and (symbolp e) (char= (char (string e) 0) #\?))
@@ -82,7 +83,9 @@
 	(concatenate 'string 
 		     (generate-declarations g (list a))
 		     (to-string g `(assert ,(normalize-names g bare))))
-	(to-string g `(assert (|!| ,(normalize-names g bare) |:named| ,(string (axiom-name a))))))))
+	(if (with-names g)
+	    (to-string g `(assert (|!| ,(normalize-names g bare) |:named| ,(string (axiom-name a)))))
+	    (to-string g `(assert ,(normalize-names g bare)))))))
 
 (defmethod render-axioms ((g z3-logic-generator) (a list))
   (apply 'concatenate 'string
