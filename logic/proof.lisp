@@ -200,7 +200,7 @@
 ;; ****************************************************************
 ;; given a name of an expected proof runs it and prints diagnostics
 
-(defun run-proof (name &key print-axiom-names print-formulas print-executed-form timeout queue-notify excluding dry-run &aux (headline ""))
+(defun run-proof (name &key print-axiom-names print-formulas print-executed-form timeout queue-notify excluding dry-run &aux (headline "") (level 3))
   "Run a proof by name"
   (flet ((doit ()
 	   (let ((expected-proof (if (typep name 'expected-proof) name (gethash name *expected-proofs*))))
@@ -249,16 +249,16 @@
 			 (result (eval form)))
 		     (let ((end (get-internal-real-time)))
 		       (if (eq result (expected-result expected-proof))
-			   (progn (setq headline "Success!")
+			   (progn (setq headline "Success!" level 5)
 				  (format t "Success!! (result was ~s) (~a seconds)~%" result  (/ (floor (- end start) 100) 10.0)))
-			   (progn (setq headline "Failed!")
+			   (progn (setq headline "Failed!" level 1)
 				  (format t "Failed!! Expected ~s got ~s. (~a seconds)~%" (expected-result expected-proof) result (floor (/ (- end start) 100) 10.0)))))
 		     (eq result (expected-result expected-proof)))))))))
     (if (and queue-notify (not dry-run))
 	(threads::make-thread  (lambda() 
 				 (let ((*standard-output* (make-string-output-stream)))
 				   (doit)
-				   (cl-user::prowl-notify (format nil "Proof run: ~a" headline) (get-output-stream-string *standard-output*)))))
+				   (cl-user::prowl-notify (format nil "Proof run: ~a" headline) (get-output-stream-string *standard-output*) :priority level))))
 	(doit))
     (gethash name *expected-proofs*)))
 					   
