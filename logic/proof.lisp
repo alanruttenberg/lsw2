@@ -10,7 +10,7 @@
    (timeout :accessor timeout :initarg :timeout)
    (with :accessor with :initarg :with)
    (name :accessor name :initarg :name)
-   (counterexample :accessor counterexample :initarg :counterexample)))
+   (counterexample :accessor counterexample :initarg :counterexample :initform nil)))
 
 (defmethod initialize-instance ((e expected-proof) &rest rest &key &allow-other-keys )
   (call-next-method)
@@ -78,7 +78,20 @@
   (mapcan (lambda(e) (copy-list (if (symbolp e) (list e) (eval e)))) (assumptions expected-proof)))
 
 (defmethod proof-goal-specs ((expected-proof expected-proof))
-  (and (goal expected-proof) (list (goal expected-proof))))
+  (if (goal expected-proof)
+      (if (formula-sexp-p (goal expected-proof))
+	  (list (goal expected-proof))
+	  (if (consp  (goal expected-proof))
+	      (goal expected-proof)
+	      (list (goal expected-proof))))))
+
+(defmethod proof-counterexample-specs ((expected-proof expected-proof))
+  (if (counterexample expected-proof)
+      (if (formula-sexp-p (counterexample expected-proof))
+	  (list (counterexample expected-proof))
+	  (if (consp  (counterexample expected-proof))
+	      (counterexample expected-proof)
+	      (list (counterexample expected-proof))))))
 
 ;; ****************************************************************
 ;; returns a form that can be evaluated to run the proof
@@ -93,7 +106,12 @@
 	   (list* 'append (mapcar (lambda(e) (if (or (symbolp e) (and (consp e) (eq (car e) :negate))) `(quote ,(list e)) e)) assumptions))))
     (if (eq (expected-result expected-proof) :not-entailed)
 	(if (counterexample expected-proof)
-	    (let ((sat-form
+	    (let ((counterexample-sat-form
+		    `(,(with expected-proof)
+		      ,(assumptions-form (list (counterexample expected-proof)))
+		      :timeout ,(timeout expected-proof)
+		      ,@(options expected-proof)))
+		  (sat-form
 		    `(,(with expected-proof)
 		      ,(assumptions-form (list* (counterexample expected-proof) (assumptions expected-proof)))
 		      :timeout ,(timeout expected-proof)
@@ -103,14 +121,21 @@
 		      ,(assumptions-form (list (goal expected-proof) (counterexample expected-proof)))
 		      :timeout ,(timeout expected-proof)
 		      ,@(options expected-proof))))
-	      `(case ,unsat-form
-		 (:sat :not-counterexample)
+	      `(case ,counterexample-sat-form
+		 (:unsat :counterexample-not-sat)
 		 (:timeout :timeout)
-		 (otherwise
-		  (case ,sat-form
-		    (:unsat :not-entailed)
+		 (:sat 
+		  (case ,unsat-form
+		    (:sat :not-counterexample)
 		    (:timeout :timeout)
-		    (otherwise :not-entailed)))))
+		    (:unsat
+		     (case ,sat-form
+		       (:unsat :counterexample-contradicts-assumptions)
+		       (:timeout :timeout)
+		       (:sat :not-entailed)
+		       (otherwise :failure)))
+		    (otherwise :failure)))
+		 (otherwise :failure)))
 	    `(let ((result
 		     (,(with expected-proof)
 		      ,(assumptions-form (list* `(:negate ,(goal expected-proof)) (assumptions expected-proof)))
@@ -166,7 +191,7 @@
 	
 
 (defmacro maybe-with-color (color effect format-string &rest args)
-  (if (find-package 'cl-ansi-text)
+  (if (and (find-package 'cl-ansi-text) (not (and (eq color :black) (eq effect :normal))))
       `(,(intern "WITH-COLOR" 'cl-ansi-text) (,color :effect ,effect)
 	(format t ,format-string ,@args))
       `(format t ,format-string ,@args)))
@@ -194,19 +219,31 @@
 		 (let ((*print-pretty* t))
 		   (when (or print-axiom-names print-formulas)
 		     (format t "~&With:~%")
+		     (when (counterexample expected-proof)
+		       (maybe-with-color :red :normal "~%counterexample + goal~%")
+		       (loop for f in (collect-axioms-from-spec (list (counterexample expected-proof)))
+			     do
+				(if print-axiom-names (maybe-with-color (if print-formulas :blue :black) :normal  "~a~%" (axiom-name f)))
+				(if print-formulas (format t "~a~%" (axiom-sexp f))))
+		       (maybe-with-color :red :normal "~%counterexample + assumptions~%"))
 		     (loop for f in (collect-axioms-from-spec (proof-assumption-specs expected-proof))
 			   do
 			      (if print-axiom-names (maybe-with-color (if print-formulas :blue :black) :normal  "~a~%" (axiom-name f)))
 			      (if print-formulas (format t "~a~%" (axiom-sexp f))))
-		     (when (goal expected-proof)
-		       (let ((goal (car (collect-axioms-from-spec (proof-goal-specs expected-proof)))))
-			 (when print-axiom-names
-			   (maybe-with-color (if print-formulas :blue :black) :normal "~a~%" `(:negated ,(axiom-name goal))))
-			 (when print-formulas
-			   (format t "~a~%" `(:not ,(axiom-sexp (car (collect-axioms-from-spec (proof-goal-specs expected-proof)))))))))
-		     )
+		     (let ((last (car (or (collect-axioms-from-spec (proof-counterexample-specs expected-proof)) (collect-axioms-from-spec (proof-goal-specs expected-proof))))))
+		       (when last
+		       (when print-axiom-names
+			 (maybe-with-color (if print-formulas :blue :black) :normal "~a~%"
+					   (if (counterexample expected-proof)
+					       (axiom-name last)
+					       `(:negated ,(axiom-name last)))))
+		       (when print-formulas
+			 (if (counterexample expected-proof)
+			     (format t "~a~%" (axiom-sexp last))
+			     (format t "~a~%" `(:not ,(axiom-sexp last))))))
+		     ))
 		   (when print-executed-form 
-		     (format t "~&~a~%" form)))
+		     (format t "~&~s~%" form)))
 		 (let ((start  (get-internal-real-time))
 		       (result (eval form)))
 		   (let ((end (get-internal-real-time)))
