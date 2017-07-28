@@ -33,4 +33,6 @@
    #:run-proof #:proof-form #:render-proof #:prove-with
    #:clif-logic-generator #:dol-logic-generator
    #:render-ontology
+   #:vampire-check-unsatisfiable
+   #:prover9-check-unsatisfiable
   ))

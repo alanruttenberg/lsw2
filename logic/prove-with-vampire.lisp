@@ -58,3 +58,9 @@
 		     (jss::all-matches answer "SZS status GaveUp" 0)))
 	    :timeout
 	    nil))))
+
+(defun vampire-check-unsatisfiable (assumptions &rest keys)
+  (let ((result (apply 'vampire-prove assumptions nil keys)))
+    (case result
+      (:proved :unsat)
+      (otherwise result))))
