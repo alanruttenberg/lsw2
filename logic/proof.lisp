@@ -235,8 +235,8 @@
 		       (when print-axiom-names
 			 (maybe-with-color (if print-formulas :blue :black) :normal "~a~%"
 					   (if (counterexample expected-proof)
-					       (if (and (consp last) (not print-formulas)) last (axiom-name last))
-					       `(:negated ,(if (and (consp last) (not print-formulas)) last (axiom-name last))))))
+					       (if (and (consp last) (not print-formulas)) (axiom-sexp last) (axiom-name last))
+					       `(:negated ,(if (and (consp last) (not print-formulas)) (axiom-sexp last) (axiom-name last))))))
 		       (when print-formulas
 			 (if (counterexample expected-proof)
 			     (format t "~a~%" (axiom-sexp last))

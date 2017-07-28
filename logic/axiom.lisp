@@ -138,11 +138,11 @@
       :test 'equalp)
      :test 'equalp)))
 
-(defmethod predicates ((a axiom))
-  (predicates (axiom-sexp a)))
+(defmethod predicates ((g logic-generator) (a axiom))
+  (predicates g (axiom-sexp a)))
 
-(defmethod constants ((a axiom))
-  (constants (axiom-sexp a)))
+(defmethod constants ((g logic-generator) (a axiom))
+  (constants g (axiom-sexp a)))
 
 (defun rewrite-to-axiom-generation-form (form)
   (let ((keys '((:distinct l-distinct) (:implies l-implies) (:iff l-iff) (:and l-and) (:or l-or) (:forall l-forall) (:exists l-exists)
@@ -170,22 +170,27 @@
 	      (rewrite-to-axiom-generation-form form)))))
 
 (defmethod axiom-sexp :around ((a axiom))
-  (let ((usual (call-next-method)))
-    (if (tree-find :expand usual)
-	(tree-replace (lambda(e) (if (and (consp e) (eq (car e) :expand)) (macroexpand (second e)) e)) usual)
-	usual)
-    (if (tree-find :axiom usual)
-	(tree-replace (lambda(e) (if (and (consp e) (eq (car e) :axiom)) (axiom-sexp (get-axiom (second e))) e)) usual)
-	usual)
-    ))
-			       
+  (axiom-sexp (axiom-sexp (slot-value a 'sexp))))
+
 (defmethod axiom-sexp ((a list))
-  (if (tree-find :expand a)
-      (tree-replace (lambda(e) (if (and (consp e) (eq (car e) :expand)) (macroexpand (second e)) e)) a)
-      a)
-  (if (tree-find :axiom a)
-      (tree-replace (lambda(e) (if (and (consp e) (eq (car e) :axiom)) (axiom-sexp (get-axiom (second e))) e)) a)
-      a))
+  (when (tree-find :expand a)
+    (setq a (tree-replace
+	     (lambda(e) (if (and (consp e) (eq (car e) :expand))
+			    (macroexpand (second e))
+			    e))
+	     a)))
+  (when (tree-find :axiom a)
+    (setq a (tree-replace (lambda(e) (if (and (consp e) (eq (car e) :axiom))
+					 (axiom-sexp (get-axiom (second e)))
+					 e))
+			  a)))
+  (when (tree-find :owl a)
+    (setq a (tree-replace (lambda(e) (if (and (consp e) (eq (car e) :owl))
+					 (axiom-sexp (owl-sexp-to-fol (second e)))
+					 e)) a)))
+  a)
+			       
+
 
 (defmethod negate-axiom ((a list)) `(:not ,a))
 
