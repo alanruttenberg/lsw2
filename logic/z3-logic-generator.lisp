@@ -82,7 +82,7 @@
 	(concatenate 'string 
 		     (generate-declarations g (list a))
 		     (to-string g `(assert ,(normalize-names g bare))))
-	(to-string g `(assert ,(normalize-names g bare))))))
+	(to-string g `(assert (|!| ,(normalize-names g bare) |:named| ,(string (axiom-name a))))))))
 
 (defmethod render-axioms ((g z3-logic-generator) (a list))
   (apply 'concatenate 'string
