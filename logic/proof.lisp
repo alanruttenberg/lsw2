@@ -16,7 +16,7 @@
   (call-next-method)
   (assert (member (expected-result e) '(:sat :unsat :proved :not-entailed)) ((expected-result e))
 	  "Don't know expected-proof type: ~a" (expected-result e))
-  (loop for key in '(:with :timeout :goal :expected-result :assumptions :name :counterexample)
+  (loop for key in '(:with :timeout :goal :expected-result :assumptions :name :counterexample :excluding :dry-run)
 		    do (remf rest key) (remf rest key))
   (setf (options e) rest))
 
@@ -75,7 +75,7 @@
 ;; ****************************************************************
 ;; return a list of specs suitable for collect-axioms-from-spec. (def-expect-provable & friends take forms that evaluate to specs)
 (defmethod proof-assumption-specs ((expected-proof expected-proof))
-  (mapcan (lambda(e) (copy-list (if (symbolp e) (list e) (eval e)))) (assumptions expected-proof)))
+   (mapcan (lambda(e) (copy-list (if (symbolp e) (list e) (eval e)))) (assumptions expected-proof)))
 
 (defmethod proof-goal-specs ((expected-proof expected-proof))
   (if (goal expected-proof)
@@ -200,7 +200,7 @@
 ;; ****************************************************************
 ;; given a name of an expected proof runs it and prints diagnostics
 
-(defun run-proof (name &key print-axiom-names print-formulas print-executed-form timeout queue-notify)
+(defun run-proof (name &key print-axiom-names print-formulas print-executed-form timeout queue-notify excluding dry-run)
   "Run a proof by name"
   (flet ((doit ()
 	   (let ((expected-proof (if (typep name 'expected-proof) name (gethash name *expected-proofs*))))
@@ -226,7 +226,7 @@
 				(if print-axiom-names (maybe-with-color (if print-formulas :blue :black) :normal  "~a~%" (axiom-name f)))
 				(if print-formulas (format t "~a~%" (axiom-sexp f))))
 		       (maybe-with-color :red :normal "~%counterexample + assumptions~%"))
-		     (loop for f in (collect-axioms-from-spec (proof-assumption-specs expected-proof))
+		     (loop for f in (collect-axioms-from-spec (append (proof-assumption-specs expected-proof) (mapcar (lambda(e) `(:exclude ,e)) excluding)))
 			   do
 			      (if print-axiom-names (maybe-with-color (if print-formulas :blue :black) :normal  "~a~%" (axiom-name f)))
 			      (if print-formulas (format t "~a~%" (axiom-sexp f))))
@@ -235,8 +235,8 @@
 		       (when print-axiom-names
 			 (maybe-with-color (if print-formulas :blue :black) :normal "~a~%"
 					   (if (counterexample expected-proof)
-					       (axiom-name last)
-					       `(:negated ,(axiom-name last)))))
+					       (if (and (consp last) (not print-formulas)) last (axiom-name last))
+					       `(:negated ,(if (and (consp last) (not print-formulas)) last (axiom-name last))))))
 		       (when print-formulas
 			 (if (counterexample expected-proof)
 			     (format t "~a~%" (axiom-sexp last))
@@ -244,19 +244,21 @@
 		     ))
 		   (when print-executed-form 
 		     (format t "~&~s~%" form)))
-		 (let ((start  (get-internal-real-time))
-		       (result (eval form)))
-		   (let ((end (get-internal-real-time)))
-		     (if (eq result (expected-result expected-proof))
-			 (format t "Success!! (result was ~s) (~a seconds)~%" result  (/ (floor (- end start) 100) 10.0))
-			 (format t "Failed!! Expected ~s got ~s. (~a seconds)~%" (expected-result expected-proof) result (floor (/ (- end start) 100) 10.0))))
-		   (eq result (expected-result expected-proof))))))))
-    (if queue-notify
+		 (unless dry-run
+		   (let ((start  (get-internal-real-time))
+			 (result (eval form)))
+		     (let ((end (get-internal-real-time)))
+		       (if (eq result (expected-result expected-proof))
+			   (format t "Success!! (result was ~s) (~a seconds)~%" result  (/ (floor (- end start) 100) 10.0))
+			   (format t "Failed!! Expected ~s got ~s. (~a seconds)~%" (expected-result expected-proof) result (floor (/ (- end start) 100) 10.0))))
+		     (eq result (expected-result expected-proof)))))))))
+    (if (and queue-notify (not dry-run))
 	(threads::make-thread  (lambda() 
 				 (let ((*standard-output* (make-string-output-stream)))
 				   (doit)
 				   (cl-user::prowl-notify "Proof run" (get-output-stream-string *standard-output*)))))
-	(doit))))
+	(doit))
+    (gethash name *expected-proofs*)))
 					   
 
 ;; ****************************************************************

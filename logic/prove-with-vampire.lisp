@@ -51,10 +51,10 @@
 		(run-vampire (setq *last-z3-input* (vampire-render assumptions goals '("(check-sat)")))  timeout mode switches))
 	  ))
     (if (and (jss::all-matches answer "Termination reason: Refutation")
-	     (not (jss::all-matches answer "Termination reason: Refutation not")))
+	     (not (jss::all-matches answer "Termination reason: Refutation not" 0)))
 	:proved
-	(if (or (jss::all-matches answer "Termination reason: Time limit")
-		(and (jss::all-matches answer "Proof not found in time")
-		     (jss::all-matches answer "SZS status GaveUp")))
+	(if (or (jss::all-matches answer "Termination reason: Time limit" 0)
+		(and (jss::all-matches answer "Proof not found in time" 0)
+		     (jss::all-matches answer "SZS status GaveUp" 0)))
 	    :timeout
 	    nil))))

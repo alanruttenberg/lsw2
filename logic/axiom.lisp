@@ -210,3 +210,8 @@
 	     (terpri))
        (logic::collect-axioms-from-spec spec)
        ))
+
+(defmethod axiom-name ((a list))
+  (assert (formula-sexp-p a) (a) "Axioms should be objects of formula sexps: ~a" a)
+  "not named")
+   
