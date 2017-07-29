@@ -104,8 +104,10 @@
 
 (defmethod render-axiom ((g latex-logic-generator) (a axiom))
   (let ((*logic-generator* g))
-    (format nil (formula-format g) (axiom-name a)
-	    (eval (rewrite-to-axiom-generation-form (make-explicit-parentheses g (axiom-sexp a)))))))
+    (let ((name (string-downcase (#"replaceAll" (string (axiom-name a)) "-" " "))))
+      (setf (char name 0) (char-upcase (char name 0)))
+      (format nil (formula-format g) name
+	      (eval (rewrite-to-axiom-generation-form (make-explicit-parentheses g (axiom-sexp a))))))))
 
 (defmethod render-axioms ((generator latex-logic-generator) axs)
   (if (stringp axs)
