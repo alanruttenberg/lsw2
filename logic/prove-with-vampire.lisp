@@ -8,30 +8,38 @@
 (defvar *vampire-shared-directory-remote* (namestring "/vagrant/"))
 (defvar *checked-vampire-box-present* nil)
 (defvar *checked-vampire-box-running* nil)
-(defvar *vampire-box-id* (cl-user::get-vagrant-box-id "vampirebox"))
-(defvar *vampire-shared-directory-local* (make-pathname :directory (cl-user::get-vagrant-wd "vampirebox")))
+(defvar *vampire-box-id* (and *running-in-vagrant* (cl-user::get-vagrant-box-id "vampirebox")))
+(defvar *vampire-shared-directory-local* (and *running-in-vagrant* (make-pathname :directory (cl-user::get-vagrant-wd "vampirebox"))))
 
 (defclass vampire-logic-generator (z3-logic-generator) ())
 
 (defun run-vampire (input timeout &optional (mode :vampire) (switches nil))
-  (when *running-in-vagrant* 
-    (ensure-vampire-box-running)
-    (let ((tmpdir (merge-pathnames (make-pathname :directory '(:relative "tmp")) *vampire-shared-directory-local*)))
-      (ensure-directories-exist tmpdir)
-      (let ((file (uiop/stream::get-temporary-file :directory tmpdir)))
-	(with-open-file (f file :direction :output)
-	  (write-string input f))
-	(run-program-string->string
-	 "vagrant" 
-	 (list  "ssh" *vampire-box-id* "-c"
-		(format nil "~a --input_syntax smtlib2 --time_limit ~a --memory_limit 4096  --mode ~a ~{--~a ~a ~} ~a "
-			*vampire-executable* timeout (string-downcase (string mode)) switches
-			(merge-pathnames (make-pathname :name (pathname-name file)
-										     :type (pathname-type file))
-								      (merge-pathnames "tmp/" *vampire-shared-directory-remote*))))
-	 ""
-	 )
-	))))
+  (id *running-in-vagrant* 
+      (progn
+	(ensure-vampire-box-running)
+	(let ((tmpdir (merge-pathnames (make-pathname :directory '(:relative "tmp")) *vampire-shared-directory-local*)))
+	  (ensure-directories-exist tmpdir)
+	  (let ((file (uiop/stream::get-temporary-file :directory tmpdir)))
+	    (with-open-file (f file :direction :output)
+	      (write-string input f))
+	    (run-program-string->string
+	     "vagrant" 
+	     (list  "ssh" *vampire-box-id* "-c"
+		    (format nil "~a --input_syntax smtlib2 --time_limit ~a --memory_limit 4096  --mode ~a ~{--~a ~a ~} ~a "
+			    *vampire-executable* timeout (string-downcase (string mode)) switches
+			    (merge-pathnames (make-pathname :name (pathname-name file)
+							    :type (pathname-type file))
+					     (merge-pathnames "tmp/" *vampire-shared-directory-remote*))))
+	     ""
+	     )
+	    )))
+      (run-program-string->string  *vampire-executable*
+				   `(,(format nil "/tmp/~a" file)
+				     "--input_syntax" "smtlib2"
+				     "--time_limit" (prin1-to-string timeout)
+				     "--memory_limit" "4096"
+				     "--mode" (string-downcase (string mode))
+				     ,@switches))))
 
 (defun ensure-vampire-box-running ()
   (or *checked-vampire-box-running*
