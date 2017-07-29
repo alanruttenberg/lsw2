@@ -185,14 +185,16 @@
 				     (if (stringp goals) goals
 					 (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals))))))
 	       (if (eq which :dol)
-		   (render-ontology (if (eq which :vampire)
-					(make-instance generator-class :with-names nil)
-					(make-instance generator-class))
-				    "Anonymous" axioms)
+		   (render-ontology
+		    (make-instance generator-class)
+		    "Anonymous" axioms)
 		   (concatenate
 		    'string
 		    (or (and at-beginning (format nil "~a~%" at-beginning)) "")
-		    (render-axioms generator-class axioms)
+		    (if (eq which :vampire)
+			(let ((g (make-instance generator-class :with-names nil)))
+			  (render-axioms g axioms))
+			(render-axioms generator-class axioms))
 		    (or (and at-end (format nil "~a~%" at-end))  ""))))))
       (if path
 	(with-open-file (f path :direction :output :if-does-not-exist :create :if-exists :supersede)
