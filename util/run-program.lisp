@@ -1,5 +1,5 @@
-(defun run-program-string->string (executable switches input)
-  (let ((process (sys::run-program executable switches)))
+(defun run-program-string->string (executable switches input &key wd)
+  (let ((process (sys::run-program executable switches :directory wd)))
     (write-string input (sys::process-input process))
     (close (sys::process-input process))
     (let ((error (with-output-to-string (s)

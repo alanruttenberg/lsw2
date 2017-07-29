@@ -1,0 +1,42 @@
+(in-package :cl-user)
+
+(defvar *default-verbosity*
+  (if (member "-q" *command-line-argument-list* :test 'equal)
+      nil
+      (if (member "-v" *command-line-argument-list*)
+        t
+	  (if (getenv "ABCL_VERBOSE") t nil))))
+
+(setq *load-verbose* *default-verbosity*)
+(setq *compile-verbose* *default-verbosity*)
+;(setq system::*verbose* *default-verbosity*)
+
+;; never interested in this
+(setq ext::*warn-on-redefinition* nil)
+
+(require :asdf)
+(setq asdf::*verbose-out* *default-verbosity*)
+
+(require :abcl-contrib)
+
+(require :abcl-asdf)
+;;(setq abcl-asdf::*maven-verbose*  nil)
+
+(unless  (member "--no-quicklisp" *command-line-argument-list* :test 'equal)
+  (setq cl-user::*quicklisp-parent-dir* "~/repos/")
+  (require :quicklisp-abcl)
+
+(set (intern  "*QUICKLOAD-VERBOSE*" 'quicklisp-client) *default-verbosity*))
+
+(setf (logical-pathname-translations "abcl-src")
+      `(("**;*.*" "~/repos/abcl/src/**/*.*")))
+
+
+(push "~/repos/bfo-theory/lsw-src/" asdf::*central-registry*)
+
+;; get your own prowl key - register here https://www.prowlapp.com/register.php,  then https://www.prowlapp.com/api_settings.php to get yours
+;; then uncomment the next line and put your key where the xxxx are
+;; (setq *prowl-api-key*  "xxxx")
+
+(defvar *running-in-vagrant* nil)
+(defvar *vampire-executable* "/usr/local/bin/vampire")

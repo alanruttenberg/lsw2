@@ -18,17 +18,6 @@
 		    :name name))))
 
 
-
-(defun run-program-string->string (executable switches input)
-  (let ((process (sys::run-program executable switches)))
-    (write-string input (sys::process-input process))
-    (close (sys::process-input process))
-    (with-output-to-string (s)
-      (loop for line = (read-line (sys::process-output process) nil :eof)
-	    until (eq line :eof)
-	    do (write-line line s))
-      (close (sys::process-output process)))))
-
 ;; allow assumptions to be the fully rendered assumptions + negated goal.
 (defun prepare-prover9-input (assumptions goals &key (generator (make-instance 'prover9-logic-generator)) settings hints show-translated-axioms)
   (let ((assumptions (render-axioms generator (collect-axioms-from-spec assumptions)))

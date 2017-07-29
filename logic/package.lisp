@@ -4,7 +4,7 @@
 		      do (intern early :cl-user)))
 (defpackage :logic
   (:use cl)
-  (:import-from :cl-user cl-user::owl-sexp-to-fol
+  (:import-from :cl-user cl-user::owl-sexp-to-fol cl-user::run-program-string->string
 		cl-user::uri-full cl-user::uri-p cl-user::uri-label cl-user::*default-kb*  
 		cl-user::camelcase cl-user::replace-all
 		cl-user::get-vagrant-box-id cl-user::get-vagrant-box-wd cl-user::vagrant-box-status cl-user::vagrant-box-up

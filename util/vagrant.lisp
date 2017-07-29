@@ -22,7 +22,7 @@
     (getf (find-if (lambda(e) (or (equalp (getf e :id) id-or-name) (equalp (getf e :name) id-or-name))) info) :status)))
 
 (defun vagrant-up (id)
-  (run-program-string->string  "vagrant" `("up" ,id) "")
+  (run-program-string->string  "vagrant" `("up" ,id) "" :wd (get-vagrant-wd id))
   (assert (equalp (get-vagrant-box-status id) "running") (id) "Failed to bring up vagrant box ~a" id))
   
   
