@@ -1,12 +1,13 @@
 (eval-when (:load-toplevel :execute :compile-toplevel)
-  (loop for early in '("OWL-SEXP-TO-FOL" "URI-LABEL" "URI-FULL" "CAMELCASE")
+  (loop for early in '("OWL-SEXP-TO-FOL" "URI-LABEL" "URI-FULL" "*RUNNING-IN-VAGRANT*" "*VAMPIRE-BOX-NAME*" "*VAMPIRE-EXECUTABLE*" "CAMELCASE") 
 		      do (intern early :cl-user)))
 (defpackage :logic
   (:use cl)
   (:import-from :cl-user cl-user::owl-sexp-to-fol
 		cl-user::uri-full cl-user::uri-p cl-user::uri-label cl-user::*default-kb*  
 		cl-user::camelcase cl-user::replace-all
-		cl-user::get-vagrant-box-id cl-user::get-vagrant-box-wd cl-user::vagrant-box-status cl-user::vagrant-box-up)
+		cl-user::get-vagrant-box-id cl-user::get-vagrant-box-wd cl-user::vagrant-box-status cl-user::vagrant-box-up
+		cl-user::*running-in-vagrant* cl-user::*vampire-box-name* cl-user::*vampire-executable*)
   (:export
    #:l-forall #:l-exists #:l-and #:l-or #:l-iff #:l-equal #:l-not
    #:l-implies #:pred-property #:pred-class #:*use-holds*
