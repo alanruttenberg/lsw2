@@ -14,14 +14,14 @@
 (defclass vampire-logic-generator (z3-logic-generator) ())
 
 (defun run-vampire (input timeout &optional (mode :vampire) (switches nil))
-  (id *running-in-vagrant* 
+  (if *running-in-vagrant* 
       (progn
 	(ensure-vampire-box-running)
 	(let ((tmpdir (merge-pathnames (make-pathname :directory '(:relative "tmp")) *vampire-shared-directory-local*)))
 	  (ensure-directories-exist tmpdir)
 	  (let ((file (uiop/stream::get-temporary-file :directory tmpdir)))
 	    (with-open-file (f file :direction :output)
-	      (write-string input f))
+			    (write-string input f))
 	    (run-program-string->string
 	     "vagrant" 
 	     (list  "ssh" *vampire-box-id* "-c"
@@ -33,13 +33,17 @@
 	     ""
 	     )
 	    )))
+    (let ((file (uiop/stream::get-temporary-file :directory "/tmp")))
+      (with-open-file (f file :direction :output)
+		      (write-string input f))
       (run-program-string->string  *vampire-executable*
-				   `(,(format nil "/tmp/~a" file)
-				     "--input_syntax" "smtlib2"
-				     "--time_limit" (prin1-to-string timeout)
+				   `("--input_syntax" "smtlib2"
+				     "--time_limit" ,(prin1-to-string timeout)
 				     "--memory_limit" "4096"
-				     "--mode" (string-downcase (string mode))
-				     ,@switches))))
+				     "--mode" ,(string-downcase (string mode))
+				     ,(namestring file)
+				     ,@switches)
+				   ""))))
 
 (defun ensure-vampire-box-running ()
   (or *checked-vampire-box-running*

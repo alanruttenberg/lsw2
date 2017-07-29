@@ -1,5 +1,6 @@
 (eval-when (:load-toplevel :execute :compile-toplevel)
-  (loop for early in '("OWL-SEXP-TO-FOL" "URI-LABEL" "URI-FULL" "*RUNNING-IN-VAGRANT*" "*VAMPIRE-BOX-NAME*" "*VAMPIRE-EXECUTABLE*" "CAMELCASE") 
+  (loop for early in '("OWL-SEXP-TO-FOL" "URI-LABEL" "URI-FULL" "*RUNNING-IN-VAGRANT*" "*VAMPIRE-BOX-NAME*" "*VAMPIRE-EXECUTABLE*" "CAMELCASE"
+		       "GET-VAGRANT-BOX-ID" "GET-VAGRANT-BOX-WD" "VAGRANT-BOX-STATUS" "VAGRANT-BOX-UP") 
 		      do (intern early :cl-user)))
 (defpackage :logic
   (:use cl)

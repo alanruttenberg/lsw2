@@ -7,13 +7,15 @@
 ;; https://github.com/alanruttenberg/iprover
 
 (defun prover-binary (name)
-  (asdf::system-relative-pathname
-   "logic"
-   (make-pathname :directory
-		  (list :relative
-			(string-downcase (string (uiop/os:operating-system)))
-			"prover9")
-		  :name name)))
+  (if (probe-file "/usr/bin/prover9")
+      "/usr/bin/prover9"
+    (asdf::system-relative-pathname
+     "logic"
+     (make-pathname :directory
+		    (list :relative
+			  (string-downcase (string (uiop/os:operating-system)))
+			  "prover9")
+		    :name name))))
 
 
 
