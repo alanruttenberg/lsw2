@@ -1,4 +1,4 @@
-.#*
+.\#*
 \#*
 umls/work/*
 disease/data/supervised.pdf
@@ -10,3 +10,5 @@ bootstrap
 .DS_store
 .webcache
 logic/macosx/*
+.vagrant
+*.save

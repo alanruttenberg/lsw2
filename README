@@ -1,3 +1,8 @@
+New: You can build a virtual machine with everything LSW needs, using vagrant, ansible, and virtualbox. See 
+https://github.com/alanruttenberg/lsw2/tree/owlapiv4/virtual-machine
+
+----
+
 In the below, <lsw2 trunk> is the checked out trunk directory for lsw2
 <repositories> is the directory where you keep checked out working copies
 I assume you are using emacs.

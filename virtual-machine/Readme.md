@@ -9,7 +9,7 @@ If there's an error and you can fix it, you can restart the deployment with
 
 Once the box is running you get into it with "vagrant ssh"
 
-Inside you run emacs, the within emacs M-x slime which starts up the environment.
+Inside you run emacs, and within emacs M-x slime, which starts up the environment.
 
 You will have access to hermit, pellet, elk,  fact++, z3, vampire, and prover9 
 
