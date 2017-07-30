@@ -8,14 +8,14 @@
 
 (defun prover-binary (name)
   (if (probe-file "/usr/bin/prover9")
-      "/usr/bin/prover9"
-    (asdf::system-relative-pathname
-     "logic"
-     (make-pathname :directory
-		    (list :relative
-			  (string-downcase (string (uiop/os:operating-system)))
-			  "prover9")
-		    :name name))))
+      (format nil "/usr/bin/" name)
+      (asdf::system-relative-pathname
+       "logic"
+       (make-pathname :directory
+		      (list :relative
+			    (string-downcase (string (uiop/os:operating-system)))
+			    "prover9")
+		      :name name))))
 
 
 ;; allow assumptions to be the fully rendered assumptions + negated goal.
