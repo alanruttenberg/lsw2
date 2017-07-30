@@ -72,7 +72,8 @@
     - name: Install vampire
       copy: src=files/vampire dest=/usr/local/bin/ force=no
       become: true
-
+      mode: 777
+      
     - name: download maven artifacts
       command: sh /tmp/mvn-bootstrap.sh creates=~/.m2/repository/net/sourceforge/owlapi/org.semanticweb.hermit/1.3.8.413/org.semanticweb.hermit-1.3.8.413.jar
 
