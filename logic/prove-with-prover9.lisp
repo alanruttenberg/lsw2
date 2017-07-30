@@ -8,7 +8,7 @@
 
 (defun prover-binary (name)
   (if (probe-file "/usr/bin/prover9")
-      (format nil "/usr/bin/" name)
+      (format nil "/usr/bin/~a" name)
       (asdf::system-relative-pathname
        "logic"
        (make-pathname :directory
