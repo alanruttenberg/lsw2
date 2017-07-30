@@ -25,8 +25,8 @@
       apt: pkg=xorg state=installed
       become: yes	     
 
-      # Tried advise at https://askubuntu.com/questions/354967/glib-gerror-no-d-bus-daemon-running which gave the message
-      # The program 'dbus-launch' is currently not installed. To run 'dbus-launch' please ask your administrator to install the package 'dbus-x11'
+    # Tried advise at https://askubuntu.com/questions/354967/glib-gerror-no-d-bus-daemon-running which gave the message
+    # The program 'dbus-launch' is currently not installed. To run 'dbus-launch' please ask your administrator to install the package 'dbus-x11'
 
     - name: install X Windows requirement 
       apt: pkg=dbus-x11 state=installed
@@ -70,9 +70,9 @@
         - { src: 'files/mvn-bootstrap.sh', dest: '/tmp/mvn-bootstrap.sh'}
       
     - name: Install vampire
-      copy: src=files/vampire dest=/usr/local/bin/ force=no
+      copy: src=files/vampire dest=/usr/local/bin/ force=no mode=777
       become: true
-      mode: 777
+
       
     - name: download maven artifacts
       command: sh /tmp/mvn-bootstrap.sh creates=~/.m2/repository/net/sourceforge/owlapi/org.semanticweb.hermit/1.3.8.413/org.semanticweb.hermit-1.3.8.413.jar
