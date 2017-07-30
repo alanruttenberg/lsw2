@@ -13,9 +13,6 @@ Inside you run emacs, and within emacs M-x slime, which starts up the environmen
 
 You will have access to hermit, pellet, elk,  fact++, z3, vampire, and prover9 
 
-You should probably do "vagrant plugin install vagrant-vbguest" before you do any of this so that the VM automatically
-gets the latest os-specific tools installed. If you don't know what this means, then doubly so.
-
 Software
 - vagrant: https://www.vagrantup.com/downloads.html
 - ansible: http://docs.ansible.com/ansible/latest/intro_installation.html

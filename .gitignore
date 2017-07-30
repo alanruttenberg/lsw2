@@ -12,3 +12,4 @@ bootstrap
 logic/macosx/*
 .vagrant
 *.save
+site.retry
