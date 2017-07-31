@@ -4,13 +4,13 @@
 
 (defmethod normalize-names ((g prover9-logic-generator) e)
   (cond ((and (symbolp e) (char= (char (string e) 0) #\?))
-	 (cl-user::camelCase (subseq (string e) 1) t))
-	((symbolp e) (cl-user::camelCase (string e) nil))
+	 (camelCase (subseq (string e) 1) t))
+	((symbolp e) (camelCase (string e) nil))
 	((and (stringp e) (find #\( e :test 'char=)) e) ;; already done
-	((stringp e) (cl-user::camelCase e nil))
-	((cl-user::uri-p e) (cl-user::camelCase (if (and (boundp 'cl-user::*default-kb*) cl-user::*default-kb*)
-						    (cl-user::uri-label e)
-						    (#"replaceAll" (cl-user::uri-full e) ".*/" "")) nil) )
+	((stringp e) (camelCase e nil))
+	((uri-p e) (camelCase (if (and (boundp '*default-kb*) *default-kb*)
+				  (uri-label e)
+				  (#"replaceAll" (uri-full e) ".*/" "")) nil) )
 	((atom e) e)
 	(t (mapcar (lambda(e) (normalize-names g e)) e))))
 

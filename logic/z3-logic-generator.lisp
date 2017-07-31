@@ -8,12 +8,12 @@
   (cond ((and (symbolp e) (char= (char (string e) 0) #\?))
 	 (intern (subseq (string e) 1)))
 	((keywordp e) e)
-	((and (symbolp e) (find #\- (string e))  (intern (cl-user::camelCase (string e)))))
-	((cl-user::uri-p e) (intern 
-			     (cl-user::camelCase
-			      (if (and (boundp 'cl-user::*default-kb*) cl-user::*default-kb*)
-				  (cl-user::uri-label e)
-				  (#"replaceAll" (cl-user::uri-full e) ".*/" "")))))
+	((and (symbolp e) (find #\- (string e))  (intern (camelCase (string e)))))
+	((uri-p e) (intern 
+			     (camelCase
+			      (if (and (boundp '*default-kb*) *default-kb*)
+				  (uri-label e)
+				  (#"replaceAll" (uri-full e) ".*/" "")))))
 	((atom e) e)
 	(t (mapcar (lambda(e) (normalize-names g e)) e))))
 
@@ -57,7 +57,7 @@
   (if (stringp exp) exp
       (let ((*print-case* nil))
 	(format nil "~a~%"
-		(cl-user::replace-all
+		(replace-all
 		 (format nil "~a" exp) "\\b([A-Z-0-9]+)\\b"
 		 (lambda(e)
 		   (if (some 'lower-case-p e)

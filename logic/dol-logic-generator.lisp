@@ -5,7 +5,7 @@
 (defmethod render-ontology  ((g dol-logic-generator) name-uri axioms &key default-prefix imports)
   (declare (ignorable imports))
   (with-output-to-string (s)
-    (if default-prefix (format s "%prefix(: <~a>)%~%~%" (uri-full (or default-prefix cl-user::*default-uri-base*))) "")
+    (if default-prefix (format s "%prefix(: <~a>)%~%~%" (uri-full (or default-prefix *default-uri-base*))) "")
     (if (uri-p name-uri) (format s "distributed-ontology <~a>~%~%" (uri-full name-uri)) "")
     (format s "logic CommonLogic~%")
     (format s "ontology ~a = ~%" (if (uri-p name-uri)

@@ -13,7 +13,7 @@
 	  collect
 	  `(:id ,id :name ,name :provider ,provider :status ,status :wd ,wd))))
 
-(defun get-vagrant-wd (id-or-name)
+(defun get-vagrant-box-wd (id-or-name)
   (let ((info (get-vagrant-box-info)))
     (getf (find-if (lambda(e) (or (equalp (getf e :id) id-or-name) (equalp (getf e :name) id-or-name))) info) :wd)))
 
@@ -21,7 +21,7 @@
   (let ((info (get-vagrant-box-info)))
     (getf (find-if (lambda(e) (or (equalp (getf e :id) id-or-name) (equalp (getf e :name) id-or-name))) info) :status)))
 
-(defun vagrant-up (id)
+(defun vagrant-box-up (id)
   (run-program-string->string  "vagrant" `("up" ,id) "" :wd (get-vagrant-wd id))
   (assert (equalp (get-vagrant-box-status id) "running") (id) "Failed to bring up vagrant box ~a" id))
   

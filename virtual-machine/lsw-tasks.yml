@@ -65,6 +65,7 @@
       with_items:
         - { src: 'files/dot-emacs', dest: '~/.emacs'}
         - { src: 'files/dot-abclrc', dest: '~/.abclrc'}
+        - { src: 'files/dot-Xresources', dest: '~/.Xresources'}
         - { src: 'files/slime-init.el', dest: '~/emacs/slime-init.el'}
         - { src: 'files/font-indent.el', dest: '~/emacs/font-indent.el'}
         - { src: 'files/mvn-bootstrap.sh', dest: '/tmp/mvn-bootstrap.sh'}

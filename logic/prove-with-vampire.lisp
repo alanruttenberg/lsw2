@@ -8,8 +8,8 @@
 (defvar *vampire-shared-directory-remote* (namestring "/vagrant/"))
 (defvar *checked-vampire-box-present* nil)
 (defvar *checked-vampire-box-running* nil)
-(defvar *vampire-box-id* (and *running-in-vagrant* (cl-user::get-vagrant-box-id "vampirebox")))
-(defvar *vampire-shared-directory-local* (and *running-in-vagrant* (make-pathname :directory (cl-user::get-vagrant-wd "vampirebox"))))
+(defvar *vampire-box-id* (and *running-in-vagrant* (get-vagrant-box-id *vampire-box-name*)))
+(defvar *vampire-shared-directory-local* (and *running-in-vagrant* (make-pathname :directory (get-vagrant-box-wd *vampire-box-name*))))
 
 (defclass vampire-logic-generator (z3-logic-generator) ())
 
@@ -47,8 +47,8 @@
 
 (defun ensure-vampire-box-running ()
   (or *checked-vampire-box-running*
-      (unless (equalp (cl-user::get-vagrant-box-status *vampire-box-id*) "running")
-	(cl-user::vagrant-up  *vampire-box-id*))
+      (unless (equalp (get-vagrant-box-status *vampire-box-id*) "running")
+	(vagrant-box-up  *vampire-box-id*))
       (setq *checked-vampire-box-running* t)))
 
 (defun vampire-render (assumptions &optional goals commands)
