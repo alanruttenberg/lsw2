@@ -194,7 +194,10 @@
 		    (if (eq which :vampire)
 			(let ((g (make-instance generator-class :with-names nil)))
 			  (render-axioms g axioms))
-			(render-axioms generator-class axioms))
+			(if (eq which :vampire)
+			    (let ((g (make-instance generator-class :with-names t)))
+			      (render-axioms g axioms))
+			    (render-axioms generator-class axioms)))
 		    (or (and at-end (format nil "~a~%" at-end))  ""))))))
       (if path
 	(with-open-file (f path :direction :output :if-does-not-exist :create :if-exists :supersede)

@@ -2,7 +2,7 @@
 
 (defclass z3-logic-generator (logic-generator)
   ((with-declarations :accessor with-declarations :initarg :with-declarations :initform t )
-   (with-names :accessor with-names :initarg :with-names :initform nil)))
+   (with-names :accessor with-names :initarg :with-names :initform t)))
 
 (defmethod normalize-names ((g z3-logic-generator) e)
   (cond ((and (symbolp e) (char= (char (string e) 0) #\?))

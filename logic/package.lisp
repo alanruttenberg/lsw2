@@ -8,8 +8,8 @@
   (:import-from :cl-user cl-user::owl-sexp-to-fol cl-user::run-program-string->string
 		cl-user::uri-full cl-user::uri-p cl-user::uri-label cl-user::*default-kb* cl-user::*default-uri-base*
 		cl-user::camelcase cl-user::replace-all
-		cl-user::get-vagrant-box-id get-vagrant-box-status
-		cl-user::get-vagrant-box-wd cl-user::vagrant-box-status cl-user::vagrant-box-up
+		cl-user::get-vagrant-box-id cl-user::get-vagrant-box-status
+		cl-user::get-vagrant-box-wd cl-user::vagrant-box-up
 		cl-user::*vampire-shared-directory-remote* cl-user::*vampire-shared-directory-local*
 		cl-user::*running-in-vagrant* cl-user::*vampire-box-name* cl-user::*vampire-executable*)
   (:export
@@ -23,7 +23,7 @@
    #:z3-logic-generator.
    #:latex-logic-generator.
    #:collect-axioms-from-spec
-   #:z3-prove #:z3-find-model
+   #:z3-prove #:z3-find-model #:z3-get-unsat-core
    #:z3-check-satisfiability
    #:z3-syntax-check
    #:z3-render
