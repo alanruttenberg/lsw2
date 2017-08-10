@@ -93,7 +93,13 @@
 	   (rows (cdr rows))
 	   (headerkeys (mapcar (lambda(s)
 				 (if (consp s) (setq s (second s)))
-				 (intern (substitute #\- #\space (string-upcase s))'keyword)) (third headers))))
+				 (typecase s
+				   (double-float (prin1-to-string (round s 1)))
+				   (single-float (prin1-to-string (round s 1)))
+				   (number (prin1-to-string s))
+				   (string (intern (substitute #\- #\space (string-upcase s))'keyword))
+				   (t (error "unknown type in sheet header: ~a" headers))))
+			       (third headers))))
       (loop for (sheet rowno row) in rows
 	 when rowno
 	 collect
@@ -108,7 +114,7 @@
 
 (defun get-sheet-as-row-lists (sheet)
   (let ((them nil))
-    (each-row-in-sheet nil (lambda(row) (push row them)) sheet)
+    (each-row-in-sheet nil (lambda(row) (push row them)) :sheet sheet)
     (nreverse them)))
 
 ;; before optimization 

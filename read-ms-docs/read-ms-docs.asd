@@ -11,21 +11,21 @@
 	))
 
 (defsystem :read-ms-docs
-    :name "Apache POI - the Java API for Microsoft Documents"
-    :licence "BSD"
+  :name "Apache POI - the Java API for Microsoft Documents"
+  :licence "BSD"
+  :components
+  ((:mvn-module maven
+    :dependencies 
+    ("org.apache.poi/poi/3.15"
+     "org.apache.poi/poi-scratchpad/3.15"
+     "org.apache.poi/poi-ooxml/3.15"
+     "org.apache.poi/poi-ooxml-schemas/3.15"
+     ))
+   (:module files :pathname ""
+    :depends-on (maven)
     :components
-    ((:module jars 
-	      :pathname ""
-	      :components
-	      ((:mvn "org.apache.poi/poi/3.6")
-	       (:mvn "org.apache.poi/poi-scratchpad/3.6")
-	       (:mvn "org.apache.poi/poi-ooxml/3.6")
-	       (:mvn "org.apache.poi/poi-ooxml-schemas/3.6")))
-     (:module files :pathname ""
-	      :depends-on (jars)
-	      :components
-	      ((:file "spreadsheet")
-	       (:file "blocks"))))
-    :depends-on (jss))
+    ((:file "spreadsheet")
+     (:file "blocks"))))
+  :depends-on (jss))
 
 ;;;; eof
