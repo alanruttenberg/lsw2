@@ -48,13 +48,20 @@
   (:documentation "if a sql query is executed with a connection that is a keyword instead of a connection object, the sql is wrapped in a lambda and passed to this function, which calls the lambda with a single argument which is the connection. Clients of this functionality need to define eql methods on the first argument to implement the necessary setup of the connection"
   ))
 
+(defun sql-query-render (query &optional with-linefeeds)
+  (if (listp query)
+      (format nil (if with-linefeeds "~{~a~^ ~%~}" "~{~a~^ ~}") 
+	      (mapcar (lambda(e) (if (stringp e) e (apply 'format nil e))) query))
+      query))
+    
 ;; Do a sql query to connection. Result is a list of list, with each list one row of fields.
 ;; if with-headers is non-nil, then the values are instead ("fieldname" . value) instead of just value.
 ;; query can be a list of strings, in which case they are concatenated
 ;; if format-args is supplied then the query string used as a format string with the format-args
 ;; multiple values are returned: 1. the result of the query, 2. the field names of the resultset
 (defun sql-query (query &optional (connection (cdr *default-connection*)) &key with-headers print format-args trace)
-  (when (listp query) (setq query (format nil "~{~a~^ ~}" query)))
+  (when (listp query) (setq query (format nil "~{~a~^ ~}" 
+					  (mapcar (lambda(e) (if (stringp e) e (apply 'format nil e))) query))))
   (when format-args (setq query (apply 'format nil query format-args)))
   (when (or trace *jdbc-trace*) (print query))
   (if (keywordp connection)
