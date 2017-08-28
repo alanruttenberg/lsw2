@@ -173,8 +173,8 @@
 '(eval-when (:load-toplevel :execute)
   (memoize 'uri-label :key #'identity :test #'equalp))
 
-(defun uri-label (label &optional (ont *default-kb*))
-  (label-from-uri ont label))
+(defun uri-label (uri &optional (ont *default-kb*))
+  (label-from-uri ont uri))
 
 '(eval-when (:load-toplevel :execute)
   (memoize 'uri-label :key #'identity :test #'equalp))
