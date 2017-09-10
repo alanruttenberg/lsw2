@@ -18,7 +18,7 @@
       become: yes
 
     - name: install prover9
-      apt: pkg=prover9-mace4 state=installed
+      apt: pkg=prover9 state=installed
       become: yes	     
 
     - name: install X Windows
