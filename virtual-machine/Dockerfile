@@ -21,3 +21,4 @@ COPY files/font-indent.el /home/lsw/emacs/font-indent.el
 COPY files/mvn-bootstrap.sh /tmp/mvn-bootstrap.sh
 RUN sh /tmp/mvn-bootstrap.sh 
 RUN cd /home/lsw/repos/abcl && ant abcl-aio.jar
+RUN /home/lsw/repos/lsw2/bin/lsw
