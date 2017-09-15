@@ -3,13 +3,12 @@
 # See https://github.com/phusion/baseimage-docker/blob/master/Changelog.md for
 # a list of version numbers.
 FROM ubuntu:16.04
-
 COPY files/keyboard /etc/default/keyboard
-RUN apt-get update && apt-get install --no-install-recommends -y prover9 z3 openjdk-8-jdk git maven ant openssh-server && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+RUN apt-get update && apt-get install --no-install-recommends -y prover9 z3 openjdk-8-jdk-headless openjdk-8-jre-headless git maven ant openssh-server && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 RUN useradd -ms /bin/bash lsw
-USER lsw
 COPY docker-reasoners/vampire /usr/local/bin/
 RUN chmod a+x /usr/local/bin/vampire
+USER lsw
 WORKDIR /home/lsw
 RUN mkdir /home/lsw/repos/
 RUN cd repos && git clone --depth 1 https://github.com/alanruttenberg/lsw2.git 
@@ -23,4 +22,17 @@ COPY files/font-indent.el /home/lsw/emacs/font-indent.el
 COPY files/mvn-bootstrap.sh /tmp/mvn-bootstrap.sh
 RUN sh /tmp/mvn-bootstrap.sh 
 RUN cd /home/lsw/repos/abcl && ant abcl-aio.jar
+WORKDIR /home/lsw/repos/lsw2/owl2/lib
+RUN rm -rf  Chainsaw-1.0-SNAPSHOT.jar  pelletcli/  Konclude*  factpp-native-1.6.4/  prefuse/  LICENSE-README/  jfact/  sparqldl-api1.0.0/  jfact-1.2.3.jar  telemetry-1.0.0.jar  org.semanticweb.hermit-1.3.8.413.jar  owlapi-4.2.6-dependencies/  uncommons-maths-1.2.2.jar  elk-owlapi-standalone-0.5.0-SNAPSHOT-bin.jar  owlapi-distribution-4.2.6.jar  explanation/  owlapitools/ 
+WORKDIR /home/lsw/repos/lsw2/lib
+RUN rm abcl-aio.jar
+RUN cp /home/lsw/repos/abcl/dist/abcl-aio.jar .
+RUN rm -rf /home/lsw/repos/abcl
+RUN rm -rf /home/lsw/repos/lsw2/slime-alan
+RUN rm -rf /home/lsw/repos/lsw2/protege
+RUN rm -rf /home/lsw/repos/lsw2/virtual-machine
+USER 0
+RUN rm -rf /usr/local/share/doc
+RUN rm -rf /usr/local/share/java
+USER lsw
 RUN /home/lsw/repos/lsw2/bin/lsw
