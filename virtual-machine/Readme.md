@@ -39,9 +39,7 @@ You must install docker first from https://www.docker.com/get-docker
 
 To build the image, execute "docker build . -t "lsw2/lisp". This image does not include emacs.
 
-The image is based on lsw2/reasoners, which will need to be built first. You can either quickly build a large image by
-running sh build.sh in docker-reasoners, or more slowly build a much smaller image, by running sh build.sh in
-docker-reasoners-static.
+The image is based on lsw2/reasoners, which is on docker hub and will be pulled as necessary.
 
 To run LSW from docker image inside your local emacs:
  - put https://github.com/emacs-pe/docker-tramp.el somewhere, add the path to the emacs load-path, and (require 'docker-tramp)
