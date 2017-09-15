@@ -13,7 +13,7 @@ Vagrant.configure(2) do |config|
   config.vm.box = "ubuntu/trusty64"
   config.vm.define :lswbox
   config.vm.network "public_network", bridge: "en0: Ethernet"
-#  config.vm.synced_folder "./shared","/vagrant"
+  config.vm.synced_folder "./shared","/vagrant"
   config.vm.provider "virtualbox" do |v|
     v.cpus = 4
     v.memory = 4096
