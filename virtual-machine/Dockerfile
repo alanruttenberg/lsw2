@@ -2,12 +2,14 @@
 # sure you lock down to a specific version, not to `latest`!
 # See https://github.com/phusion/baseimage-docker/blob/master/Changelog.md for
 # a list of version numbers.
-FROM lsw2/reasoners
+FROM ubuntu:16.04
 
 COPY files/keyboard /etc/default/keyboard
-RUN apt-get update && apt-get install --no-install-recommends -y openjdk-8-jdk git maven ant openssh-server && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+RUN apt-get update && apt-get install --no-install-recommends -y prover9 z3 openjdk-8-jdk git maven ant openssh-server && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 RUN useradd -ms /bin/bash lsw
 USER lsw
+COPY docker-reasoners/vampire /usr/local/bin/
+RUN chmod a+x /usr/local/bin/vampire
 WORKDIR /home/lsw
 RUN mkdir /home/lsw/repos/
 RUN cd repos && git clone --depth 1 https://github.com/alanruttenberg/lsw2.git 
