@@ -48,4 +48,16 @@ To run LSW from docker image inside your local emacs:
 Run it with M-x slime-docker
 
 
-Note: This is relatively new tech for me. Please contact me if try but have trouble with these instructions.
+Note: 
+- This is relatively new tech for me. Please contact me if try but have trouble with these instructions.
+- http://kartoza.com/en/blog/how-to-run-a-linux-gui-application-on-osx-using-docker/ gives instructions on how to set
+  things up so that X windows will open on a mac running Xquartz, so show-classtree works. Summary: 
+    brew install socat
+    socat TCP-LISTEN:6000,reuseaddr,fork UNIX-CLIENT:\"$DISPLAY\"&  (do that only once)
+    in the slime-docker-implementations add, after :image-name "lsw2/lisp"
+           :env (("DISPLAY" . ,(concat (get-ip-address) ":0"))) 
+    I added the below definition of get-ip-address to my .emacs, which seems to work. YMMV 
+    (defun get-ip-address ()
+      (substring (shell-command-to-string
+       "ifconfig | grep 'inet ' | grep -v 127.0.0.1 | head -1 | sed 's/.*inet \\(\\([0-9\\.]\\)*\\).*/\\1/'")
+	     0 -1))
