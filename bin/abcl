@@ -28,11 +28,12 @@ then
     bits="-d${ABCL_BITS}"
 fi
 
-if [ -n "${ABCL_JDI}"]
+if [ -n "${ABCL_JDI}" ]
 then
-    debug=("-Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=8000" "-XX:-OmitStackTraceInFastThrow") 
+    dbg=("-Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=8000" "-XX:-OmitStackTraceInFastThrow") 
 fi
-
+echo debug $dbg
+ 
 # Either use ABCL_WD, or figure out where with are using $0. Latter works 
 # on both on cygwin and os x
 
@@ -137,7 +138,7 @@ then
     dock=("-Xdock:icon=$here/images/lswicon.icns" "-Xdock:name='ABCL'")
 fi
 
-args=($ram $stack $bits ${debug[@]} ${gc[@]} ${cl[@]} ${profileargs[@]} ${dock[@]})
+args=($ram $stack $bits ${dbg[@]} ${gc[@]} ${cl[@]} ${profileargs[@]} ${dock[@]})
 
 if ! [[ ${OS} =~ Windows ]]
 then
@@ -151,6 +152,8 @@ CLASSPATH=$classpath
 export CLASSPATH
 
 echo "CLASSPATH=$classpath"
+
+shift
 
 command=($java ${args[@]} ${permgen[@]} "org.armedbear.lisp.Main" ${verbosity[@]} "--load" "$here/scripts/system-registry.lisp" $*)
 
