@@ -1,118 +1,160 @@
-#!/usr/bin/perl
+#!/bin/bash
+# r=ram, s=stack, b=bits, j=java, g=verbose gc, c=trace class loading, d=wait for jdi. Environment variables if not command line args.
 
-use Getopt::Std;
+bits="-d32"
+gc=("-XX:-PrintGCDetails" "-XX:-PrintGCTimeStamps") 
+cl=("-XX:-TraceClassLoading" "-XX:-TraceClassUnloading")
+ram="-Xmx1024m"
+stack="-Xss24m"
+java=java
+
+while getopts r:s:b:j:g:c:d: option
+do
+ case "${option}"
+ in
+     r) ram="-Xmx${OPTARG}m" ; shift 2 ;;
+     s) stack="-Xss${OPTARG}m" ; shift 2 ;;
+     b) bits="-d${OPTARG}"  ; shift 2 ;;
+     j) java="${OPTARG}"  ; shift 2 ;;
+     g) gc=("-XX:${OPTARG}\PrintGCDetails" "-XX:${OPTARG}PrintGCTimeStamps")   ; shift ;;
+     c) cl=("-XX:${OPTARG}\TraceClassLoading" "-XX:${OPTARG}TraceClassUnloading")   ; shift ;;
+     d) debug=("-Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=8000" "-XX:-OmitStackTraceInFastThrow")  ; shift  ;;
+     q) verbosity=("-q")  ; shift  ;;
+ esac
+done
+
+if [ -z "${ABCL_BITS}" ]
+then
+    bits="-d${ABCL_BITS}"
+fi
+
+if [ -n "${ABCL_JDI}"]
+then
+    debug=("-Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=8000" "-XX:-OmitStackTraceInFastThrow") 
+fi
 
 # Either use ABCL_WD, or figure out where with are using $0. Latter works 
 # on both on cygwin and os x
 
-#http://docs.oracle.com/javase/7/docs/technotes/tools/windows/java.html
-
-getopt('rsbjgcd'); # r=ram, s=stack, b=bits, j=java, g=verbose gc, c=trace class loading, d=wait for jdi. Environment variables if not command line args.
-
-if ($ENV{ABCL_WD})
-  { $here = $ENV{ABCL_WD} }
+if [ -z "${ABCL_WD}" ]
+then
+    here=`echo $0 | sed 's/[^/]*$//g'`..
 else
-  { $here = $0;
+    here=${ABCL_WD}
+fi
 
-    # Assume there's a trailing slash.
-    # Flush trailing stuff from last slash.
-    # Sort of like shell 'basename'.
-    $here =~ s=/[^/]*$==g;
-    $here .= "/..";
-  }
+if [ -n "${ABCL_VERBOSEGC}" ]
+then
+    gc=("-XX:${ABCL_VERBOSEGC}PrintGCDetails" "-XX:{ABCL_VERBOSEGC}PrintGCTimeStamps") 
+fi
 
-if ($opt_b)
-  { $bits = "-d$opt_b"; }
-elsif ($ENV{ABCL_BITS}) 
-  { $bits = "-d$ENV{ABCL_BITS}" }
-else
-  { $bits = "-d32"; }
+if [ -n "${ABCL_CLASSLOADING}" ] 
+then
+    cl=("-XX:${ABCL_CLASSLOADING}TraceClassLoading" "-XX:{ABCL_CLASSLOADING}TraceClassUnloading") 
+fi
 
-if ($opt_d || $ENV{ABCL_JDI})
-{ @debug = ("-Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=8000", "-XX:-OmitStackTraceInFastThrow") }
+if [ -n "${ABCL_RAM}" ]
+then
+    ram="-Xmx${ABCL_RAM}m"
+fi
 
-if ($opt_q || $ENV{ABCL_QUIET})
-{ @verbosity = ("-q") }
+if [ -n "${ABCL_STACK}" ] 
+then
+    stack="-Xss${ABCL_STACK}m" 
+fi
 
-if ($opt_g)
-{ @gc = ("-XX:$opt_g\PrintGCDetails", "-XX:$opt_g\PrintGCTimeStamps") }
-elsif ($ENV{ABCL_VERBOSEGC}) 
-{ @gc = ("-XX:$ENV{ABCL_VERBOSEGC}PrintGCDetails", "-XX:{ABCL_VERBOSEGC}PrintGCTimeStamps") }
-else
-{ @gc = ("-XX:-PrintGCDetails", "-XX:-PrintGCTimeStamps") }
-
-if ($opt_c)
-{ @cl = ("-XX:$opt_c\TraceClassLoading", "-XX:$opt_c\TraceClassUnloading") }
-elsif ($ENV{ABCL_CLASSLOADING}) 
-{ @cl = ("-XX:$ENV{ABCL_CLASSLOADING}TraceClassLoading", "-XX:{ABCL_CLASSLOADING}TraceClassUnloading") }
-else
-{ @cl = ("-XX:-TraceClassLoading", "-XX:-TraceClassUnloading") }
-
-if ($ENV{ABCL_RAM}) 
-  { $ram = "-Xmx$ENV{ABCL_RAM}m" }
-elsif ($opt_r)
-  { $ram = "-Xmx$opt_r\m"; }
-else
-  { $ram = "-Xmx1024m"; }
-
-if ($opt_s)
-  { $stack = "-Xss$opt_s\m";}
-elsif ($ENV{ABCL_STACK}) 
-  { $stack = "-Xss$ENV{ABCL_STACK}m" }
-else
-  { $stack = "-Xss24m";}
-
+if [ -n "${ABCL_JAVA}" ] 
+then
+    java=${ABCL_JAVA}
+fi
   
-$java = $opt_j || $ENV{ABCL_JAVA} || "java";
-@version = `$java -version 2>&1 | tr -d '\n'`;
-$sep = "================================================================";
+read -r -a version <<<`$java -version 2>&1 | head -1 | tr -d '\n' | tr -d '"'`
+versionwhole=${version[2]}
+versionregex="1.([0-9]).*"
+if [[ $versionwhole =~ $versionregex ]]
+then
+    version=${BASH_REMATCH[1]};
+else
+    unset version
+fi
 
-if ($ENV{OS} =~ /windows/i) {$pathJoin = ";"} else {$pathJoin = ":" }
-if (!(@version[0] =~ /version/) && !(@version[1] =~ /version/) ) 
-  { complainCantTellVersion() }
-elsif (!((@version[0] =~ /"1.[5678]/) || (@version[1] =~ /"1.[567]/)))
-   { complainWrongVersion(); exit() }
-if ((@version[0] =~ /"1.[78]/) || (@version[1] =~ /"1.[78]/)) { $bits="-d64" } ; 
+sep="================================================================"
 
-if (((@version[0] =~ /"1.7/) || (@version[1] =~ /"1.7/)))
-{ @permgen= ("-XX:MaxPermSize=128M" ,"-XX:+CMSClassUnloadingEnabled" ) }
+if [[ ${OS} =~  windows ]]
+then
+    pathjoin=";"
+else
+    pathjoin=":"
+fi
 
-@libs = grep(/.jar$/,split /\n/,`find "$here/lib" -follow`);
+function complainCantTellVersion {
+    echo "I'm trying to tell which version of java you are running, but \"$java -version\" prints"
+    echo $sep
+    echo `java -version`
+    echo $sep
+    echo "Going to try anyways, but this may not work..."
+ }
 
-$classpath = join($pathJoin,@libs);
+function complainWrongVersion {
+    echo "This project needs java 1.5-1.9 but \"$java -version\" prints"
+    echo $sep
+    echo `java -version`
+    echo $sep
+   echo "You either need to install a working java version, and/or first set the"
+   echo "environment variable ABCL_JAVA to the appropriate java executable (e.g."
+   echo "e.g in Mac OS X:/Library/Java/JavaVirtualMachines/<version>/Contents/Home/bin/java)"
+ }
 
-if ($ENV{ABCL_PROFILE_SHARK})
-  { @profileargs = ("-XrunShark") }
+if [ -z $version ]
+then
+    complainCantTellVersion
+elif ! [[ $version  =~ [5-9] ]]
+then
+    complainWrongVersion
+fi
 
-if (`uname` =~ /Darwin/)
- { @dock = ("-Xdock:icon=$here/images/lswicon.icns","-Xdock:name='Armed Bear Common Lisp'")}
+if [ verion == 7 ]
+then
+    permgen=("-XX:MaxPermSize=128M" "-XX:+CMSClassUnloadingEnabled" )
+fi
 
-@args  = ($ram,$stack,$bits,@debug,@gc,@cl,@profileargs, @dock);
+if ! [[ $version =~ [56] ]]
+then
+    bits="-d64" 
+fi
+		   
+   read -r -a libs  <<< `find $here/lib -follow -name \*\.jar`
 
-if (!($ENV{OS} =~ /windows/i)) { @args = ("-server",@args);}
-print "java -version says:\n@version\n";
-print "args: @args\n";
-print "ARGV: @ARGV\n";
+classpath=`echo "${libs[@]}" | sed 's/[ ]/'$pathjoin/g`
 
-$ENV{CLASSPATH}=$classpath;
-print "CLASSPATH=$classpath\n";
+if [ -n "${ABCL_PROFILE_SHARK}" ]
+then
+    profileargs=("-XrunShark")
+fi
+   
+if [[ `uname` =~ Darwin ]]
+then
+    dock=("-Xdock:icon=$here/images/lswicon.icns" "-Xdock:name='ABCL'")
+fi
 
-@command = ("$java",@args,@permgen,"org.armedbear.lisp.Main",@verbosity,"--load","$here/scripts/system-registry.lisp",@ARGV,);
+args=($ram $stack $bits ${debug[@]} ${gc[@]} ${cl[@]} ${profileargs[@]} ${dock[@]})
 
-print "@command\n";
+if ! [[ ${OS} =~ Windows ]]
+then
+    args=("-server" ${args[@]})
+fi
 
-exec(@command);
+echo "java -version says: $versionwhole"
+echo "lisp args: $*"
 
-sub complainCantTellVersion ()
-{ print("I'm trying to tell which version of java you are running, but \"$java -version\" prints\n$sep\n");
-  print @version;
-  print("$sep\nGoing to try anyways, but this may not work...\n");
-}
+CLASSPATH=$classpath
+export CLASSPATH
 
-sub complainWrongVersion ()
-{ print("This project needs java 1.5,1.6, or 1.7, but \"$java -version\" prints\n$sep\n");
-  print @version;
-  print("$sep\nYou either need to install java version 1.5 or 1.6, and/or first set the\n");
-  print("environment variable ABCL_JAVA to the appropriate java executable (e.g.\n");
-  print("in Mac OS X: /System/Library/Frameworks/JavaVM.framework/Versions/1.5/Commands/java)\n"); 
-}
+echo "CLASSPATH=$classpath"
+
+command=($java ${args[@]} ${permgen[@]} "org.armedbear.lisp.Main" ${verbosity[@]} "--load" "$here/scripts/system-registry.lisp" $*)
+
+echo ${command[@]}
+
+exec ${command[@]}
+
