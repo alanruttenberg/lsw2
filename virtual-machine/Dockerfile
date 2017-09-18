@@ -24,7 +24,8 @@ RUN cd repos && git clone --depth 1 https://github.com/alanruttenberg/lsw2.git
 RUN cd repos && git clone --branch beta --depth 1 https://github.com/alanruttenberg/slime.git
 USER lsw
 RUN /home/lsw/repos/lsw2/bin/lsw
-RUN /home/lsw/repos/lsw2/bin/lsw
+COPY files/delete-unused-repository-jars.lisp /tmp/delete-unused-repository-jars.lisp
+RUN /home/lsw/repos/lsw2/bin/lsw < /tmp/delete-unused-repository-jars.lisp
 USER 0
 RUN apt-get remove -y --auto-remove git ant
 RUN rm -rf /usr/local/share/doc
@@ -41,5 +42,3 @@ RUN rm -rf /home/lsw/repos/lsw2/slime-alan
 RUN rm -rf /home/lsw/repos/lsw2/protege
 RUN rm -rf /home/lsw/repos/lsw2/virtual-machine
 RUN rm -rf /home/lsw/repos/*/.git
-
-
