@@ -7,21 +7,42 @@ cl=("-XX:-TraceClassLoading" "-XX:-TraceClassUnloading")
 ram="-Xmx1024m"
 stack="-Xss24m"
 java=java
+shopt -s extglob
 
-while getopts r:s:b:j:g:c:d: option
-do
- case "${option}"
- in
-     r) ram="-Xmx${OPTARG}m" ; shift 2 ;;
-     s) stack="-Xss${OPTARG}m" ; shift 2 ;;
-     b) bits="-d${OPTARG}"  ; shift 2 ;;
-     j) java="${OPTARG}"  ; shift 2 ;;
-     g) gc=("-XX:${OPTARG}\PrintGCDetails" "-XX:${OPTARG}PrintGCTimeStamps")   ; shift ;;
-     c) cl=("-XX:${OPTARG}\TraceClassLoading" "-XX:${OPTARG}TraceClassUnloading")   ; shift ;;
-     d) debug=("-Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=8000" "-XX:-OmitStackTraceInFastThrow")  ; shift  ;;
-     q) verbosity=("-q")  ; shift  ;;
- esac
+args=("$@")
+while ([ "${#args[@]}" -gt 0 ] ); do
+    case "$1" in
+	#options
+        -r) ram="-Xmx$2m"  ; shift ; shift ;;
+  	-s) stack="-Xss$2m"  ; shift ; shift ;;
+	-b) bits="-d$2"   ; shift ; shift ;;
+	-j) java="$2"   ; shift ; shift ;;
+        -help) usage ; exit 0 ;;
+
+	# switches 
+	-g) gc=("-XX:${OPTARG}\PrintGCDetails" "-XX:${OPTARG}PrintGCTimeStamps")  ; shift  ;;
+	-c) cl=("-XX:${OPTARG}\TraceClassLoading" "-XX:${OPTARG}TraceClassUnloading")   ; shift ;;
+	-d) debug=("-Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=8000" "-XX:-OmitStackTraceInFastThrow")  ; shift  ;;
+	-h) usage ; exit 0 ;; 
+
+	# ABCL switches and options
+        --noinform) lisp=(${lisp[@]} "$1") ; shift ;;
+        --noinit) lisp=(${lisp[@]} "$1") ; shift ;;
+        --nosystem) lisp=(${lisp[@]} "$1") ; shift ;;
+        --batch) lisp=(${lisp[@]} "$1") ; shift ;;
+        --eval) lisp=(${lisp[@]} "$1" "$2") ; shift ; shift ;;
+        --load) lisp=(${lisp[@]} "$1" "$2") ; shift ; shift ;;
+        --load-system-file) lisp=(${lisp[@]} "$1" "$2") ; shift ; shift ;;
+
+	# any arguments past -- are passed to lisp
+	--) shift; unprocessed_args=(${unprocessed_args[@]} "$*") ; break ;;
+
+	# anything else just pass on to lisp 
+        *) unprocessed_args=(${unprocessed_args[@]} "$1") ; shift ;;
+    esac
+    args=("$@")
 done
+shopt -u extglob
 
 if [ -z "${ABCL_BITS}" ]
 then
@@ -32,7 +53,6 @@ if [ -n "${ABCL_JDI}" ]
 then
     dbg=("-Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=8000" "-XX:-OmitStackTraceInFastThrow") 
 fi
-echo debug $dbg
  
 # Either use ABCL_WD, or figure out where with are using $0. Latter works 
 # on both on cygwin and os x
@@ -146,16 +166,14 @@ then
 fi
 
 echo "java -version says: $versionwhole"
-echo "lisp args: $*"
+#echo "lisp args: ${lisp[@]}"
 
 CLASSPATH=$classpath
 export CLASSPATH
 
 echo "CLASSPATH=$classpath"
 
-shift
-
-command=($java ${args[@]} ${permgen[@]} "org.armedbear.lisp.Main" ${verbosity[@]} "--load" "$here/scripts/system-registry.lisp" $*)
+command=($java ${args[@]} ${permgen[@]} "org.armedbear.lisp.Main" "--load" "$here/scripts/system-registry.lisp" ${lisp[@]} ${unprocessed_args[@]})
 
 echo ${command[@]}
 
