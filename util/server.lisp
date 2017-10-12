@@ -6,11 +6,16 @@
 ;; CL-USER> (get-url "http://127.0.0.1:6666/eval" :post '(("eval" "(+ 1 3)")) :force-refetch t)
 ;; "4"
 ;; (("Content-length" "1"))
+(defun decode-url-encoded (string)
+  (replace-all (#"replaceAll" string "[+]" " ")
+	       "%([0-9A-F]{2,2})"
+	       (lambda(e) (string (code-char (let ((*read-base* 16)) (read-from-string e)))))
+	       1))
 
 (defun start-server (&key (port 6666) (host "127.0.0.1"))
   (let* ((object (new 'java.lang.object))
 	 (wrapped 
-	  (jdelegating-interface-implementation  
+	  (jss::jdelegating-interface-implementation  
 	   (find-java-class 'com.sun.net.httpserver.HttpHandler)
 	   object
 	   "handle" 
@@ -25,7 +30,7 @@
 				     ((equal (#"getRequestMethod" exchange) "GET")
 				      (#"getQuery" (#"getRequestURI" exchange)))
 				     (t "\"I don't understand this request\""))))
-			 (setq to-eval (read-from-string (#"replaceFirst" request ".*=" "")))
+			 (setq to-eval (read-from-string (decode-url-encoded  (#"replaceFirst" request ".*=" ""))))
 			 (if (equal to-eval '(quit)) (setq to-eval '(setq *quit* t)))
 			 (with-output-to-string (s) (format s "~a" (eval to-eval)))))
 		   (let ((response 
