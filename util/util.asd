@@ -46,6 +46,7 @@
 	     (:file "eval-with-timeout")
 	     (:file "run-program")
 	     (:file "send-prowl-notification")
-	     (:file "vagrant")))))
+	     (:file "vagrant")
+	     (:file "exit-hook")))))
 
 
