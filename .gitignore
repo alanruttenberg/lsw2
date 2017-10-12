@@ -13,3 +13,4 @@ logic/macosx/*
 .vagrant
 *.save
 site.retry
+libnot
