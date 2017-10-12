@@ -33,6 +33,8 @@
 		  "de.sciss/prefuse-demos/1.0.1")
 		:managed-dependencies
 		("org.slf4j/slf4j-api/1.7.21"
+		 "org.apache.httpcomponents:httpcore:4.4.5"
+		 "org.apache.httpcomponents:httpclient:4.5"
 		 "net.sourceforge.owlapi:owlapi-distribution:4.2.6")
 		:exclusions
 		("net.sourceforge.owlapi:owlapi-osgidistribution"
