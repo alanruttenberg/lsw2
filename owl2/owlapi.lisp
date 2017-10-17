@@ -501,6 +501,18 @@
 (defun annotation-properties (kb)
   (mapcar 'make-uri (mapcar #"toString" (mapcar #"getIRI"  (set-to-list (#"getAnnotationPropertiesInSignature" (v3kb-ont o)))))))
 
+
+(defun get-owl-literal (value)
+  (cond ((#"isRDFPlainLiteral" value) (#"getLiteral" value))
+	((#"isBoolean" value) (let ((string (#"getLiteral" value)))
+				(if (equal string "true") :true :false)))
+	((member (#"toString" (#"getDatatype" value))
+		 '("http://www.w3.org/2001/XMLSchema#string" "xsd:string") :test 'equal)
+	 (#"getLiteral" value))
+	((or (#"isFloat" value) (#"isInteger" value) (#"isDouble" value))
+	 `(:literal ,(#"getLiteral" value) ,(make-uri (#"toString" (#"getIRI" (#"getDatatype" value))))))
+	(t value)))
+		 
 (defun entity-annotations (uri  &optional (kb *default-kb*) prop)
   (loop for ont in (set-to-list (#"getImportsClosure" (v3kb-ont kb)))
 	append
@@ -512,13 +524,7 @@
 		when (or (not prop) (eq prop prop-uri))
 		  collect (list  prop-uri
 				 (if (jclass-superclass-p (find-java-class "OWLLiteral") (jobject-class value))
-				     (cond ((#"isRDFPlainLiteral" value) (#"getLiteral" value))
-					   ((#"isBoolean" value) (let ((string (#"getLiteral" value)))
-								   (if (equal string "true") :true :false)))
-					   ((member (#"toString" (#"getDatatype" value))
-						    '("http://www.w3.org/2001/XMLSchema#string" "xsd:string") :test 'equal)
-					    (#"getLiteral" value))
-					   (t value))
+				     (get-owl-literal value)
 				     (if (jinstance-of-p value (find-java-class 'owlapi.model.IRI))
 					 (make-uri (#"toString" value))
 					 value)

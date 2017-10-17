@@ -302,11 +302,11 @@
     (labels ((iri-of (thing)
 	       (make-uri (#"toString" thing)))
 	     (gather (list)
-	       (print-db list)
+;	       (print-db list)
 	       (loop for el in list
 		     collect
 		     (if (java-object-p el)
-			 (jtypecase el
+			 (jss::jtypecase el
 			   ((SWRLClassAtom
 			     SWRLObjectPropertyAtom)
 			    (append (gather (list* (#"getPredicate" el) (j2list  (#"getAllArguments" el))))))
