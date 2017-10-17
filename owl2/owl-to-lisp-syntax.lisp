@@ -187,60 +187,62 @@
     (if (atom tokenized) 
 	tokenized
 	(loop for (f args) = tokenized  
-	   while tokenized
-	   do (and *debug-owl-parse* (format t "At loop start f: ~a args: ~a~%" f args))
-	   collect
-	   (cond ( ;; translate owl keywords like "partial" to appropriate lisp keywords
-		  (and (symbolp f) (gethash (symbol-name f) *owl-keyword-terms*))
-		  (prog1
-		      (gethash (symbol-name f) *owl-keyword-terms*)
-		    (and *debug-owl-parse* (format t "Keyword or uri: ~a~%" f))
-		    (setf tokenized (cdr tokenized))))
-		 ( ;; leave uris alone
-		  (uri-p f)
-		  (prog1 f (setf tokenized (cdr tokenized))))
-		 ( ;; anonymous nodes are sometimes translated to this, e.g. 
-		  ;; pellet-svn/trunk/test_data/owl-test/DatatypeProperty/consistent001.rdf
-		  ;; leave them as is for now. Don't know what to do with them yet, though
-		  (eq f :_)
-		  (prog1
-		      f
-		    (setf tokenized (cdr tokenized))))
-		 ( ;; if we're not a symbol, then we're a literal, or we should be left alone
-		  (not (symbolp f))
-		  (if (eq args :^^)
-		      (prog1 
-			  (cond ((eq (third tokenized) xsd-string)
-				 f)
-				((eq (third tokenized) xsd-int)
-				 (parse-integer f))
-				((eq (third tokenized) xsd-float)
-				 (read-from-string f))
-				(t
-				 `(literal ,f ,(third tokenized))))
-			(setf tokenized (cdddr tokenized)))
-		      (if (and (stringp f)
-			       (keywordp (second tokenized))
-			       (char= #\@ (char (string (second tokenized)) 0)))
-			  (prog1 (format nil "~a~a" f (second tokenized))
-			    (setf tokenized (cddr tokenized)))
-			  (prog1 f (setf tokenized (cdr tokenized))))))
-		 (t ;; we're a function, change to prefix after recursively processing args
-		  (prog1 
-		      (let ((temp (rearrange-functional-syntax-parens-for-lisp args)))
-			(prog1 (cons (or (or (second (gethash (symbol-name f) *owl2-vocabulary-forms*))
-				      (first (gethash (symbol-name f) *owl2-vocabulary-forms*)))
-				  (progn
-				    (warn "Don't know what function '~a' is in '~a'~%" f `(,f ,args))
-				    f))
-			      ;; make rdfs comments prettier by moving them to the front of the expression (after the name)
-			      (if nil ;(member (symbol-name f) '("Class" "Individual" "DatatypeProperty" "ObjectProperty") :test 'equal)
-				  (maybe-move-rdfs-comment temp)
-				  temp))
-			(and *debug-owl-parse* (format t "Function head: ~s, args: ~s, after: ~s~%" f args temp))))
-		    (setf tokenized (cddr tokenized))
-		    '(break))))
-	     ))))
+	      while tokenized
+	      do (and *debug-owl-parse* (format t "At loop start f: ~a args: ~a~%" f args))
+	      collect
+	      (cond ( ;; translate owl keywords like "partial" to appropriate lisp keywords
+		     (and (symbolp f) (gethash (symbol-name f) *owl-keyword-terms*))
+		     (prog1
+			 (gethash (symbol-name f) *owl-keyword-terms*)
+		       (and *debug-owl-parse* (format t "Keyword or uri: ~a~%" f))
+		       (setf tokenized (cdr tokenized))))
+		    ( ;; leave uris alone
+		     (uri-p f)
+		     (prog1 f (setf tokenized (cdr tokenized))))
+		    ( ;; anonymous nodes are sometimes translated to this, e.g. 
+		     ;; pellet-svn/trunk/test_data/owl-test/DatatypeProperty/consistent001.rdf
+		     ;; leave them as is for now. Don't know what to do with them yet, though
+		     (eq f :_)
+		     (prog1
+			 f
+		       (setf tokenized (cdr tokenized))))
+		    ( ;; if we're not a symbol, then we're a literal, or we should be left alone
+		     (not (symbolp f))
+		     (if (eq args :^^)
+			 (prog1 
+			     (cond ((eq (third tokenized) xsd-string)
+				    f)
+				   ((eq (third tokenized) xsd-int)
+				    (parse-integer f))
+				   ((eq (third tokenized) xsd-float)
+				    (read-from-string f))
+				   (t
+				    `(literal ,f ,(third tokenized))))
+			   (setf tokenized (cdddr tokenized)))
+			 (if (and (stringp f)
+				  (keywordp (second tokenized))
+				  (char= #\@ (char (string (second tokenized)) 0)))
+			     (prog1 (format nil "~a~a" f (second tokenized))
+			       (setf tokenized (cddr tokenized)))
+			     (prog1 f (setf tokenized (cdr tokenized))))))
+		    (t ;; we're a function, change to prefix after recursively processing args
+		     (prog1 
+			 (let ((temp (rearrange-functional-syntax-parens-for-lisp args)))
+			   (prog1 (cons
+				   (or (or (second (gethash (symbol-name f) *owl2-vocabulary-forms*))
+					   (first (gethash (symbol-name f) *owl2-vocabulary-forms*)))
+				       (progn
+					 (warn "Don't know what function '~a' is in '~a'~%" f `(,f ,args))
+					 (break)
+					 f))
+				   ;; make rdfs comments prettier by moving them to the front of the expression (after the name)
+				   (if nil ;(member (symbol-name f) '("Class" "Individual" "DatatypeProperty" "ObjectProperty") :test 'equal)
+				       (maybe-move-rdfs-comment temp)
+				       temp))
+			     (and *debug-owl-parse* (format t "Function head: ~s, args: ~s, after: ~s~%" f args temp))))
+		       (setf tokenized (cddr tokenized))
+		       '(break))))
+	      ))))
 
 ;; print out a nice lispy version of an ontology 
 (defun pprint-owl-lisp-syntax (ontology-location label-source-key &key (stream t))
@@ -281,13 +283,51 @@
 		      ("xml:" "http://www.w3.org/XML/1998/namespace")
 		      ("rdf:" "http://www.w3.org/1999/02/22-rdf-syntax-ns#")
 		      ("owl:" "http://www.w3.org/2002/07/owl#"))))
-    (or (and cache (gethash axiom cache)) 
+    (or (and cache (gethash axiom cache))
 	(let ((parsed
-	       (car
-		(rearrange-functional-syntax-parens-for-lisp 
-		 (eval-uri-reader-macro
-		  (collapse-qnames 
-		   (with-input-from-string (s (#"render" (new 'simplerenderer) axiom))
-		     (read-and-tokenize-functional-syntax s)) namespaces))))))
+		(if (jinstance-of-p axiom "uk.ac.manchester.cs.owl.owlapi.SWRLRuleImpl")
+		    (swrl-rule-to-lisp-syntax axiom)
+		    (car
+		     (rearrange-functional-syntax-parens-for-lisp 
+		      (eval-uri-reader-macro
+		       (collapse-qnames 
+			(with-input-from-string (s (#"render" (new 'simplerenderer) axiom))
+			  (read-and-tokenize-functional-syntax s)) namespaces)))))))
 	  (when cache (setf (gethash axiom cache) parsed))
 	  parsed))))
+
+(defun swrl-rule-to-lisp-syntax (r)
+  (let ((body (j2list (#"getBody" r)))
+	(head (j2list (#"getHead" r))))
+    (labels ((iri-of (thing)
+	       (make-uri (#"toString" thing)))
+	     (gather (list)
+	       (print-db list)
+	       (loop for el in list
+		     collect
+		     (if (java-object-p el)
+			 (jtypecase el
+			   ((SWRLClassAtom
+			     SWRLObjectPropertyAtom)
+			    (append (gather (list* (#"getPredicate" el) (j2list  (#"getAllArguments" el))))))
+			   (SWRLDataPropertyAtom (append (gather (list* 'data  (#"getPredicate" el) (j2list  (#"getAllArguments" el))))))
+			   (SWRLVariable
+			    (intern (string-upcase (#"replaceAll" (#"toString" (#"getIRI" el)) ".+#(.+)" "?$1"))))
+			   ((OWLClass OWLObjectProperty OWLDataProperty)
+			    (iri-of (#"getIRI" el)))
+			   (SWRLLiteralArgument (get-owl-literal (#"getLiteral" el)))
+			   (SWRLIndividualArgument (iri-of (#"getIRI" (#"getIndividual" el))))
+			   (SWRLDifferentIndividualsAtom `(same-as ,@(gather (#"getFirstArgument" el) (#"getSecondArgument" el))))
+			   (SWRLSameIndividualAtom `(different-from ,@(gather (#"getFirstArgument" el) (#"getSecondArgument" el))))
+			   (SWRLBuiltInAtom (let* ((builtin (iri-of (#"getPredicate" el)))
+						   (shorter  (car (find builtin *swrl-builtins* :key 'second))))
+					      (append (gather (list* (or shorter builtin) (j2list  (#"getArguments" el)))))))
+			   (SWRLDataRangeAtomImpl `(fixme-datarange ,el)))
+			 el))))
+      `(rule 
+	,@(gather body)
+	->
+	,@(gather head)))))
+  
+;		     (SWRLDataRangeAtomImpl )
+;		     (SWRLUnaryAtomImpl<A extends SWRLArgument> )
