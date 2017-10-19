@@ -2,6 +2,8 @@
 
 (in-package :asdf)
 
+(require 'asdf-mvn-module)
+
 (setf (logical-pathname-translations "util")
       `(("**;*.*" ,(make-pathname :directory (append (pathname-directory *load-pathname*)
 						     '(:wild-inferiors))
@@ -16,7 +18,11 @@
   :author "Alan Ruttenberg" :version "2.0.0"
   :depends-on (xpath-lsw xmls xptest)
   :components
-  ((:module macros
+  ((:mvn-module maven
+    :dependencies 
+    ("commons-net/commons-net/LATEST"
+     ))
+   (:module macros
 	    :pathname ""
 	    :components ((:file "string")
 			 (:file "encapsulate")

@@ -48,7 +48,7 @@
 
 (defun get-url-1 (url &key post (force-refetch  post) (dont-cache post) (to-file nil) (persist (and (not post) (not to-file))) cookiestring nofetch verbose tunnel referer (follow-redirects t) 
 		(ignore-errors nil) head accept  extra-headers (appropriate-response (lambda(res) (and (numberp res) (>= res 200) (< res 400)))) (verb "GET")
-		&aux headers)
+		&aux headers doing-ftp)
   "Get the contents of a page, saving it for this session in *page-cache*, so when debugging we don't keep fetching"
   (sleep 0.0001)			; give time for control-c
   (if (not (equal verb "GET"))
@@ -84,15 +84,21 @@
 	       (when verbose (format t "~&;Fetching ~s~%" url))
 	       (let ((connection (setq *http-stream* (#"openConnection" (new 'java.net.url (maybe-rewrite-for-tunnel url tunnel)))))
 		     )
-		 (if follow-redirects
-		   (#"setInstanceFollowRedirects" connection t)
-		   (#"setInstanceFollowRedirects" connection nil))
+		 (unless doing-ftp 
+		   (if follow-redirects 
+		       (#"setInstanceFollowRedirects" connection t)
+		       (#"setInstanceFollowRedirects" connection nil)))
 		 (when (or *cookies* cookiestring)
 		   (#"setRequestProperty" connection "Cookie" (join-with-char (append *cookies* cookiestring) #\;)))
 		 (when referer
 		   (#"setRequestProperty" connection "Referer" referer))
 		 (#"setRequestProperty" connection "User-Agent" "Mozilla/4.0")
-		 (when verb (#"setRequestMethod" connection verb))
+		 (when verb
+		   (if (and doing-ftp (equal verb "HEAD"))
+		       (return-from get-url-1 (values "" (ftp-fake-http-headers url)))
+		       (if doing-ftp
+			   (unless (equal verb "GET") (error "I only handle FTP HEAD and GET"))
+			 (#"setRequestMethod" connection verb))))
 		 (when accept
 		   (#"setRequestProperty" connection "Accept" accept))
 		 (loop for (key value) in extra-headers
@@ -117,7 +123,7 @@
 		 (when head
 		   ;(#"setRequestMethod" connection "HEAD")
 		   (unwind-protect
-			(let ((responsecode (#"getResponseCode" connection)))
+			(let ((responsecode (if doing-ftp 200 (#"getResponseCode" connection))))
 			  (if (not (funcall appropriate-response responsecode))
 			      (let ((errstream (#"getErrorStream" connection)))
 				(error (make-condition 'http-error-response :response-code responsecode :message (if errstream (stream->string errstream) "No error stream"))) )
@@ -126,7 +132,7 @@
 		     (setq *http-stream* nil)))
 		 (setq headers (#"getHeaderFields" connection))
 		 (unwind-protect
-		      (let ((responsecode (#"getResponseCode" connection)))
+		      (let ((responsecode  (if doing-ftp 200 (#"getResponseCode" connection))))
 			(if (not (funcall appropriate-response responsecode))
 			    (let ((errstream (#"getErrorStream" connection)))
 			      (if ignore-errors
@@ -135,13 +141,15 @@
 			    (let ((stream (ignore-errors (#"getInputStream" connection))))
 			      (if (and (member responsecode '(301 302 303)) follow-redirects)
 				  (progn (setq url (second (assoc "Location" (unpack-headers responsecode headers) :test 'equal)))
+					 ;; BUG HERE: If the redirect is to an FTP location, then some of the methods don't work, including setRequestMethod, and so doit, which retries the get on the redirected-to site gets an error.
+					 (when (equal (getf (pathname-host url) :scheme) "ftp") (setq doing-ftp t))
 					 (doit))
 				  (ignore-errors
 				   (if to-file 
 				       (stream->file stream to-file)
 				       (stream->string stream)))))
 			    ))
-		   (#"disconnect" connection)
+		   (#"close" connection)
 		   (setq *http-stream* nil)))))
 	(if ignore-errors
 	    (multiple-value-bind (value errorp) (ignore-errors (doit))
@@ -329,3 +337,24 @@
   (let ((headers (get-url site :persist nil :dont-cache t :force-refetch t :follow-redirects nil)))
     (setq *cookies* (mapcar (lambda(e) (#"replaceAll" e ";.*" "")) (cdr (assoc "Set-Cookie" headers :test 'equal))))
     ))
+
+(defun ftp-fake-http-headers (url)
+  (list (list "Etag" (apply 'format nil "\"~a-~a'\"" (ftp-file-size-and-date url)))))
+	      
+(defun ftp-file-size-and-date (ftp-url)
+  (let ((client (new 'commons.net.ftp.ftpclient))
+	(host (getf (pathname-host ftp-url) :authority)))
+    (#"connect" client host)
+    (unwind-protect 
+	 (progn
+	   (#"enterLocalPassiveMode" client)
+	   (#"login" client "anonymous" "lsw")
+	   (let ((list 
+		   (#"listFiles"  client (namestring (make-pathname :directory (pathname-directory ftp-url)
+								    :name (pathname-name ftp-url)
+								    :type (pathname-type ftp-url))))))
+	     (when (> (length list) 0)
+	       (let ((filedesc (elt list 0)))
+		 (list (#"getSize" filedesc)
+		       (+ (/ (#"getTimeInMillis" (#"getTimestamp" filedesc)) 1000) 2208988800))))))
+    (#"disconnect" client))))
