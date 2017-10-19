@@ -51,12 +51,16 @@
 	(format stream "OWLAPIv3 KB on ~a" (v3kb-name kb)))))
 
 (defun to-iri (thing)
-  (cond ((and (stringp thing) (not (consp (pathname-host thing))) (probe-file thing))
-	 (#"create" 'org.semanticweb.owlapi.model.IRI
-		    (new 'java.io.file (namestring (truename
-						    (merge-pathnames 
-						     thing (format nil "~a/" (jstatic "getProperty" "java.lang.System" "user.dir"))))))))
-	((stringp thing)
+  (cond ((and (stringp thing) (not (consp (pathname-host thing))))
+	 (if (probe-file thing)
+	     (#"create" 'org.semanticweb.owlapi.model.IRI
+			(new 'java.io.file (namestring (truename
+							(merge-pathnames 
+							 thing (format nil "~a/" (jstatic "getProperty" "java.lang.System" "user.dir")))))))
+	     (#"create" 'org.semanticweb.owlapi.model.IRI
+			(new 'java.io.file (namestring (merge-pathnames 
+							 thing (format nil "~a/" (jstatic "getProperty" "java.lang.System" "user.dir"))))))))
+	((and (stringp thing) (consp (pathname-host thing))) 
 	 (#"create" 'org.semanticweb.owlapi.model.IRI (coerce thing 'simple-base-string))) ; yuck!!
 	((uri-p thing)
 	 (to-iri (uri-full thing)))
@@ -95,8 +99,15 @@
 ;      (#"setSilentMissingImportsHandling" manager silent-missing)
       (and mapper (#"addIRIMapper" manager mapper))
       (let ((ont
-	     (if uri
-		 (#"loadOntologyFromOntologyDocument" manager (to-iri uri))
+	      (if uri
+		  (if  (null (pathname-host uri))
+		       (#"loadOntologyFromOntologyDocument" manager (to-iri uri))
+		       (if *use-cache-aware-load-ontology*
+			   (progn
+			     (cache-ontology-and-imports uri)
+			     (multiple-value-bind (dir ont headers-file) (ontology-cache-location uri)
+			       (#"loadOntologyFromOntologyDocument" manager (to-iri (namestring ont)))))
+			   (#"loadOntologyFromOntologyDocument" manager (to-iri uri))))
 		 (#"loadOntologyFromOntologyDocument" manager (new 'java.io.ByteArrayInputStream
 								   (if (consp source)
 								       (if (keywordp (car source))
