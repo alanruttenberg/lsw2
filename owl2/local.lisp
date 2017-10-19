@@ -70,6 +70,9 @@
 ;; (save-ontology-and-imports-locally url location)
 ;; does the same thing but saves cache files to location
 ;;
+
+(in-package lsw2cache)
+    
 (defvar *ontology-cache-directory* "~/Desktop/ontology-cache/")
 (defvar *cache-check-etag-min-time* 24)
 (defvar *force-check-etag* nil)
@@ -95,13 +98,30 @@
 
 (defun cache-one-ontology (url &optional from)
   (format *debug-io* "~&Downloading ~a~%" url)
-  (let ((headers (second (multiple-value-list (get-url (or from url) :verb "HEAD" :dont-cache t :force-refetch t)))))
-    (multiple-value-bind (dir ont headers-file) (ontology-cache-location url)
+  (multiple-value-bind (dir ont headers-file) (ontology-cache-location url)
+    (let ((response (multiple-value-list (ignore-errors (get-url (or from url) :verb "HEAD" :dont-cache t :force-refetch t)))))
+      (if (and (consp response) (eq (car response) :error)
+	       (equal (slot-value (second response) 'sys::format-control)
+		      "Can only do GET on ftp connections"))
+	  (with-open-file (f headers-file  :if-does-not-exist :create :direction :output :if-exists :supersede)
+	    (print nil f))))
+    (let ((headers (second (multiple-value-list (get-url (or from url) :verb "HEAD" :dont-cache t :force-refetch t)))))
       (ensure-directories-exist dir)
       (with-open-file (f headers-file  :if-does-not-exist :create :direction :output :if-exists :supersede)
-	(print headers f))
-      (ql-util::copy-file (or from url) ont)
-      (namestring (truename ont)))))
+	(print headers f)))
+    (with-open-file (o ont :direction :output :if-exists :supersede :if-does-not-exist :create))
+    (let ((did nil))
+      (unwind-protect (progn (get-url (or from url) :to-file ont :persist nil :dont-cache t) (setq did t))
+	(unless did (uncache-ontology url))))
+    (namestring (truename ont))))
+
+(defun uncache-ontology (url)
+  (multiple-value-bind (dir ont headers-file) (ontology-cache-location url)
+    (let ((imports-file (merge-pathnames (make-pathname :type "imports" ) ont)))
+      (loop for file in (list ont imports-file headers-file)
+	    do
+	       (when (probe-file file)
+		 (delete-file file))))))
 
 (defun have-current-copy (url &optional from)
   (multiple-value-bind (dir ont headers-file) (ontology-cache-location url)

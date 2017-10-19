@@ -17,8 +17,10 @@
   ((:module "basics"
 	    :pathname ""
  	    :components
-	    ((:file "owlapi")
-	     (:file "debug")))
+	    ((:file "package")
+	     (:file "owlapi")
+	     (:file "debug"))
+	    :serial t)
    (:module matcher
 	    :pathname ""
 	    :components
