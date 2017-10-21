@@ -6,5 +6,4 @@ if [ "x$ABCL_WD" = "x" ] ; then
   ABCL_WD=`(cd "$bindir/.."; pwd)`
 fi
 export ABCL_WD
-
-"$ABCL_WD/bin/abcl" --load "$ABCL_WD/scripts/lsw-startup.lisp" $*
+"$ABCL_WD/bin/abcl" --load "$ABCL_WD/scripts/lsw-startup.lisp" "$@"
