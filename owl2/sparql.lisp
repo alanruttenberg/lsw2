@@ -84,9 +84,9 @@
   (if (stringp use-reasoner) (setq use-reasoner (make-uri use-reasoner)))
   (let ((do-trace (or *sparql-always-trace* (and trace  *sparql-allow-trace*))))
     (if (and do-trace (or *sparql-always-trace* trace-show-query))
-      (format t "Query: ~a~%~a~%Results:~%" (or trace "Tracing all")  query)
+      (format t "Query: ~a~%~a~%~%Results:~%" (if (stringp trace) trace "")  query)
       (if do-trace
-	  (format t "Query: ~a~%Results:~%" (or trace "Tracing all"))))
+	  (format t "Query: ~a~%~%Results:~%" (if (stringp trace) trace ""))))
     (if (uri-p use-reasoner)
 	(let ((bindings (sparql-endpoint-query use-reasoner query :query-options endpoint-options :geturl-options geturl-options :command command)))
 	  (when do-trace
