@@ -149,7 +149,9 @@
 				       (stream->file stream to-file)
 				       (stream->string stream)))))
 			    ))
-		   (#"close" connection)
+		   (if doing-ftp
+		       (#"close" connection)
+		       (#"disconnect" connection))
 		   (setq *http-stream* nil)))))
 	(if ignore-errors
 	    (multiple-value-bind (value errorp) (ignore-errors (doit))
