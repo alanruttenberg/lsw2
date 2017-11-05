@@ -99,13 +99,13 @@
 (defun cache-one-ontology (url &optional from)
   (format *debug-io* "~&Downloading ~a~%" url)
   (multiple-value-bind (dir ont headers-file) (ontology-cache-location url)
-    (let ((response (multiple-value-list (ignore-errors (get-url (or from url) :verb "HEAD" :dont-cache t :force-refetch t)))))
+    (let ((response (multiple-value-list (ignore-errors (get-url (or from url) :verb "HEAD" :dont-cache t :force-refetch t :persist nil)))))
       (if (and (consp response) (eq (car response) :error)
 	       (equal (slot-value (second response) 'sys::format-control)
 		      "Can only do GET on ftp connections"))
 	  (with-open-file (f headers-file  :if-does-not-exist :create :direction :output :if-exists :supersede)
 	    (print nil f))))
-    (let ((headers (second (multiple-value-list (get-url (or from url) :verb "HEAD" :dont-cache t :force-refetch t)))))
+    (let ((headers (second (multiple-value-list (get-url (or from url) :verb "HEAD" :dont-cache t :force-refetch t :persist nil)))))
       (ensure-directories-exist dir)
       (with-open-file (f headers-file  :if-does-not-exist :create :direction :output :if-exists :supersede)
 	(print headers f)))
@@ -136,7 +136,7 @@
 	(let ((last-etag (ontology-cache-etag url)))
 	  (when last-etag
 	    ;; Otherwise try to get the headers
-	    (let ((head (multiple-value-list (get-url (or from url) :verb "HEAD" :dont-cache t :force-refetch t :ignore-errors t))))
+	    (let ((head (multiple-value-list (get-url (or from url) :verb "HEAD" :dont-cache t :force-refetch t :ignore-errors t :persist nil))))
 	      (if (and (consp head) (eq (car head) :error))
 		  ;; If the get-url failed, return the file, since we can't check if there's a newer one
 		  ont
