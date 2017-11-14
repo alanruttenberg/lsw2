@@ -2,15 +2,16 @@
 
 (defclass prover9-logic-generator (logic-generator) ())
 
+
 (defmethod normalize-names ((g prover9-logic-generator) e)
   (cond ((and (symbolp e) (char= (char (string e) 0) #\?))
-	 (camelCase (subseq (string e) 1) t))
-	((symbolp e) (camelCase (string e) nil))
+	 (camelcase-uparrow (subseq (string e) 1)))
+	((symbolp e) (camelcase-uparrow (string e)))
 	((and (stringp e) (find #\( e :test 'char=)) e) ;; already done
-	((stringp e) (camelCase e nil))
-	((uri-p e) (camelCase (if (and (boundp '*default-kb*) *default-kb*)
+	((stringp e) (camelcase-uparrow e))
+	((uri-p e) (camelcase-uparrow (if (and (boundp '*default-kb*) *default-kb*)
 				  (uri-label e)
-				  (#"replaceAll" (uri-full e) ".*/" "")) nil) )
+				  (#"replaceAll" (uri-full e) ".*/" ""))) )
 	((atom e) e)
 	(t (mapcar (lambda(e) (normalize-names g e)) e))))
 

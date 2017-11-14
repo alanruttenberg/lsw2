@@ -28,9 +28,10 @@
      (:file "prove-with-prover9")
      (:file "prove-with-z3")
      (:file "prove-with-vampire")
+     (:file "parse-prover9")
      (:file "proof"))
     :depends-on ("package" "main")))
-  :depends-on (:cl-ansi-text)
+  :depends-on (:cl-ansi-text :yacc)
   )
 
 
