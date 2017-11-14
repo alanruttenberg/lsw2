@@ -80,7 +80,8 @@
 ;  (set-java-field 'OWLRDFConsumer "includeDublinCoreEvenThoughNotInSpec" nil)
 ;  (set-java-field 'ManchesterOWLSyntaxEditorParser "includeDublinCoreEvenThoughNotInSpec" nil)
   (if (uri-p source) (setq source (uri-full source)))
-  (if (uiop/pathname:logical-pathname-p (pathname source)) (setq source (namestring (translate-logical-pathname source))))
+  (if (uiop/pathname:logical-pathname-p (ignore-errors (pathname source)))
+      (setq source (namestring (translate-logical-pathname source))))
   (#"setProperty" 'system "jdk.xml.entityExpansionLimit" "100000000")
   (#"setProperty" 'system "entityExpansionLimit" "100000000") ; avoid low limit as we are not worried about security
   (when (boundp '*factpp-natives*)
