@@ -24,8 +24,25 @@
 
 (defvar *prover9-readtable* (let ((it (copy-readtable)))
 			      (setf (readtable-case it) :preserve)
+			      (let ((*readtable* it))
+				(set-macro-character #\! nil))
 			      it))
 
+(defun preserve-comments (string)
+  (let ((comments nil)
+	(count 0))
+    (let ((pass1 (replace-all string "(?m)((?s)%BEGIN(.*?)((%END)|\\Z))|(%(?!BEGIN)(.*$))"
+			      (lambda(a b)
+				(push (or a b) comments)
+				(if a
+				    (if (#"matches" a ".+?((?m)$)(?s).+$") ;; is it more than one line?
+					(format nil ":COMMENTBLOCK ~a" (incf count))
+					(format nil ":COMMENT ~a" (incf count)))
+				    (format nil ":COMMENT ~a" (incf count)))
+				)
+				 2 6)))
+      (values (#"replaceAll" pass1 "(?m)((^\\s*):COMMENT\\b)" "$2:COMMENTNEWLINE")
+	      comments))))
 
 ;; replace "all","exists", "," , ".", "|" , "&" , "->" , "<->" , "-"  so they read as symbols
 ;; then read to get a token list
@@ -33,18 +50,23 @@
 (defun tokenize-prover9-formula (string)
   (let ((*readtable* *prover9-readtable*)
 	(*package* (find-package :logic)))
+    (multiple-value-bind (string-no-comments comments) (preserve-comments string)
     (loop for (match replace)
 	    in '(("\\|" " |\\\\|| ") ; | is or. do this first since past here | is used to bracket symbols for the lisp reader
 		 ("((->)|&|(<->)|=|(!=)|-)" " $1 ") ; the major operators: 
 		 ("([.,])" " |$1| ")
+		 ("#\\s*((label)|(answer)|(action)|(bsub_hint))\\b\\s*\\((.*?)\\)" ":ATTRIBUTE :$1# \"$6\"")
 		 ("\\(" " |(| ")
-		 ("\\)" " |)| "))
-	  do (setq string (#"replaceAll" string match replace)))
-    (values (with-input-from-string (s string) 
+		 ("\\)" " |)| ")
+		 )
+	  do (setq string-no-comments (#"replaceAll" string-no-comments match replace)))
+      (setq comments (reverse comments))
+    (values (with-input-from-string (s string-no-comments) 
 	      (loop for bit =  (read s nil :eof)
 		    until (eq bit :eof)
-		    collect bit))
-	    string)))
+		    if (member bit '(:comment :commentnewline :commentblock)) append `(,bit ,(elt comments (1- (read s))))
+		      else collect bit))
+	    string-no-comments))))
 
 ;; A common convention in the BFO world is that first letter is upper case for unary predicates and first letter
 ;; lowercase for nary predicates. We want to do our best to preserve case when parsing and rendering prover9 without
@@ -94,8 +116,11 @@
 
 ;; Variables in LSW logic have ? prepended.
 ;; symbols in general need to be rewritten from camel case
-(defun variable (a) (intern (format nil "?~a" (de-camel-case a)) 'cl-user))
-(defun predicate-name (a) (intern (de-camel-case a) 'cl-user))
+(defun variable (a) (intern (format nil "?~a" (de-camel-case a)) 'logic))
+(defun predicate-name (a) (intern (de-camel-case a) 'logic))
+
+(defun variable-ignore-comment (a comment)
+  (variable a))
 
 ;; If we parse (:and (:and a b) c) reduce to (:and a b c). Same with :or
 (defun maybe-collapse-and-or (head what)
@@ -114,16 +139,16 @@
   (declare (ignore b d))
   (list* (predicate-name a)
 	 (if (atom c)
-	     (list (variable c))
-	     (mapcar 'variable c))))
+	     (list c)
+	     c)))
 
 (defun quantifier-all (a b c)
   (declare (ignore a))
-  `(:forall ,@(maybe-collapse-nested-quantifiers :forall (list (variable b)) c)))
+  `(:forall ,@(maybe-collapse-nested-quantifiers :forall (list b) c)))
 
 (defun quantifier-exists (a b c)
   (declare (ignore a))
-  `(:exists ,@(maybe-collapse-nested-quantifiers :exists (list (variable b)) c)))
+  `(:exists ,@(maybe-collapse-nested-quantifiers :exists (list b) c)))
 
 (defun conjunction (a b c) (declare (ignore b))
   (declare (ignore b))
@@ -131,7 +156,7 @@
 
 (defun disjunction (a b c) 
   (declare (ignore b))
-  `(:or ,@(maybe-collapse-and-or a) ,@(maybe-collapse-and-or c)))
+  `(:or ,@(maybe-collapse-and-or :or a) ,@(maybe-collapse-and-or :or c)))
 
 (defun implication (a b c)
   (declare (ignore b))
@@ -148,18 +173,35 @@
   (declare (ignore paren1 paren2 ))
   (list b))
 
-(defun expression (a period-at-end)
+(defun formula (a period-at-end)
   (declare (ignore period-at-end))
-  a)
+  (list `(:formula ,a)))
+
+(defun formula-with-attributes (a attributes period-at-end)
+  (declare (ignore period-at-end))
+  (list `(:formula ,a ,@attributes)))
+
+(defun an-attribute (i which value)
+  `((:attribute ,(intern (string-upcase (string which)) :keyword) ,value)))
 
 (defun equality (a b c)
   (if (eq b '=)
-      `(:= ,(variable a) ,(variable c))
-      `(:not (:= ,(variable a) ,(variable c)))))
+      `(:= ,a ,c)
+      `(:not (:= ,a ,c))))
 
 (defun predicate-arguments (a b c)
   (declare (ignore b))
   (append (if (consp a) a (list a)) (list c)))
+
+(defun comment (token string)
+  (list `(,token ,string)))
+
+(defun expressions (first &optional second)
+  (append first second))
+
+(defun ignore-comment (comment string formula)
+  (declare (ignore comment))
+  formula)
 
 ;; Example:
 ;; f(a) -> ((a & b) -> c)
@@ -178,10 +220,13 @@
 ;; ordinary symbols.
 
 (defun fix-non-quantified-symbols (expr &optional quantified)
-  (cond ((atom expr)
+  (cond ((numberp expr) expr)
+	((atom expr)
 	 (if (member expr quantified)
 	     expr
-	     (intern (subseq (string expr) 1) 'cl-user)))
+	     (if (char= (char (string expr) 0) #\?)
+		 (intern (subseq (string expr) 1) 'logic)
+		 expr)))
 	((member (car expr)  '(:forall :exists))
 	 ;; there's just one formula inside
 	 (let ((vars (second expr)))
@@ -197,39 +242,57 @@
 ;; Ours isn't complete yet wrt that.
 
 (yacc::define-parser *prover9-parser*
-  (:start-symbol expression-opt)
-  (:terminals (id & |\|| -> <-> = |(| |)| |,| - |all| |exists| |.| = !=))
-  (:precedence ((:left |all| |exists|) (:left -) (:left  & |\||)  (:right = !=) (:right -> <-> ) (:nonassoc |.| )))
-  (expression-opt
-   expression
-   ())
+  (:start-symbol expressions)
+  (:terminals (id & |\|| -> <-> = |(| |)| |,| - |all| |exists| |.| = |!=| :commentnewline :comment :commentblock string number :attribute
+									  :|label#| :|action#| :|answer#| :|bsub_hint_wt#|))
+  (:precedence ((:nonassoc "#") (:left |all| |exists|) (:left -) (:left  & |\||)  (:right = |!=|) (:right -> <-> ) (:nonassoc |.| )))
+  (expressions
+   (expression #'expressions)
+   (expressions expression #'expressions))
+  (expression
+   (formula |.| #'formula)
+   (formula attributes |.| #'formula-with-attributes)
+   comment)
+  (attributes
+   attribute
+   (attributes attribute #'list))
+  (attribute
+   (:attribute attribute-name  string #'an-attribute))
+  (attribute-name
+   :|label#| :|answer#| :|action#| :|bsub_hint#|)
+  (comment
+   (:comment string #'comment)
+   (:commentnewline string #'comment)
+   (:commentblock string #'comment))
   (predicate 
    (id |(| args |)| #'predicate)
    )
   (allq 
-   (|all| quantified expression #'quantifier-all))
+   (|all| quantified formula #'quantifier-all))
   (existsq
-   (|exists| quantified expression #'quantifier-exists))
-  (expression
+   (|exists| quantified formula #'quantifier-exists))
+  (id-maybe-comment
+   (id #'variable)
+   (id comment #'variable-ignore-comment)) ;; don't know how to handle comments in the middle of formula for now, so punt
+  (formula
    allq
    existsq
-   (expression & expression #'conjunction)
-   (expression |\|| expression #'disjunction)
-   (expression -> expression #'implication)
-   (expression <-> expression #'bi-implication)
-   (- expression #'negation)
-   (id = id #'equality)
-   (id != id #'equality)
-   (|(| expression |)| #'parenthesized)
-   (expression |.| #'expression)                           
+   (formula & formula #'conjunction)
+   (formula |\|| formula #'disjunction)
+   (formula -> formula #'implication)
+   (formula <-> formula #'bi-implication)
+   (- formula #'negation)
+   (id-maybe-comment = id-maybe-comment #'equality)
+   (id-maybe-comment |!=| id-maybe-comment #'equality)
+   (|(| formula |)| #'parenthesized)
    predicate
-   id
+   id-maybe-comment
    )
   (quantified
-   id)
+   id-maybe-comment)
   (args 
-   id 
-   (args |,| id #'predicate-arguments)) 
+   id-maybe-comment 
+   (args |,| id-maybe-comment #'predicate-arguments)) 
   )
 
 ;; returns each element in the tokenized list with it's terminal or itself
@@ -239,11 +302,40 @@
              (if (null value)
                  (values nil nil)
                  (let ((terminal
-                        (cond ((member value '(& ||\| - = <-> -> |(| |)| |,| |all| |exists| |.|)) value)
+			 (cond ((member value '(& ||\| - = <-> -> |(| |)| |,| |all| |exists| |!=| :attribute :|label#| :|action#| :|answer#| :|bsub_hint_wt#| :commentnewline :comment :commentblock |.|)) value
+				)
                               ((symbolp value) 'id)
+			      ((stringp value) 'string)
+			      ((numberp value) 'number)
                               (t (error "Unexpected value ~S" value)))))
                    (values terminal value))))))
 
 (defun parse-prover9 (string)
-  (remove-redundant-parentheses (yacc::parse-with-lexer (prover9-list-lexer (tokenize-prover9-formula string)) *prover9-parser*)))
+  (let ((*package* (find-package :logic)))
+    (mapcar 'fix-non-quantified-symbols (mapcar 'remove-redundant-parentheses (yacc::parse-with-lexer (prover9-list-lexer (tokenize-prover9-formula string)) *prover9-parser*)))))
+
+
+(defun prover9-to-lsw (path axiom-prefix)
+  (let ((forms (let ((*package* (find-package :logic)))
+		 (logic::parse-prover9 (uiop/stream:read-file-string path)))))
+    (with-open-file (f (merge-pathnames (make-pathname :type "lisp") path) :if-does-not-exist :create :if-exists :supersede :direction :output)
+      (format f "(in-package :logic)~%~%")
+      (format f ";; translated from ~a~%~%" (namestring (truename path)))
+      (loop with counter = 0
+	    with theory = (intern (string axiom-prefix) :keyword)
+	    for form in forms
+	    for label = (third (find-if (lambda(e) (and (consp e) (eq (car e) :attribute) (eq (second  e) :label#) (third e))) form) )
+	    do
+	       (cond ((eq (car form) :formula)
+		      (let ((*package* (find-package :logic))
+			    (*print-case* :downcase))
+			(terpri f)
+			(pprint
+			   `(def-logic-axiom ,(or label (intern (format nil "~a-~a" (string axiom-prefix) (incf counter)) :keyword))
+					,(second form)
+				      :theory ,theory)
+			 f)))
+		     ((eq (car form) :commentnewline)
+		      (loop for line in (jss::split-at-char (second form) #\newline)
+			    do (format f "~&;; ~a~%" line))))))))
 
