@@ -14,6 +14,7 @@
    (from :accessor axiom-from :initform nil :initarg :from)))
 
 (defmacro def-logic-axiom (name sexp &optional description &rest key-values)
+  (when (keywordp description) (push description key-values) (setq description nil))
   `(progn
      (sys::record-source-information-for-type  ',name 'def-logic-axiom)
      (setf (gethash (intern (string ',name) 'keyword) *axioms*)
