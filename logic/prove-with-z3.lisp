@@ -45,7 +45,7 @@
   
 (defun z3-render (assumptions &optional goals commands)
   (apply 'concatenate 'string
-	 (render :z3 assumptions goals)
+	 (if (stringp assumptions) assumptions (render :z3 assumptions goals))
 	 (mapcar (lambda(e) (format nil "~a" e)) commands)))
   
 (defun z3-prove (assumptions goals &key (timeout 30) (return-contradiction nil) )
