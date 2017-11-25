@@ -160,18 +160,17 @@
 	       (prin1 ,(car forms) *trace-output*)
 	       ,@(print-db-aux (cdr forms)))))))
 
-;; ## FIXME. Whay is function called twice when the with-constant-signature is used
 (defun replace-all (string regex function &rest which)
   (let ((matcher (#"matcher" (if (java-object-p regex) regex (#"compile" 'java.util.regex.pattern regex)) string))
 	(sb (new 'stringbuffer)))
-;    (with-constant-signature ((append "appendReplacement")) ; workaround abcl bug
+    (with-constant-signature ((append "appendReplacement")) 
       (loop for found = (#"find" matcher)
-	 while found 
-	 do
-	 (#"appendReplacement" matcher sb (apply function  
-				   (loop for g in which collect
-					(#"group" matcher g)))))
-      ;)
+	    while found 
+	    do
+	       (#"appendReplacement" matcher sb (apply function  
+						       (loop for g in which collect
+									    (#"group" matcher g)))))
+      )
     (#"appendTail" matcher sb)
     (#"toString" sb)))
 
