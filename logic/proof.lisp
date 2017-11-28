@@ -23,7 +23,7 @@
 ;; ****************************************************************
 ;; Top level forms for defining things we want proved/checked
 
-(defmacro def-expect-satisfiable (name (&rest options &key (with 'z3-check-satisfiability) (timeout 10)) &body assumptions)
+(defmacro def-expect-satisfiable (name (&rest options &key (with 'z3-check-satisfiability) (timeout 10) &allow-other-keys) &body assumptions)
   (let ((name (intern (string name) :keyword)))
     `(setf (gethash ,name *expected-proofs*)
 	   (apply 'make-instance 'expected-proof 
@@ -35,7 +35,7 @@
 		  :name ,name
 		  ',options ))))
 
-(defmacro def-expect-unsatisfiable (name (&rest options &key (with 'z3-check-satisfiability) (timeout 10)) &body assumptions)
+(defmacro def-expect-unsatisfiable (name (&rest options &key (with 'z3-check-satisfiability) (timeout 10)  &allow-other-keys) &body assumptions)
   (let ((name (intern (string name) :keyword)))
     `(setf (gethash ,name *expected-proofs*)
 	   (apply 'make-instance 'expected-proof
@@ -47,7 +47,7 @@
 		  :name ,name
 		  ',options))))
 
-(defmacro def-expect-provable (name (&rest options &key (with 'z3-prove) (timeout 10)) goal &body assumptions)
+(defmacro def-expect-provable (name (&rest options &key (with 'z3-prove) (timeout 10)  &allow-other-keys) goal &body assumptions)
   (let ((name (intern (string name) :keyword)))
     `(setf (gethash ,name *expected-proofs*)
 	   (apply 'make-instance 'expected-proof
@@ -59,7 +59,7 @@
 		  :timeout ,timeout
 		  ',options))))
 
-(defmacro def-expect-not-entailed (name (&rest options &key counterexample (with 'z3-check-satisfiability) (timeout 10)) goal &body assumptions)
+(defmacro def-expect-not-entailed (name (&rest options &key counterexample (with 'z3-check-satisfiability) (timeout 10) &allow-other-keys) goal &body assumptions)
   (let ((name (intern (string name) :keyword)))
     `(setf (gethash ,name *expected-proofs*)
 	   (apply 'make-instance 'expected-proof

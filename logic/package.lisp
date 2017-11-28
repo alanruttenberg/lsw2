@@ -11,15 +11,21 @@
 		cl-user::get-vagrant-box-id cl-user::get-vagrant-box-status
 		cl-user::get-vagrant-box-wd cl-user::vagrant-box-up
 		cl-user::*vampire-shared-directory-remote* cl-user::*vampire-shared-directory-local*
-		cl-user::*running-in-vagrant* cl-user::*vampire-box-name* cl-user::*vampire-executable*)
+		cl-user::*running-in-vagrant* cl-user::*vampire-box-name* cl-user::*vampire-executable* cl-user::print-db)
+  (:import-from :jss jss::all-matches)
+  (:import-from :sys sys::run-program sys::process-output sys::process-input)
+  (:import-from :asdf asdf::system-relative-pathname)
   (:export
    #:l-forall #:l-exists #:l-and #:l-or #:l-iff #:l-equal #:l-not
    #:l-implies #:pred-property #:pred-class #:*use-holds*
    #:logic-generator #:with-logic-var #:with-logic-vars #: #:
    #:def-logic-axiom #:axiom-sexp #:axiom-name #:axiom-description
-   #:delete-axiom #:get-axiom #:prover9-prove #:mace4-find-model
+   #:delete-axiom #:get-axiom #:prover9-prove #:mace4-find-model #:mace4-check-satisfiability #:mace4-check-satisfiability-alt
    #:get-axioms
    #:prover9-logic-generator
+   #:*last-mace4-model* 
+   #:*last-prover9-input* 
+   #:*last-prover9-output* 
    #:z3-logic-generator.
    #:latex-logic-generator.
    #:collect-axioms-from-spec
