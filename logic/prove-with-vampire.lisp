@@ -22,17 +22,19 @@
 	  (let ((file (uiop/stream::get-temporary-file :directory tmpdir)))
 	    (with-open-file (f file :direction :output)
 			    (write-string input f))
-	    (run-program-string->string
-	     "vagrant" 
-	     (list  "ssh" *vampire-box-id* "-c"
-		    (format nil "~a --input_syntax smtlib2 --time_limit ~a --memory_limit 4096  --mode ~a ~{--~a ~a ~} ~a "
-			    *vampire-executable* timeout (string-downcase (string mode)) switches
-			    (merge-pathnames (make-pathname :name (pathname-name file)
-							    :type (pathname-type file))
-					     (merge-pathnames "tmp/" *vampire-shared-directory-remote*))))
-	     ""
-	     )
-	    )))
+	    (multiple-value-bind (output error-output)
+		(run-program-string->string
+		 "vagrant" 
+		 (list  "ssh" *vampire-box-id* "-c"
+			(format nil "~a --input_syntax smtlib2 --time_limit ~a --memory_limit 4096  --mode ~a ~{--~a ~a ~} ~a "
+				*vampire-executable* timeout (string-downcase (string mode)) switches
+				(merge-pathnames (make-pathname :name (pathname-name file)
+								:type (pathname-type file))
+						 (merge-pathnames "tmp/" *vampire-shared-directory-remote*))))
+		 ""
+		 )
+	      (assert (not (#"matches" error-output "(?s).*VM must be running.*")) () "Vampire failed because vagrant wasn't up when it should have been")
+	    ))))
     (let ((file (uiop/stream::get-temporary-file :directory "/tmp")))
       (with-open-file (f file :direction :output)
 		      (write-string input f))
@@ -48,7 +50,9 @@
 (defun ensure-vampire-box-running ()
   (or *checked-vampire-box-running*
       (unless (equalp (get-vagrant-box-status *vampire-box-id*) "running")
-	(vagrant-box-up  *vampire-box-id*))
+	(vagrant-box-up  *vampire-box-id*)
+	(unless (equalp (get-vagrant-box-status *vampire-box-id*) "running")
+	  (error "Couldn't bring up vagrant box ~a" *vampire-box-id*)))
       (setq *checked-vampire-box-running* t)))
 
 (defun vampire-render (assumptions &optional goals commands)

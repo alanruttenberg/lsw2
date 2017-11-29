@@ -19,11 +19,11 @@
   (jss::all-matches output "(?s)\\(error .*" 0))
 
 (defun run-z3 (input timeout)
-  (run-program-string->string
+  (setq *last-z3-output* (run-program-string->string
    *z3-executable* 
    (list  "-in" (format nil "-T:~a" timeout))
-   input
-   ))
+   (setq *last-z3-input* input)
+   )))
 
 (defun z3-syntax-check (assumptions &optional goals (errorp t))
   (let ((answer 
