@@ -194,7 +194,7 @@
 		    (if (eq which :vampire)
 			(let ((g (make-instance generator-class :with-names nil)))
 			  (render-axioms g axioms))
-			(if (eq which :vampire)
+			(if (eq which :z3)
 			    (let ((g (make-instance generator-class :with-names t)))
 			      (render-axioms g axioms))
 			    (render-axioms generator-class axioms)))

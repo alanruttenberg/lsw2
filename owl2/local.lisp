@@ -97,6 +97,7 @@
 	     (and (stringp value) (subseq value 1 (1- (length value)))))))))
 
 (defun cache-one-ontology (url &optional from)
+  (forget-cached-url url);; just in case
   (format *debug-io* "~&Downloading ~a~%" url)
   (multiple-value-bind (dir ont headers-file) (ontology-cache-location url)
     (let ((response (multiple-value-list (ignore-errors (get-url (or from url) :verb "HEAD" :dont-cache t :force-refetch t :persist nil)))))

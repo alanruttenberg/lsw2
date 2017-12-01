@@ -2,7 +2,8 @@
 
 (defclass z3-logic-generator (logic-generator)
   ((with-declarations :accessor with-declarations :initarg :with-declarations :initform t )
-   (with-names :accessor with-names :initarg :with-names :initform t)))
+   (with-names :accessor with-names :initarg :with-names :initform t)
+   (domain-sort :accessor domain-sort :initarg :domain-sort :initform '|Int|)))
 
 (defmethod normalize-names ((g z3-logic-generator) e)
   (cond ((and (symbolp e) (char= (char (string e) 0) #\?))
@@ -21,10 +22,10 @@
   (normalize-names g vars))
 
 (defmethod logical-forall ((g z3-logic-generator) vars expressions)
-  `(forall ,(mapcar (lambda(e) `(,e |Int|)) (z3-quantifier-vars g vars)) ,@expressions))
+  `(forall ,(mapcar (lambda(e) `(,e ,(domain-sort g))) (z3-quantifier-vars g vars)) ,@expressions))
 
 (defmethod logical-exists ((g z3-logic-generator) vars expressions)
-  `(exists ,(mapcar (lambda(e) `(,e |Int|)) (z3-quantifier-vars g vars)) ,@expressions))
+  `(exists ,(mapcar (lambda(e) `(,e ,(domain-sort g))) (z3-quantifier-vars g vars)) ,@expressions))
 
 (defmethod logical-implies ((g z3-logic-generator) antecedent consequent)
   `(=> ,antecedent ,consequent))
@@ -66,18 +67,21 @@
 		 1)))))
 
 (defmethod builtin-predicate ((g z3-logic-generator) pred)
-  (member pred '(+ - < > * = <= >= ^)))
+  (member pred '(declare-datatypes + - < > * = <= >= ^)))
   
-(defmethod generate-declarations ((g z3-logic-generator) (a list))
+(defmethod generate-declarations ((g z3-logic-generator) (a list) &key (include-constants t) (include-predicates t))
   (let ((constants (remove-duplicates (mapcan (lambda(e) (constants g (axiom-sexp e))) a)))
 	(predicates (remove-duplicates (mapcan (lambda(e) (predicates g (axiom-sexp e))) a) :test 'equalp)))
     (apply 'concatenate 'string
 	   (append
-	    (loop for c in constants
-		  collect (to-string g `(declare-const ,(normalize-names g c) |Int|)))
-	    (loop for p in predicates
-		  collect (to-string g `(declare-fun ,(normalize-names g (car p))
-						     ,(loop repeat (second p) collect '|Int|) |Bool|)))))))
+	    (and include-constants
+		 (loop for c in constants
+		       collect (to-string g `(declare-const ,(normalize-names g c) ,(domain-sort g)))))
+	    (and include-predicates
+		 (loop for p in predicates
+		       collect (to-string g
+					  `(declare-fun ,(normalize-names g (car p))
+							,(loop repeat (second p) collect (domain-sort g)) |Bool|))))))))
 
   
 (defmethod render-axiom ((g z3-logic-generator) (a axiom))
@@ -86,7 +90,7 @@
 	(concatenate 'string 
 		     (generate-declarations g (list a))
 		     (to-string g `(assert ,(normalize-names g bare))))
-	(if (with-names g)
+	(if (and (with-names g) (axiom-name a))
 	    (to-string g `(assert (|!| ,(normalize-names g bare) |:named| ,(string (axiom-name a)))))
 	    (to-string g `(assert ,(normalize-names g bare)))))))
 
@@ -95,7 +99,7 @@
 	 (generate-declarations g a)
 	 (mapcar 
 	  (lambda(e) (to-string g e))
-	  (let ((was  (with-declarations g)))
+	  (let ((was (with-declarations g)))
 	    (unwind-protect (progn 
 			      (setf (with-declarations g) nil)
 			      (mapcar (lambda(e) (render-axiom g e)) a))

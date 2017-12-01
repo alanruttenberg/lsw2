@@ -9,9 +9,9 @@
 	(in-both nil)
 	(ont1 (if (v3kb-p ont1) ont1 (load-ontology ont1)))
 	(ont2 (if (v3kb-p ont2) ont2 (load-ontology ont2))))
-    (loop for ax in (mapcar 'axiom-to-lisp-syntax (ontology-annotations ont1))
+    (loop for ax in (mapcar 'axiom-to-lisp-syntax (get-ontology-annotations ont1))
 	  do (setf (gethash ax table) '(1)))
-    (loop for ax in (mapcar 'axiom-to-lisp-syntax (ontology-annotations ont2))
+    (loop for ax in (mapcar 'axiom-to-lisp-syntax (get-ontology-annotations ont2))
 	  do (push  2 (gethash ax table)))
     (each-axiom ont1
 	(lambda(ax) (setf (gethash (axiom-to-lisp-syntax ax) table) '(1)))

@@ -116,7 +116,7 @@
 		   keys)
 		  (spec-error key value)))))))
 
-(defun collect-axioms-from-spec (specs)
+(defun collect-axioms-from-spec (specs &optional (error-if-not-found t))
   "specs: either a single formuala or an axiom name or a list each element of which is either an axiom name, a list of key values, or a logic sexp. Output a list of axioms or unchanged logic sexps"
   (if (null specs) nil)
   (let* ((nots (remove-if-not (lambda(e) (and (consp e) (eq (car e) :exclude))) specs))
@@ -126,16 +126,16 @@
       (if (formula-sexp-p specs) 
 	  (list specs)
 	  (if (keywordp specs)
-	      (list (get-axiom specs))
+	      (list (get-axiom specs error-if-not-found))
 	      (loop for spec in specs
 		    if (formula-sexp-p spec)
 		      collect spec
 		    else if (atom spec)
-			   collect (get-axiom spec)
+			   collect (get-axiom spec error-if-not-found)
 		    else if (eq (car spec) :negate)
-			    collect (negate-axiom (get-axiom (second spec)) )
-		    else append (apply 'get-axioms spec))))
-      (and nots (collect-axioms-from-spec (mapcar 'second nots)))
+			    collect (negate-axiom (get-axiom (second spec) error-if-not-found) )
+		    else append (apply 'get-axioms (append spec (list :errorp error-if-not-found))))))
+      (and nots (collect-axioms-from-spec (mapcar 'second nots) nil))
       :test 'equalp)
      :test 'equalp)))
 

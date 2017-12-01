@@ -19,11 +19,11 @@
   (jss::all-matches output "(?s)\\(error .*" 0))
 
 (defun run-z3 (input timeout)
-  (run-program-string->string
+  (setq *last-z3-output* (run-program-string->string
    *z3-executable* 
    (list  "-in" (format nil "-T:~a" timeout))
-   input
-   ))
+   (setq *last-z3-input* input)
+   )))
 
 (defun z3-syntax-check (assumptions &optional goals (errorp t))
   (let ((answer 
@@ -45,7 +45,7 @@
   
 (defun z3-render (assumptions &optional goals commands)
   (apply 'concatenate 'string
-	 (render :z3 assumptions goals)
+	 (if (stringp assumptions) assumptions (render :z3 assumptions goals))
 	 (mapcar (lambda(e) (format nil "~a" e)) commands)))
   
 (defun z3-prove (assumptions goals &key (timeout 30) (return-contradiction nil) )
