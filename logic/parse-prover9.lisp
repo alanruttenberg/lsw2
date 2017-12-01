@@ -314,6 +314,10 @@
   (let ((*package* (find-package :logic)))
     (mapcar 'fix-non-quantified-symbols (mapcar 'remove-redundant-parentheses (yacc::parse-with-lexer (prover9-list-lexer (tokenize-prover9-formula string)) *prover9-parser*)))))
 
+(defun prover9-pprint-formula (string)
+  (let ((*print-case* :downcase) 
+	(*package* (find-package :logic)))
+    (pprint (cadar (parse-prover9 string)))))
 
 (defun prover9-to-lsw (path axiom-prefix)
   (let ((forms (let ((*package* (find-package :logic)))

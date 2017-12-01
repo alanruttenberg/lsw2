@@ -7,7 +7,7 @@
   (:use cl)
   (:import-from :cl-user cl-user::owl-sexp-to-fol cl-user::run-program-string->string
 		cl-user::uri-full cl-user::uri-p cl-user::uri-label cl-user::*default-kb* cl-user::*default-uri-base*
-		cl-user::camelcase cl-user::replace-all
+		cl-user::camelcase cl-user::replace-all cl-user::make-uri jss::all-matches 
 		cl-user::get-vagrant-box-id cl-user::get-vagrant-box-status
 		cl-user::get-vagrant-box-wd cl-user::vagrant-box-up
 		cl-user::*vampire-shared-directory-remote* cl-user::*vampire-shared-directory-local*

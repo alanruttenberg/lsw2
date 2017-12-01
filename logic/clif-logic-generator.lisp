@@ -2,6 +2,11 @@
 
 (defclass clif-logic-generator (logic-generator)())
 
+(defun tree-walk (tree fn)
+  (funcall fn tree)
+  (when (consp tree)
+    (map nil (lambda(el) (tree-walk el fn)) tree)))
+
 (defun tree-find (sym tree &key (test #'eq))
   (cond ((atom tree)
 	 (funcall test sym tree))
