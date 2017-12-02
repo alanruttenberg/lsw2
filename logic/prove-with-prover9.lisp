@@ -37,7 +37,7 @@
 
 
 (defun mace-or-prover9 (which assumptions goals &key (timeout 10) (interpformat :baked) (show-translated-axioms nil)
-						  domain-min-size domain-max-size max-time-per-domain-size generate-hints hints
+						  max-memory domain-min-size domain-max-size max-time-per-domain-size generate-hints hints
 						  &aux settings)
 
   (assert (numberp timeout) (timeout) "Timeout should be a number of seconds") 
@@ -46,6 +46,7 @@
   (when (eq which :mace4)
     (when domain-max-size (push (format nil "assign(end_size, ~a)" domain-max-size) settings))
     (when domain-min-size (push (format nil "assign(start_size, ~a)" domain-min-size) settings))
+    (when max-memory (push (format nil "assign(max_megs, ~a)" max-memory) settings))
     (when max-time-per-domain-size (push (format nil "assign(max_seconds_per, ~a)" max-time-per-domain-size) settings)))
   (let* ((input (prepare-prover9-input assumptions goals :settings settings :show-translated-axioms show-translated-axioms :hints hints))
 	(output
@@ -177,7 +178,7 @@
 
 (defun mace4-check-satisfiability (assumptions &rest keys)
   "General version seeing whether mace can find a model"
-  (let ((result (apply 'mace4-find-model assumptions nil keys)))
+  (let ((result (apply 'mace4-find-model assumptions keys)))
     (case result
       (:sat :sat)
       (otherwise result))))
@@ -194,11 +195,11 @@
 	 model)
      )))
 
-(defun mace4-find-model (assumptions &key (timeout 10) (format :baked) (show-translated-axioms nil) domain-max-size domain-min-size
+(defun mace4-find-model (assumptions &key (timeout 10) (format :baked) (show-translated-axioms nil) domain-max-size domain-min-size max-memory
 				       max-time-per-domain-size)
   (multiple-value-bind(result model)
       (mace-or-prover9 :mace4 assumptions nil :timeout timeout :interpformat format :show-translated-axioms show-translated-axioms
-								   :domain-min-size domain-min-size :domain-max-size domain-max-size
+								   :domain-min-size domain-min-size :domain-max-size domain-max-size :max-memory max-memory
 					      :max-time-per-domain-size max-time-per-domain-size)
     (values result (setq *last-mace4-model* model))))
 

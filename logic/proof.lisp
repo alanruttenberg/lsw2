@@ -200,7 +200,7 @@
 ;; ****************************************************************
 ;; given a name of an expected proof runs it and prints diagnostics
 
-(defun run-proof (name &key print-axiom-names print-formulas print-executed-form timeout queue-notify excluding dry-run &aux (headline "") (level 3))
+(defun run-proof (name &key print-axiom-names print-formulas print-executed-form timeout queue-notify excluding dry-run print-axiom-count &aux (headline "") (level 3))
   "Run a proof by name"
   (flet ((doit ()
 	   (let ((expected-proof (if (typep name 'expected-proof) name (gethash name *expected-proofs*))))
@@ -217,7 +217,7 @@
 			 name)
 
 		 (let ((*print-pretty* t))
-		   (when (or print-axiom-names print-formulas)
+		   (when (or print-axiom-names print-formulas print-axiom-count)
 		     (format t "~&With:~%")
 		     (when (counterexample expected-proof)
 		       (maybe-with-color :red :normal "~%counterexample + goal~%")
@@ -226,21 +226,26 @@
 				(if print-axiom-names (maybe-with-color (if print-formulas :blue :black) :normal  "~a~%" (axiom-name f)))
 				(if print-formulas (format t "~a~%" (axiom-sexp f))))
 		       (maybe-with-color :red :normal "~%counterexample + assumptions~%"))
+		     (let ((the-axioms (append (collect-axioms-from-spec (append (proof-assumption-specs expected-proof) (mapcar (lambda(e) `(:exclude ,e)) excluding)))
+					       (or (collect-axioms-from-spec (proof-counterexample-specs expected-proof))
+						   (collect-axioms-from-spec (proof-goal-specs expected-proof))))))
+		       (when print-axiom-count
+			 (format t "~a axioms~%" (length the-axioms))))
 		     (loop for f in (collect-axioms-from-spec (append (proof-assumption-specs expected-proof) (mapcar (lambda(e) `(:exclude ,e)) excluding)))
 			   do
 			      (if print-axiom-names (maybe-with-color (if print-formulas :blue :black) :normal  "~a~%" (axiom-name f)))
 			      (if print-formulas (format t "~a~%" (axiom-sexp f))))
 		     (let ((last (car (or (collect-axioms-from-spec (proof-counterexample-specs expected-proof)) (collect-axioms-from-spec (proof-goal-specs expected-proof))))))
 		       (when last
-		       (when print-axiom-names
-			 (maybe-with-color (if print-formulas :blue :black) :normal "~a~%"
-					   (if (counterexample expected-proof)
-					       (if (and (consp last) (not print-formulas)) (axiom-sexp last) (axiom-name last))
-					       `(:negated ,(if (and (consp last) (not print-formulas)) (axiom-sexp last) (axiom-name last))))))
-		       (when print-formulas
-			 (if (counterexample expected-proof)
-			     (format t "~a~%" (axiom-sexp last))
-			     (format t "~a~%" `(:not ,(axiom-sexp last))))))
+			 (when print-axiom-names
+			   (maybe-with-color (if print-formulas :blue :black) :normal "~a~%"
+					     (if (counterexample expected-proof)
+						 (if (and (consp last) (not print-formulas)) (axiom-sexp last) (axiom-name last))
+						 `(:negated ,(if (and (consp last) (not print-formulas)) (axiom-sexp last) (axiom-name last))))))
+			 (when print-formulas
+			   (if (counterexample expected-proof)
+			       (format t "~a~%" (axiom-sexp last))
+			       (format t "~a~%" `(:not ,(axiom-sexp last))))))
 		     ))
 		   (when print-executed-form 
 		     (format t "~&~s~%" form)))

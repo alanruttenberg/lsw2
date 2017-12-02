@@ -15,9 +15,17 @@
 	((atom e) e)
 	(t (mapcar (lambda(e) (normalize-names g e)) e))))
 
+(defmethod maybe-render-function-expression ((g prover9-logic-generator) expression)
+  (cond ((atom expression) expression)
+	(t (format nil "~a(~{~a~^,~})" (car expression)
+		   (mapcar (lambda(e) 
+			     (maybe-render-function-expression g e ))
+			   (cdr expression))))))
+  
 (defmethod prover-expression ((g prover9-logic-generator) expression)
   (if (consp expression)
-      (format nil "~a(~{~a~^,~})" (normalize-names g (car expression)) (normalize-names g (cdr expression)))
+      (format nil "~a(~{~a~^,~})" (normalize-names g (car expression)) 
+	      (mapcar (lambda(e) (maybe-render-function-expression g e)) (normalize-names g (cdr expression))))
       (normalize-names g expression))
   )
 
