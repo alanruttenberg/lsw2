@@ -15,9 +15,14 @@
 (defun tree-replace (replace-fn tree)
   "create new tree replacing each element with the result of calling replace-fn on it"
   (labels ((tr-internal (tree)
-	   (cond ((atom tree) (funcall replace-fn tree))
-		 (t (mapcar #'tr-internal (funcall replace-fn tree))))))
+	     (cond ((atom tree) (funcall replace-fn tree))
+		   (t (let ((replacement (funcall replace-fn tree)))
+			(if (eq replacement tree)
+			    (mapcar #'tr-internal tree)
+			    replacement))))))
     (tr-internal tree)))
+
+
 
 (defmethod render-axiom ((g clif-logic-generator) axiom)
   (flet ((quote-string (e)

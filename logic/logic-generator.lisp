@@ -66,6 +66,9 @@
        (let ((,var (car ,vars)))
 	 ,@body))))
 
+(defun logic-var-p (thing)
+  (and (symbolp thing) (char= (char (string thing) 0) #\?)))
+
 (defun pred-property (head &rest args)
   (apply 'logical-relation *logic-generator* head args))
 

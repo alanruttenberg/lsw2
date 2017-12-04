@@ -13,17 +13,29 @@
    (generation-form :accessor axiom-generation-form)
    (from :accessor axiom-from :initform nil :initarg :from)))
 
+(defun keywordify (x) (intern (string x) :keyword))
+
 (defmacro def-logic-axiom (name sexp &optional description &rest key-values)
-  (when (keywordp description) (push description key-values) (setq description nil))
-  `(progn
-     (sys::record-source-information-for-type  ',name 'def-logic-axiom)
-     (setf (gethash (intern (string ',name) 'keyword) *axioms*)
-	   (make-instance 'axiom :sexp 
-			  (if  (and (consp ',sexp) (keywordp (car ',sexp)))
-			       ',sexp
-			       (list :fact ',sexp))
-			  :description ,description :name ',name
-			  :plist ',(loop for (k v) on key-values by #'cddr collect (list k (if (symbolp k) (intern (string v) :keyword) k)))))))
+
+    (when (keywordp description) (push description key-values) (setq description nil))
+    `(progn
+       (sys::record-source-information-for-type  ',name 'def-logic-axiom)
+       (let* ((sexp-1 ',sexp)
+	      (sexp (if  (and (consp sexp-1) (keywordp (car sexp-1)))
+			 sexp-1
+			 (list :fact sexp-1))))
+	 (multiple-value-bind (predicates constants functions) (formula-elements sexp)
+	   (setf (gethash (intern (string ',name) 'keyword) *axioms*)
+		 (make-instance 'axiom :sexp sexp
+				       :description ,description :name ',name
+				       :plist (append
+					       (loop for pred in predicates collect `(:relation ,(keywordify pred)))
+					       (loop for function in functions collect `(:function ,(keywordify function)))
+					       (loop for const in constants collect `(:constant ,(keywordify const)))
+					       (loop for (k v) on ',key-values by #'cddr
+						     collect (list k (if (symbolp k)
+									 (keywordify v)
+									 k))))))))))
 
 (defmethod print-object ((a axiom) stream)
   (print-unreadable-object (a stream :type nil :identity nil)
@@ -216,3 +228,37 @@
   (assert (formula-sexp-p a) (a) "Axioms should be objects of formula sexps: ~a" a)
   "not named")
    
+;; return predicates, constants, function symbols in formula
+(defun formula-elements (sexp)
+  (let ((predicates nil)
+	(constants nil)
+	(functions nil)
+	(exp (axiom-sexp sexp))) ;; so macroexpansion happens
+    (labels ((uses-constant (sym) (pushnew sym constants))
+	     (uses-predicate (sym) (pushnew sym predicates))
+	     (uses-function (sym) (pushnew sym functions))
+	     (walk-function (form)
+	       (uses-function (car form))
+	       (walk-terms (cdr form)))
+	     (walk-terms (form)
+	       (loop for el in form
+		     do
+			(cond ((and (atom el) (not (char= (char (string el) 0 ) #\?)))
+			       (uses-constant el))
+			      ((atom el))
+			      (t (walk-function el)))))
+	     (walk (form)
+	       (cond ((atom form)
+		      (break "shouldn't be here")
+		      (if (and (symbolp form) (char= (char (string form) 0 ) #\?))
+			  nil
+			  (uses-constant form)))
+		     (t (case (car form)
+			  ((:forall :exists) (walk (third form)))
+			  ((:implies :iff :and :or :not  :fact) (map nil #'walk (rest form)))
+			  ((:distinct :=) (walk-terms (rest form)))
+			  (otherwise
+			   (uses-predicate (car form))
+			   (walk-terms (rest form))))))))
+      (walk exp)
+      (values predicates constants functions))))

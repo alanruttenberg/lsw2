@@ -20,8 +20,8 @@
    #:l-implies #:pred-property #:pred-class #:*use-holds*
    #:logic-generator #:with-logic-var #:with-logic-vars #: #:
    #:def-logic-axiom #:axiom-sexp #:axiom-name #:axiom-description
-   #:delete-axiom #:get-axiom #:prover9-prove #:mace4-find-model #:mace4-check-satisfiability #:mace4-check-satisfiability-alt
-   #:get-axioms
+   #:delete-axiom #:get-axiom #:prover9-prove #:mace4-find-model #:mace4-check-satisfiability #:mace4-check-satisfiability-alt #:logic-var-p
+   #:get-axioms #:tree-walk #:tree-replace
    #:prover9-logic-generator
    #:*last-mace4-model* 
    #:*last-prover9-input* 
