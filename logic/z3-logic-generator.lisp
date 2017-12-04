@@ -9,7 +9,8 @@
   (cond ((and (symbolp e) (char= (char (string e) 0) #\?))
 	 (intern (subseq (string e) 1)))
 	((keywordp e) e)
-	((and (symbolp e) (find #\- (string e))  (intern (camelCase (string e)))))
+	((and (symbolp e) (find #\- (string e))
+	      (intern (camelCase (replace-all (string e) "(\\d+)" (lambda(e) (camelCase (format nil "~r" (read-from-string e)))) 1)))))
 	((uri-p e) (intern 
 			     (camelCase
 			      (if (and (boundp '*default-kb*) *default-kb*)
@@ -91,7 +92,7 @@
 		     (generate-declarations g (list a))
 		     (to-string g `(assert ,(normalize-names g bare))))
 	(if (and (with-names g) (axiom-name a))
-	    (to-string g `(assert (|!| ,(normalize-names g bare) |:named| ,(string (axiom-name a)))))
+	    (to-string g `(assert (|!| ,(normalize-names g bare) |:named| ,(replace-all (string (axiom-name a)) "(\\d+)" (lambda(e) (camelCase (format nil "~r" (read-from-string e)))) 1))))
 	    (to-string g `(assert ,(normalize-names g bare)))))))
 
 (defmethod render-axioms ((g z3-logic-generator) (a list))
