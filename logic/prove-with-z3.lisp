@@ -48,52 +48,76 @@
 	 (if (stringp assumptions) assumptions (render :z3 assumptions goals))
 	 (mapcar (lambda(e) (format nil "~a" e)) commands)))
   
-(defun z3-prove (assumptions goals &key (timeout 30) (return-contradiction nil) )
+(defun z3-prove (assumptions goals &key (timeout 30) (return-contradiction nil) expected-proof)
   (z3-syntax-check assumptions goals)
-  (let ((answer 
+  (let* ((input (z3-render assumptions goals '("(check-sat)")))
+	 (answer 
 	  (setq *last-z3-output* 
-	  (run-z3 (setq *last-z3-input* (z3-render assumptions goals '("(check-sat)"))) timeout)
+	  (run-z3 (setq *last-z3-input* input) timeout)
 	  )))
-    (or (z3-output-errors answer)
-	(if (does-z3-output-say-timeout answer)
-	    :timeout
-	    (if (does-z3-output-say-unsat answer)
-		:proved
-		(if (does-z3-output-say-sat answer)
-		    (if return-contradiction
-			(values :disproved
-			    (z3-find-model (append assumptions goals) nil timeout)
-			    )
-			:disproved)))))))
+    (when expected-proof
+      (setf  (prover-output expected-proof) (setq *last-z3-output* answer))
+      (setf (prover-input expected-proof) input))
+    (let ((result 
+	    (or (z3-output-errors answer)
+		(if (does-z3-output-say-timeout answer)
+		    :timeout
+		    (if (does-z3-output-say-unsat answer)
+			:proved
+			(if (does-z3-output-say-sat answer)
+			    :disproved))))))
+      (if (and (eq result :disproved) return-contradiction)
+	  (let ((model (z3-find-model (append assumptions goals) :timeout timeout :expected-proof expected-proof)))
+	    (when expected-proof
+	      (setf (prover-model expected-proof) nil)
+	      (setf (prover-unsat-explanation expected-proof) model))
+	    (values result  model))
+	  (if expected-proof
+	      (setf (result expected-proof) result)
+	      result)))))
 
 
-(defun z3-find-model (assumptions &key (timeout 10))
+(defun z3-find-model (assumptions &key (timeout 10) expected-proof)
   (z3-syntax-check assumptions nil)
-  (run-z3
-   (z3-render assumptions nil (list "(check-sat)" "(get-model)"))
-   timeout))
+  (let* ((input	(z3-render assumptions nil (list "(check-sat)" "(get-model)")))
+	 (model (run-z3 input timeout)))
+    (when expected-proof
+      (setf (prover-model expected-proof) model)
+      (setf (prover-input expected-proof) input)
+      (unless (prover-output expected-proof)
+	(setf (prover-output expected-proof) model)))
+    model))
 
-(defun z3-get-unsat-core (assumptions &key (timeout 10))
+(defun z3-get-unsat-core (assumptions &key (timeout 10) expected-proof)
   (z3-syntax-check assumptions nil)
-  (run-z3
-   (concatenate 'string "(set-option :produce-unsat-cores true)" (z3-render assumptions nil (list "(check-sat)""(get-unsat-core)")))
-   timeout))
+  (let* ((input  (concatenate 'string "(set-option :produce-unsat-cores true)" (z3-render assumptions nil (list "(check-sat)""(get-unsat-core)"))))
+	 (answer (run-z3 input timeout)))
+    (when expected-proof
+      (setf (prover-unsat-explanation expected-proof) answer)
+      (setf (prover-input expected-proof) answer)
+      (setf (prover-output expected-proof) answer))
+    answer))
 
-(defun z3-check-satisfiability (assumptions &key (timeout 10))
-  (let* ((input (z3-render assumptions)))
+(defun z3-check-satisfiability (assumptions &key (timeout 10) expected-proof)
+  (let* ((input (concatenate 'string (z3-render assumptions) "(check-sat)" (string #\newline))))
+    (when expected-proof
+      (setf (prover-input expected-proof) input))
     (z3-syntax-check input)
     (let ((answer
-	    (setq *last-z3-output* (run-program-string->string
-				    *z3-executable* 
-				    (list  "-in" (format nil "-T:~a" timeout))
-				    (setq *last-z3-input*
-					  (concatenate 'string input
-						       "(check-sat)"
-						       (string #\newline)))))))
-      (if (does-z3-output-say-timeout answer)
-	  :timeout
-	  (if (does-z3-output-say-unsat answer)
-	      :unsat
-	      (if (does-z3-output-say-sat answer)
-		  :sat
-		  answer))))))
+	    (run-program-string->string
+	     *z3-executable* 
+	     (list  "-in" (format nil "-T:~a" timeout))
+	     input)))
+      (when expected-proof
+	(setf (prover-output expected-proof) answer))
+      (setq *last-z3-output* answer)
+      (let ((result (if (does-z3-output-say-timeout answer)
+			:timeout
+			(if (does-z3-output-say-unsat answer)
+			    :unsat
+			    (if (does-z3-output-say-sat answer)
+				:sat
+				answer)))))
+	(when expected-proof
+	  (setf (result expected-proof) result))
+	result))))

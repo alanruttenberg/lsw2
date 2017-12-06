@@ -60,23 +60,34 @@
 	 (render :vampire assumptions goals)
 	 (mapcar (lambda(e) (format nil "~a" e)) commands)))
 
-(defun vampire-prove (assumptions goals &key (timeout 30) (mode :vampire) (switches nil))
+(defun vampire-prove (assumptions goals &key (timeout 30) (mode :vampire) (switches nil) expected-proof)
   (assert (eq (z3-syntax-check assumptions goals) t) (assumptions goals) "smtlib2 syntax error")
-  (let ((answer 
-	  (setq *last-vampire-output* 
-		(run-vampire (setq *last-z3-input* (vampire-render assumptions goals '("(check-sat)")))  timeout mode switches))
-	  ))
-    (if (and (jss::all-matches answer "Termination reason: Refutation")
-	     (not (jss::all-matches answer "Termination reason: Refutation not" 0)))
-	:proved
-	(if (or (jss::all-matches answer "Termination reason: Time limit" 0)
-		(and (jss::all-matches answer "Proof not found in time" 0)
-		     (jss::all-matches answer "SZS status GaveUp" 0)))
-	    :timeout
-	    nil))))
-
-(defun vampire-check-unsatisfiable (assumptions &rest keys)
+  (let* ((input  (vampire-render assumptions goals '("(check-sat)")))
+	 (answer 
+	   (setq *last-vampire-output* 
+		 (run-vampire (setq *last-z3-input* input)  timeout mode switches))
+	   ))
+    (let ((result 
+	    (if (and (jss::all-matches answer "Termination reason: Refutation")
+		     (not (jss::all-matches answer "Termination reason: Refutation not" 0)))
+		:proved
+		(if (or (jss::all-matches answer "Termination reason: Time limit" 0)
+			(and (jss::all-matches answer "Proof not found in time" 0)
+			     (jss::all-matches answer "SZS status GaveUp" 0)))
+		    :timeout
+		    nil))))
+      (when expected-proof
+	(setf (prover-input expected-proof) input)
+	(setf (prover-output expected-proof) answer)
+	(setf (result expected-proof) result))
+      result)))
+    
+(defun vampire-check-unsatisfiable (assumptions &rest keys &key expected-proof &allow-other-keys)
   (let ((result (apply 'vampire-prove assumptions nil keys)))
-    (case result
-      (:proved :unsat)
-      (otherwise result))))
+    (let ((new-result
+	    (case result
+	      (:proved :unsat)
+	      (otherwise result))))
+      (when expected-proof
+	(setf (result expected-proof) new-result))
+      new-result)))

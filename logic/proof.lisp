@@ -1,6 +1,7 @@
 (in-package :logic)
 
 (defvar *expected-proofs* (make-hash-table))
+(defvar *proof-notifications* nil)
 
 (defclass expected-proof ()
   ((assumptions :accessor assumptions :initarg :assumptions)
@@ -11,9 +12,11 @@
    (with :accessor with :initarg :with)
    (name :accessor name :initarg :name)
    (counterexample :accessor counterexample :initarg :counterexample :initform nil)
-   (reasoner-input :accessor reasoner-input :initarg :reasoner-input :initform nil)
-   (reasoner-output :accessor reasoner-output :initarg :reasoner-output :initform nil)
-   (reasoner-model :accessor reasoner-model :initarg :reasoner-model :initform nil)
+   (prover-input :accessor prover-input  :initform nil)
+   (prover-output :accessor prover-output :initform nil)
+   (prover-model :accessor prover-model  :initform nil)
+   (prover-unsat-explanation :accessor prover-unsat-explanation  :initform nil)
+   (result :accessor result :initform nil)
    ))
 
 (defmethod initialize-instance ((e expected-proof) &rest rest &key &allow-other-keys )
@@ -114,16 +117,19 @@
 		    `(,(with expected-proof)
 		      ,(assumptions-form (list (counterexample expected-proof)))
 		      :timeout ,(timeout expected-proof)
+		      :expected-proof ,expected-proof
 		      ,@(options expected-proof)))
 		  (sat-form
 		    `(,(with expected-proof)
 		      ,(assumptions-form (list* (counterexample expected-proof) (assumptions expected-proof)))
 		      :timeout ,(timeout expected-proof)
+		      :expected-proof ,expected-proof
 		      ,@(options expected-proof)))
 		  (unsat-form
 		    `(,(with expected-proof)
 		      ,(assumptions-form (list (goal expected-proof) (counterexample expected-proof)))
 		      :timeout ,(timeout expected-proof)
+		      :expected-proof ,expected-proof
 		      ,@(options expected-proof))))
 	      `(case ,counterexample-sat-form
 		 (:unsat :counterexample-not-sat)
@@ -144,6 +150,7 @@
 		     (,(with expected-proof)
 		      ,(assumptions-form (list* `(:negate ,(goal expected-proof)) (assumptions expected-proof)))
 		      :timeout ,(timeout expected-proof)
+		      :expected-proof ,expected-proof
 		      ,@(options expected-proof))))
 	       (case result
 		 (:timeout :timeout)
@@ -153,6 +160,7 @@
 	  ,(assumptions-form (assumptions expected-proof))
 	  ,@(if (goal expected-proof) (list `(quote ,(list (goal expected-proof)))) nil)
 	  :timeout ,(timeout expected-proof)
+	  :expected-proof ,expected-proof
 	  ,@(options expected-proof)))
     ))
 
@@ -267,7 +275,9 @@
 	(threads::make-thread  (lambda() 
 				 (let ((*standard-output* (make-string-output-stream)))
 				   (doit)
-				   (cl-user::prowl-notify (format nil "Proof run: ~a" headline) (get-output-stream-string *standard-output*) :priority level)))
+				   (let ((output (get-output-stream-string *standard-output*)))
+				     (push (list (get-universal-time) name (format nil "Proof run: ~a" headline) output) *proof-notifications*)
+				     (cl-user::prowl-notify (format nil "Proof run: ~a" headline) output :priority level))))
 			       :name (if (or (stringp name) (symbolp name)) name (name name)))
 	(doit))
     (gethash name *expected-proofs*)))

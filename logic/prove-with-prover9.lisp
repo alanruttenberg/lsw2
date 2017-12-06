@@ -38,6 +38,7 @@
 
 (defun mace-or-prover9 (which assumptions goals &key (timeout 10) (interpformat :baked) (show-translated-axioms nil)
 						  max-memory domain-min-size domain-max-size max-time-per-domain-size  hints
+						  expected-proof
 			&aux settings)
 
   (assert (numberp timeout) (timeout) "Timeout should be a number of seconds") 
@@ -56,6 +57,9 @@
 	    input
 	    )))
     (setq *last-prover9-input* input *last-prover9-output* output)
+    (when expected-proof
+      (setf (prover-input expected-proof) input)
+      (setf (prover-output expected-proof) output))
     (let ((error (caar (all-matches output "%%ERROR:(.*)"  1))))
       (when error
 	(let ((what (caar (all-matches output "%%START ERROR%%(.*)%%END ERROR%%" 1))))
@@ -187,34 +191,46 @@
 (defun prover9-prove (assumptions goals  &key (timeout 10) (show-translated-axioms nil))
   (mace-or-prover9  :prover9 assumptions goals :timeout timeout :show-translated-axioms show-translated-axioms))
 	
-(defun prover9-check-unsatisfiable (assumptions   &rest keys)
+(defun prover9-check-unsatisfiable (assumptions &rest keys  &key expected-proof &allow-other-keys)
   (let ((result (apply 'prover9-prove assumptions nil keys)))
-    (case result
-      (:proved :unsat)
-      (otherwise result))))
+    (let ((new-result 
+	    (case result
+	      (:proved :unsat)
+	      (otherwise result))))
+      (when expected-proof
+	(setf (result expected-proof) new-result))
+      new-result)))
 
-(defun mace4-check-satisfiability (assumptions &rest keys)
+(defun mace4-check-satisfiability (assumptions &rest keys &key expected-proof &allow-other-keys)
   "General version seeing whether mace can find a model"
   (let ((result (apply 'mace4-find-model assumptions keys)))
-    (case result
-      (:sat :sat)
-      (otherwise result))))
+    (let ((new-result (case result
+			(:sat :sat)
+			(otherwise result))))
+      (when expected-proof
+	(setf (result expected-proof) new-result))
+      new-result)))
 
-(defun mace4-check-satisfiability-alt (assumptions &rest keys)
+(defun mace4-check-satisfiability-alt (assumptions &rest keys &key expected-proof &allow-other-keys)
   "Version that starts with a minimum domain size (12) and only allows 1 second per domain. This tends to work for a bunch of cases"
   (multiple-value-bind (result model)
       (apply 'mace4-find-model assumptions :max-time-per-domain-size 1  keys)
-    (values
-     (case result
-       (:sat :sat)
-       (otherwise result))
-     (if (eq result :sat)
-	 model)
-     )))
+    (let ((new-result (case result
+			(:sat :sat)
+			(otherwise result))))
+      (when expected-proof
+	(setf (result expected-proof) new-result))
+      (values
+       new-result
+       (if (eq result :sat)
+	   model)
+       ))))
 
-(defun mace4-find-model (assumptions &rest keys &key (timeout 10) (format :baked)  &allow-other-keys)
+(defun mace4-find-model (assumptions &rest keys &key (timeout 10) (format :baked) expected-proof &allow-other-keys)
   (multiple-value-bind(result model)
       (apply 'mace-or-prover9 :mace4 assumptions nil :timeout timeout :interpformat format keys)
+    (when expected-proof
+      (setf (prover-model expected-proof) model))
     (values result (setq *last-mace4-model* model))))
 
 
