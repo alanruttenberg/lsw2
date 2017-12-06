@@ -59,35 +59,37 @@
     (let ((error (caar (all-matches output "%%ERROR:(.*)"  1))))
       (when error
 	(let ((what (caar (all-matches output "%%START ERROR%%(.*)%%END ERROR%%" 1))))
-	  (inspect (cons input output))
+	  ;; FIXME. This is a problem with inspect being called from a thread. Should be fixed in inspect
+	  (let #+swank ((swank::*buffer-package* *package*) (swank::*buffer-readtable* *readtable*)) #-swank nil
+	    (inspect (cons input output)))
 	  (error "~a error: ~a in: ~a" (string-downcase (string which)) error what))))
     (let ((reason (caar (all-matches output "(?s)Process \\d+ exit \\((.*?)\\)" 1))))
       (flet ((maybe-exceeded-resource-limit ()
-	       (if (equal reason "mac_sec_no")
+	       (if (equal reason "max_sec_no")
 		   :timeout
 		   (if (equal reason "max_megs_no")
 		       :out-of-memory
 		       (intern (string-upcase (string reason)) 'keyword)))))	       
-      (values (ecase which
-		(:mace4 (if (search "interpretation" output)
-			    :sat
-			    (maybe-exceeded-resource-limit)))
-		(:prover9 (if (search "THEOREM PROVED" output)
-			      :proved
-			      (if (search "exit (max_seconds)" output)
-				  :timeout
-				  (if (search "SEARCH FAILED" output)
-				      :failed
-				      nil)))))
-	      (let ((output
-		      (multiple-value-list
-		       (ecase which
-			 (:mace4
-			  (cook-mace4-output output interpformat))
-			 (:prover9 output)))))
-		(when *debug* (princ (car output)))
-		output)
-	      ))))
+	(values (ecase which
+		  (:mace4 (if (search "interpretation" output)
+			      :sat
+			      (maybe-exceeded-resource-limit)))
+		  (:prover9 (if (search "THEOREM PROVED" output)
+				:proved
+				(if (search "exit (max_seconds)" output)
+				    :timeout
+				    (if (search "SEARCH FAILED" output)
+					:failed
+					nil)))))
+		(let ((output
+			(multiple-value-list
+			 (ecase which
+			   (:mace4
+			    (cook-mace4-output output interpformat))
+			   (:prover9 output)))))
+		  (when *debug* (princ (car output)))
+		  output)
+		)))))
 
 (defun proof-to-hints (assumptions goals &optional (timeout 10))
   (let ((proof (run-program-string->string (prover-binary "prover9") `("-t" ,(princ-to-string timeout))
@@ -112,6 +114,15 @@
 ;; 	    it))
 ;;       (reformat-interpretation output format)))
 
+
+(defun handle-equated-names (matched)
+  (let ((table (make-hash-table :test 'equalp)))
+    (map nil (lambda(el) (push (first el) (gethash (second el) table))) matched)
+    (loop for constant being the hash-keys of table
+	    using (hash-value names)
+	  collect (list (format nil "~{~a~^=~}" names) constant))))
+    
+
 (defun cook-mace4-output (output format)
   (if (or (eq format :cooked) (eq format :baked))
       (let ((it (reformat-interpretation output :cooked)))
@@ -119,6 +130,7 @@
 	    ;; get rid of the skolem functions and negatives (things that don't hold)
 	    (let ((matched (reverse (all-matches it "\\n([A-Za-z0-9]+) = (\\d+)\\." 1 2)))
 		  (domain-size (caar (all-matches it "% Interpretation of size (\\d+)" 1))))
+	      (setq matched (handle-equated-names matched))
 	      (let ((reduced (#"replaceAll"  (#"replaceAll" it "\\s(-|f\\d+|c\\d+).*" "") "\\n{2,}" (string #\newline))))
 		;; suck up the names of the universals and other constants
 		(setq reduced (#"replaceAll" (#"replaceAll" reduced "\\n([A-Za-z0-9]+) = (\\d+)\\." "")  "(?m)^%.*\\n" "" ))
@@ -127,6 +139,7 @@
 			 (remove-duplicates 
 			  (mapcar 'parse-integer 
 				  (mapcar 'car (all-matches reduced "[^A-Za-z](\\d+)" 1)))))
+		       
 		       (unaccounted-for-numbers 
 			 (sort (set-difference mentioned-numbers (mapcar 'parse-integer (mapcar 'second matched))) '<))
 		       (already (count-if (lambda(e) (#"matches" (car e) "^c\\d+")) matched)))

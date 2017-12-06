@@ -10,7 +10,11 @@
    (timeout :accessor timeout :initarg :timeout)
    (with :accessor with :initarg :with)
    (name :accessor name :initarg :name)
-   (counterexample :accessor counterexample :initarg :counterexample :initform nil)))
+   (counterexample :accessor counterexample :initarg :counterexample :initform nil)
+   (reasoner-input :accessor reasoner-input :initarg :reasoner-input :initform nil)
+   (reasoner-output :accessor reasoner-output :initarg :reasoner-output :initform nil)
+   (reasoner-model :accessor reasoner-model :initarg :reasoner-model :initform nil)
+   ))
 
 (defmethod initialize-instance ((e expected-proof) &rest rest &key &allow-other-keys )
   (call-next-method)
@@ -263,7 +267,8 @@
 	(threads::make-thread  (lambda() 
 				 (let ((*standard-output* (make-string-output-stream)))
 				   (doit)
-				   (cl-user::prowl-notify (format nil "Proof run: ~a" headline) (get-output-stream-string *standard-output*) :priority level))))
+				   (cl-user::prowl-notify (format nil "Proof run: ~a" headline) (get-output-stream-string *standard-output*) :priority level)))
+			       :name (if (or (stringp name) (symbolp name)) name (name name)))
 	(doit))
     (gethash name *expected-proofs*)))
 					   

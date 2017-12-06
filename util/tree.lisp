@@ -1,0 +1,30 @@
+(defun tree-walk (tree fn)
+  (funcall fn tree)
+  (when (consp tree)
+    (map nil (lambda(el) (tree-walk el fn)) tree)))
+
+(defun tree-find (sym tree &key (test #'eq))
+  (cond ((atom tree)
+	 (funcall test sym tree))
+	(t (some (lambda(el) (tree-find sym el)) tree))))
+
+(defun tree-replace (replace-fn tree)
+  "create new tree replacing each element with the result of calling replace-fn on it"
+  (labels ((tr-internal (tree)
+	     (cond ((atom tree) (funcall replace-fn tree))
+		   (t (let ((replacement (funcall replace-fn tree)))
+			(if (eq replacement tree)
+			    (mapcar #'tr-internal tree)
+			    replacement))))))
+    (tr-internal tree)))
+
+(defun tree-remove-if (test tree)
+  "create new tree without any expressions that match test"
+  (cond ((atom tree) tree)
+        (t (let ((tree (remove-if test tree)))
+	     (let ((car (tree-remove-if test (car tree)))
+		   (cdr (tree-remove-if test (cdr tree))))
+	       (if (and (eq car (car tree))
+			(eq cdr (cdr tree)))
+		   tree
+		   (cons car cdr)))))))

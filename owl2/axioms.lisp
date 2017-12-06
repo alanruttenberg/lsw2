@@ -127,24 +127,6 @@
 ;; canonicalize literal: any literal gets changed to: :literal
 ;; ignore annotations
 
-(defun tree-remove-if (test tree)
-  "create new tree without any expressions that match test"
-  (cond ((atom tree) tree)
-        (t (let ((tree (remove-if test tree)))
-	     (let ((car (tree-remove-if test (car tree)))
-		   (cdr (tree-remove-if test (cdr tree))))
-	       (if (and (eq car (car tree))
-			(eq cdr (cdr tree)))
-		   tree
-		   (cons car cdr)))))))
-
-(defun tree-replace (replace-fn tree)
-  "create new tree replacing each element with the result of calling replace-fn on it"
-  (labels ((tr-internal (tree)
-	   (cond ((atom tree) (funcall replace-fn tree))
-		 (t (mapcar #'tr-internal (funcall replace-fn tree))))))
-    (tr-internal tree)))
-
 
 (defun obo-axiom-element-normalizer (e)
   "Normalize an axiom by replacing some terms with constants, e.g. all non-foundry terms with the token :external. This normalizer gives a token for the obo ontology the term is from, with anything outside of obo becoming :external"

@@ -2,7 +2,8 @@
 
 (defclass latex-logic-generator (logic-generator) 
   ((formula-format :accessor formula-format :initarg :formula-format :initform "~a:~%~a")
-   (insert-line-breaks :accessor insert-line-breaks :initarg :insert-line-breaks :initform nil)))
+   (insert-line-breaks :accessor insert-line-breaks :initarg :insert-line-breaks :initform nil)
+   (prettify-names :accessor prettify-names :initform t :initarg :prettify-names)))
 
 (defmethod normalize-names ((g latex-logic-generator) e)
   (cond ((and (symbolp e) (char= (char (string e) 0) #\?))
@@ -104,8 +105,12 @@
 
 (defmethod render-axiom ((g latex-logic-generator) (a axiom))
   (let ((*logic-generator* g))
-    (let ((name (string-downcase (#"replaceAll" (string (axiom-name a)) "-" " "))))
-      (setf (char name 0) (char-upcase (char name 0)))
+    (let ((name (string (axiom-name a))))
+      (if (prettify-names g)
+	  (progn
+	    (setq name  (string-downcase (#"replaceAll" (string (axiom-name a)) "-" " ")))
+	    (setf (char name 0) (char-upcase (char name 0))))
+	  (setq name (format nil ":~a" (string-downcase name))))
       (format nil (formula-format g) name
 	      (eval (rewrite-to-axiom-generation-form (make-explicit-parentheses g (axiom-sexp a))))))))
 

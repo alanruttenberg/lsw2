@@ -53,6 +53,7 @@
 	     (:file "run-program")
 	     (:file "send-prowl-notification")
 	     (:file "vagrant")
-	     (:file "exit-hook")))))
+	     (:file "exit-hook")
+	     (:file "tree")))))
 
 

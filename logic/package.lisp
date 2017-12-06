@@ -11,7 +11,9 @@
 		cl-user::get-vagrant-box-id cl-user::get-vagrant-box-status
 		cl-user::get-vagrant-box-wd cl-user::vagrant-box-up
 		cl-user::*vampire-shared-directory-remote* cl-user::*vampire-shared-directory-local*
-		cl-user::*running-in-vagrant* cl-user::*vampire-box-name* cl-user::*vampire-executable* cl-user::print-db)
+		cl-user::*running-in-vagrant* cl-user::*vampire-box-name* cl-user::*vampire-executable* cl-user::print-db
+		cl-user::tree-replace cl-user::tree-find cl-user::tree-walk cl-user::tree-remove-if
+		)
   (:import-from :jss jss::all-matches)
   (:import-from :sys sys::run-program sys::process-output sys::process-input)
   (:import-from :asdf asdf::system-relative-pathname)
