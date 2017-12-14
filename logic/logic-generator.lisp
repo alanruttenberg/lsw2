@@ -109,7 +109,7 @@
   (logical-parens *logic-generator* expression))
 
 (defun formula-sexp-p (it)
-  (and (consp it) (member (car it) '(:implies :forall :exists :and :or :iff :not := :fact := :owl :expand))))
+  (and (consp it) (member (car it) '(:implies :forall :exists :and :or :iff :not := :fact := :owl :expand :distinct))))
 
 (defmethod builtin-predicate ((g logic-generator) pred)
   nil)

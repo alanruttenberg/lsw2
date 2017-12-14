@@ -3,7 +3,9 @@
 (defclass latex-logic-generator (logic-generator) 
   ((formula-format :accessor formula-format :initarg :formula-format :initform "~a:~%~a")
    (insert-line-breaks :accessor insert-line-breaks :initarg :insert-line-breaks :initform nil)
-   (prettify-names :accessor prettify-names :initform t :initarg :prettify-names)))
+   (prettify-names :accessor prettify-names :initform t :initarg :prettify-names)
+   (show-names :accessor show-names :initform t :initarg :show-names)
+   (write-descriptions :accessor write-descriptions :initform nil :initarg :write-descriptions)))
 
 (defmethod normalize-names ((g latex-logic-generator) e)
   (cond ((and (symbolp e) (char= (char (string e) 0) #\?))
@@ -46,6 +48,12 @@
 			   "~{~a ~^~%\\land ~}"
 			   "~{~a ~^\\land ~}")))
     (format nil format-string  (mapcar (lambda(e) (latex-expression g e)) expressions))))
+
+(defmethod logical-distinct ((g latex-logic-generator) &rest names)
+  (let ((expanded (make-instance 'axiom :sexp (call-next-method))))
+    (eval `(let ((*logic-generator* ,g))
+	     (eval (axiom-generation-form ,expanded))))))
+
 
 (defmethod logical-or ((g latex-logic-generator) expressions) 
   (format nil "~{~a ~^\\lor ~}"  (mapcar (lambda(e) (latex-expression g e)) expressions)))
@@ -99,8 +107,8 @@
 
 ;; https://en.wikipedia.org/wiki/Logical_connective#Order_of_precedence
 (defun lower-precedence-p (a b)
-  (> (position a '(:forall :exists :not :and :or :implies :iff :=))
-     (position b '(:forall :exists :not :and :or  :implies :iff :=))))
+  (> (position a '(:distinct :fact :forall :exists :not :and :or :implies :iff :=))
+     (position b '(:distinct :fact :forall :exists :not :and :or  :implies :iff :=))))
 
 
 (defmethod render-axiom ((g latex-logic-generator) (a axiom))
@@ -111,8 +119,16 @@
 	    (setq name  (string-downcase (#"replaceAll" (string (axiom-name a)) "-" " ")))
 	    (setf (char name 0) (char-upcase (char name 0))))
 	  (setq name (format nil ":~a" (string-downcase name))))
-      (format nil (formula-format g) name
-	      (eval (rewrite-to-axiom-generation-form (make-explicit-parentheses g (axiom-sexp a))))))))
+      (concatenate 'string
+		   (if (and (write-descriptions g) (stringp (axiom-description a)) (not (equal (axiom-description a) "")))
+		       (axiom-description a)
+		       "")
+
+      (if (show-names g)
+	  (format nil (formula-format g) name
+	      (eval (rewrite-to-axiom-generation-form (make-explicit-parentheses g (axiom-sexp a)))))
+	  (format nil (formula-format g) 
+	      (eval (rewrite-to-axiom-generation-form (make-explicit-parentheses g (axiom-sexp a))))))))))
 
 (defmethod render-axioms ((generator latex-logic-generator) axs)
   (if (stringp axs)

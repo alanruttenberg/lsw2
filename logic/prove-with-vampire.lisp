@@ -10,6 +10,8 @@
 (defvar *checked-vampire-box-running* nil)
 (defvar *vampire-box-id* (and *running-in-vagrant* (get-vagrant-box-id *vampire-box-name*)))
 (defvar *vampire-shared-directory-local* (and *running-in-vagrant* (make-pathname :directory (get-vagrant-box-wd *vampire-box-name*))))
+(defvar *last-vampire-output* )
+(defvar *last-vampire-input*)
 
 (defclass vampire-logic-generator (z3-logic-generator) ())
 
@@ -33,7 +35,8 @@
 						 (merge-pathnames "tmp/" *vampire-shared-directory-remote*))))
 		 ""
 		 )
-	      (assert (not (#"matches" error-output "(?s).*VM must be running.*")) () "Vampire failed because vagrant wasn't up when it should have been")
+	      (assert (or (not error-output) (not (#"matches" error-output "(?s).*VM must be running.*"))) () "Vampire failed because vagrant wasn't up when it should have been")
+	      output
 	    ))))
     (let ((file (uiop/stream::get-temporary-file :directory "/tmp")))
       (with-open-file (f file :direction :output)
@@ -47,8 +50,10 @@
 				     ,@switches)
 				   ""))))
 
-(defun ensure-vampire-box-running ()
-  (or *checked-vampire-box-running*
+(defun ensure-vampire-box-running (&optional force)
+  (when force
+    (setq *vampire-box-id* (get-vagrant-box-id *vampire-box-name*)))
+  (or (if force nil *checked-vampire-box-running*)
       (unless (equalp (get-vagrant-box-status *vampire-box-id*) "running")
 	(vagrant-box-up  *vampire-box-id*)
 	(unless (equalp (get-vagrant-box-status *vampire-box-id*) "running")
@@ -65,7 +70,7 @@
   (let* ((input  (vampire-render assumptions goals '("(check-sat)")))
 	 (answer 
 	   (setq *last-vampire-output* 
-		 (run-vampire (setq *last-z3-input* input)  timeout mode switches))
+		 (run-vampire (setq *last-vampire-input* input)  timeout mode switches))
 	   ))
     (let ((result 
 	    (if (and (jss::all-matches answer "Termination reason: Refutation")

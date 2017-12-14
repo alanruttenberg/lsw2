@@ -213,13 +213,13 @@
     (map nil (lambda(e)
 	       (if (formula-sexp-p e)
 		   (format t "unnamed")
-		   (format t "** ~a: " (axiom-name e)))
+		   (format t "~%** ~a: " (axiom-name e)))
 	       (if (formula-sexp-p e)
 		   nil
 		   (loop for ((k v) . more) on (axiom-plist e) do (format t "~a:~a" k v) (when more (format t ", "))))
 	       (terpri)
 	       (let ((*print-pretty* t))
-		 (format t "~a" (axiom-sexp e)))
+		 (format t "~%~a" (axiom-sexp e)))
 	       (terpri))
 	 (logic::collect-axioms-from-spec spec)
 	 )))
@@ -243,7 +243,7 @@
 	     (walk-terms (form)
 	       (loop for el in form
 		     do
-			(cond ((and (atom el) (not (char= (char (string el) 0 ) #\?)))
+			(cond ((and (symbolp el) (not (char= (char (string el) 0 ) #\?)))
 			       (uses-constant el))
 			      ((atom el))
 			      (t (walk-function el)))))

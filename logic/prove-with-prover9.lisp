@@ -44,6 +44,7 @@
   (assert (numberp timeout) (timeout) "Timeout should be a number of seconds") 
   (maybe-remind-to-install)
 
+  (push (format nil "assign(max_seconds,~a)" timeout) settings)
   (when (eq which :mace4)
     (when domain-max-size (push (format nil "assign(end_size, ~a)" domain-max-size) settings))
     (when domain-min-size (push (format nil "assign(start_size, ~a)" domain-min-size) settings))
