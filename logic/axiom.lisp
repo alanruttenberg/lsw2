@@ -29,7 +29,7 @@
 		 (make-instance 'axiom :sexp sexp
 				       :description ,description :name ',name
 				       :plist (append
-					       (loop for pred in predicates collect `(:relation ,(keywordify pred)))
+					       (loop for (pred) in predicates collect `(:relation ,(keywordify pred)))
 					       (loop for function in functions collect `(:function ,(keywordify function)))
 					       (loop for const in constants collect `(:constant ,(keywordify const)))
 					       (loop for (k v) on ',key-values by #'cddr
@@ -48,7 +48,7 @@
 (defun get-axiom (name &optional (errorp t))
   (if (typep name 'axiom)
       name
-      (let ((found (gethash (intern (string name) 'keyword) *axioms*)))
+      (let ((found (or (gethash (intern (string name) 'keyword) *axioms*) (gethash (string-downcase (string name)) *autonamed-axioms*))))
 	(if (and (not found) errorp)
 	    (error "Couldn't find axiom named ~s" name))
 	found)))
@@ -207,27 +207,47 @@
 		 :name (intern (concatenate 'string "NEGATED-" (string (axiom-name a))) 'keyword)
 		 :description (concatenate 'string "(negated) " (axiom-description a))
 		 :from a))
-			
-(defmethod pprint-spec-axioms (spec)
+
+(defmethod pprint-spec-axiom-names (spec &key  &allow-other-keys)
+  (pprint-spec-axioms spec :only-name t))
+
+(defmethod pprint-spec-axioms (spec &key only-name (plist nil) &allow-other-keys)
   (let ((*print-case* :downcase))
     (map nil (lambda(e)
 	       (if (formula-sexp-p e)
 		   (format t "unnamed")
 		   (format t "~%** ~a: " (axiom-name e)))
+	       (unless only-name
+		 (when plist
 	       (if (formula-sexp-p e)
 		   nil
-		   (loop for ((k v) . more) on (axiom-plist e) do (format t "~a:~a" k v) (when more (format t ", "))))
+		   (loop for ((k v) . more) on (axiom-plist e) do (format t "~a:~a" k v) (when more (format t ", ")))))
 	       (terpri)
 	       (let ((*print-pretty* t))
 		 (format t "~%~a" (axiom-sexp e)))
-	       (terpri))
+	       (terpri)))
 	 (logic::collect-axioms-from-spec spec)
 	 )))
 
+(defparameter *autonamed-axioms* (make-hash-table :test 'equalp :weakness :key))
+(defvar *axiom-counter* 0)
+
 (defmethod axiom-name ((a list))
   (assert (formula-sexp-p a) (a) "Axioms should be objects of formula sexps: ~a" a)
-  "not named")
-   
+  (or (call-next-method)
+      (let ((name (substitute #\- #\space (format nil "formula-~r" (incf *axiom-counter*)))))
+	(setf (gethash name *autonamed-axioms*) a)
+	(setf (slot-value a 'name)  name)
+	name)))
+
+(defmethod axiom-name :around ((a axiom))
+  (or (call-next-method)
+      (let ((name (substitute #\- #\space (format nil "formula-~r" (incf *axiom-counter*)))))
+	(setf (gethash name *autonamed-axioms*) (axiom-sexp a))
+	(setf (slot-value a 'name)  name)
+	name)))
+	
+
 ;; return predicates, constants, function symbols in formula
 (defun formula-elements (sexp)
   (let ((predicates nil)
@@ -235,7 +255,7 @@
 	(functions nil)
 	(exp (axiom-sexp sexp))) ;; so macroexpansion happens
     (labels ((uses-constant (sym) (pushnew sym constants))
-	     (uses-predicate (sym) (pushnew sym predicates))
+	     (uses-predicate (sym args) (pushnew (list sym (length args)) predicates :test 'equalp))
 	     (uses-function (sym) (pushnew sym functions))
 	     (walk-function (form)
 	       (uses-function (car form))
@@ -258,7 +278,7 @@
 			  ((:implies :iff :and :or :not  :fact) (map nil #'walk (rest form)))
 			  ((:distinct :=) (walk-terms (rest form)))
 			  (otherwise
-			   (uses-predicate (car form))
+			   (uses-predicate (car form) (Rest form))
 			   (walk-terms (rest form))))))))
       (walk exp)
       (values predicates constants functions))))

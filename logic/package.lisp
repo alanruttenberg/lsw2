@@ -35,6 +35,8 @@
    #:z3-check-satisfiability
    #:z3-syntax-check
    #:z3-render
+   #:z3-model-form
+   #:pprint-z3-model
    #:render
    #:render-axiom #:render-axioms
    #:vampire-prove
