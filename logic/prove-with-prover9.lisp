@@ -132,6 +132,15 @@
   (if (or (eq format :cooked) (eq format :baked))
       (let ((it (reformat-interpretation output :cooked)))
 	(if (eq format :baked)
+	    (progn 
+	      ;; for reasons that escape me, sometimes true/false is indicated by a prefix of "-" for false, and an absence of it for true.
+	      ;; other times (and I can't tell why in one case than another, other than when I generate interpretations for model checking)
+	      ;; T/F is indicated by after the prop "= 0/1" 
+	      ;; if written in the latter form, we fix that here:
+	      (setq it (replace-all it "(?m)^\\s*(.*?\\(.*?\\)) = (\\d+).$"
+				    (lambda(form value)
+				      (format nil "~a ~a" (if (equal value "0") "-" " ") form))
+			 1 2))	    
 	    ;; get rid of the skolem functions and negatives (things that don't hold)
 	    (let ((matched (reverse (all-matches it "\\n([A-Za-z0-9]+) = (\\d+)\\." 1 2)))
 		  (domain-size (caar (all-matches it "% Interpretation of size (\\d+)" 1))))
@@ -158,7 +167,7 @@
 		;; replace the numbers for universals and constants with their name
 		(format nil ";; domain size ~a~%~a" domain-size
 			(replace-all reduced "(?s)(\\d+)" (lambda(num) (car (find num matched :test 'equalp :key 'second))) 1))
-		))
+		)))
 	    it))
       (reformat-interpretation output format)))
 
@@ -235,4 +244,9 @@
     (values result (setq *last-mace4-model* model))))
 
 
+(defun mace4-lispify-model (string)
+  (let ((lines (cdr (cl-user::split-at-char string #\newline))))
+    (loop for line in lines
+	  for split = (funcall 'cl-user::split-at-regex  (#"replaceAll" line "\\s+" "") "[(),]")
+	  collect (mapcar 'intern (mapcar 'logic::de-camel-case (butlast split))))))
 

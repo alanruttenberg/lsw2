@@ -88,7 +88,7 @@
 ;; Whether to do the upper-case thing for firstcap camelcase
 (defvar *prover9-uparrow-initialcap* nil)
 ;; Whether to save the capitalization on the plist of a symbol 
-(defvar *prover9-record-initialcap* t)
+(defvar *prover9-record-initialcap* nil)
 
 ;; Take a lisp symbol and convert to camel case, using the conventions
 (defun de-camel-case (string)
