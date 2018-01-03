@@ -1,3 +1,5 @@
+(in-package :cl-user)
+
 (defun tree-walk (tree fn)
   (funcall fn tree)
   (when (consp tree)
@@ -6,7 +8,12 @@
 (defun tree-find (sym tree &key (test #'eq))
   (cond ((atom tree)
 	 (funcall test sym tree))
-	(t (some (lambda(el) (tree-find sym el)) tree))))
+	(t (some (lambda(el) (tree-find sym el :test test)) tree))))
+
+(defun f (tree fn)
+  (cond ((atom tree)
+	 (funcall fn tree))
+	(t (mapcar (lambda(el) (f el fn)) tree))))
 
 (defun tree-replace (replace-fn tree)
   "create new tree replacing each element with the result of calling replace-fn on it"

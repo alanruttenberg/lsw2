@@ -48,7 +48,8 @@
 (defun get-axiom (name &optional (errorp t))
   (if (typep name 'axiom)
       name
-      (let ((found (or (gethash (intern (string name) 'keyword) *axioms*) (gethash (string-downcase (string name)) *autonamed-axioms*))))
+      (let* ((key (intern (string name) 'keyword))
+	     (found (or (gethash key  *axioms*) (gethash key *autonamed-axioms*))))
 	(if (and (not found) errorp)
 	    (error "Couldn't find axiom named ~s" name))
 	found)))
@@ -226,7 +227,7 @@
 	       (let ((*print-pretty* t))
 		 (format t "~%~a" (axiom-sexp e)))
 	       (terpri)))
-	 (logic::collect-axioms-from-spec spec)
+	 (logic::collect-axioms-from-spec (if (symbolp spec) (list spec) spec))
 	 )))
 
 (defparameter *autonamed-axioms* (make-hash-table :test 'equalp :weakness :key))
@@ -236,14 +237,14 @@
   (assert (formula-sexp-p a) (a) "Axioms should be objects of formula sexps: ~a" a)
   (or (call-next-method)
       (let ((name (substitute #\- #\space (format nil "formula-~r" (incf *axiom-counter*)))))
-	(setf (gethash name *autonamed-axioms*) a)
+	(setf (gethash (intern (string-upcase name) :keyword) *autonamed-axioms*) a)
 	(setf (slot-value a 'name)  name)
 	name)))
 
 (defmethod axiom-name :around ((a axiom))
   (or (call-next-method)
       (let ((name (substitute #\- #\space (format nil "formula-~r" (incf *axiom-counter*)))))
-	(setf (gethash name *autonamed-axioms*) (axiom-sexp a))
+	(setf (gethash (intern (string-upcase name) :keyword) *autonamed-axioms*) (axiom-sexp a))
 	(setf (slot-value a 'name)  name)
 	name)))
 	

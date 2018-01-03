@@ -186,11 +186,6 @@
        (and head (format t "Main Node: ~a" (or head "")))
        (terpri))))
 
-(defun tree-find (sym tree &key (test #'eq))
-  (cond ((atom tree)
-	 (funcall test sym tree))
-	(t (some (lambda(el) (tree-find sym el)) tree))))
-
 (defun subscripted-variables (tree)
   (let ((them nil))
     (labels ((look (it)

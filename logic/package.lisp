@@ -23,6 +23,7 @@
    #:logic-generator #:with-logic-var #:with-logic-vars #: #:
    #:def-logic-axiom #:axiom-sexp #:axiom-name #:axiom-description
    #:delete-axiom #:get-axiom #:prover9-prove #:mace4-find-model #:mace4-check-satisfiability #:mace4-check-satisfiability-alt #:logic-var-p
+   #:clausetester-check-model 
    #:get-axioms #:tree-walk #:tree-replace
    #:prover9-logic-generator
    #:*last-mace4-model* 
@@ -41,13 +42,15 @@
    #:render-axiom #:render-axioms
    #:vampire-prove
    #:vampire-render
-   #:pprint-spec-axioms #:clear-axioms
+   #:pprint-spec-axioms  #:pprint-spec-axiom-names  #:clear-axioms
    #:*last-z3-input* #:*last-z3-output*
    #:*last-vampire-input* #:*last-vampire-output*
+   #:*last-clausetester-input*   #:*last-clausetester-output*
    #:def-expect-satisfiable #:def-expect-unsatisfiable #:def-expect-provable #:def-expect-not-entailed 
    #:run-proof #:proof-form #:render-proof #:prove-with
    #:clif-logic-generator #:dol-logic-generator
    #:render-ontology
+   #:formula-elements
    #:vampire-check-unsatisfiable
    #:prover9-check-unsatisfiable
   ))
