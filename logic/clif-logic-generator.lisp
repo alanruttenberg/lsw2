@@ -1,10 +1,13 @@
 (in-package :logic)
 
-(defclass clif-logic-generator (logic-generator)())
+(defclass clif-logic-generator (logic-generator)
+  ((double-quote-quote :accessor double-quote-quote   :initarg :double-quote-quote :initform t)))
 
 (defmethod render-axiom ((g clif-logic-generator) axiom)
   (flet ((quote-string (e)
-	   (#"replaceAll" e "'" "\\U+0027"))) ;; stupid commonlogic parser in hets doesn't recognize \'
+	   (if (double-quote-quote g)
+	       (#"replaceAll" e "'" "''")
+	       (#"replaceAll" e "'" "\\U+0027")))) ;; stupid commonlogic parser in hets doesn't recognize \'
     (let ((*print-pretty* t))
       (format nil "(cl:comment '~a')~%~{(cl:comment '~a')~%~}~a" 
 	      (quote-string (string-downcase (string (axiom-name axiom))) )
@@ -27,5 +30,5 @@
       (format nil "~{~a~^~%~%~}" (mapcar (lambda(e) (render-axiom generator e)) axs))
       ))
 
-render-ontology
+
 
