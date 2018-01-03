@@ -63,11 +63,11 @@
     (multiple-value-bind (predicates constants)  (formula-elements `(:and ,@model))
       (multiple-value-bind (predicates-m constants-m) (and theory 
 							   (formula-elements 
-							    `(:and ,@(mapcar 'axiom-sexp (collect-axioms-from-spec theory)))))
+							    `(:and ,@(mapcar 'axiom-sexp (remove-duplicates (collect-axioms-from-spec theory))))))
 	(setq predicates (union predicates predicates-m :test 'equalp) constants (union constants constants-m)))
       (let ((domain-size (length constants)))
 ;	(write-string *ladr-header* stream)
-	(format stream "~%qinterpretation( ~a, [number=1, seconds=0], [~%" domain-size)
+	(format stream "~%interpretation( ~a, [number=1, seconds=0], [~%" domain-size)
 	(loop for c in constants
 	      for num from 0 
 	      do (format stream "  function(~a, [ ~a ]),~%" (concatenate 'string "_" (normalize-names g c)) num)
@@ -114,25 +114,34 @@
     (with-open-file (f interpretation-file :direction :output)
       (setq *last-clausetester-input* (ladr-write-positive-ground-model model theory 'string))
       (write-string *last-clausetester-input* f))
-    (let ((results (run-program-string->string
-		    (prover-binary "clausetester")
-		    (list (namestring (truename interpretation-file)))
-		    (second (setq *last-clausetester-input* (list *last-clausetester-input*  (render-axioms (make-instance 'prover9-logic-generator :name-prefix "_") theory))))
-		    )))
+    (let ((results (setq *last-clausetester-output*
+			 (run-program-string->string
+			  (prover-binary "clausetester")
+			  (list (namestring (truename interpretation-file)))
+			  (second (setq *last-clausetester-input* (list *last-clausetester-input*  (render-axioms (make-instance 'prover9-logic-generator :name-prefix "_") (collect-axioms-from-spec theory)))))
+			  ))))
+      (let ((error? (search "%ready to abort" results )))
+	(when error?
+	  (let ((last-newline (position #\newline results :from-end t :end error?)))
+	    (error "Clausetester error: ~a" (subseq results (1+ last-newline))))))
       (with-input-from-string (s results)
 	(let ((s2 (make-string-output-stream)))
 	  (loop for line = (read-line s nil :eof)
 		until (eq line :eof)
 		with failures with successes
-		do (format s2 "~a~%" line)
+		do (sleep .1)
+		   (format s2 "~a~%" line)
 		   (let ((summary (car (all-matches line "% interp 1 models (\\d+) of (\\d+) clauses." 1 2))))
 		     (if summary
 			 (progn 
-			   (setq *last-clausetester-output* (get-output-stream-string s2))
+			   (get-output-stream-string s2)
 			   (if (equal (first summary) (second summary))
-			       (return-from clausetester-check-model (values :satisfying-model successes))))
+			       (return-from clausetester-check-model :satisfying-model)))
 			 (destructuring-bind (formula label worked?)
-			     (car (all-matches line "(.*?)\\s*(#\\s*label\\(\"(.*?)\"\\)\\.){0,1}\\s*%\\s*(.*){0,1}" 1 3 4))
+			     (let ((matches 
+				     (car (all-matches line "(.*?)\\s*(#\\s*label\\(\"(.*?)\"\\)\\.){0,1}\\s*%\\s*(.*){0,1}" 1 3 4))))
+			       (assert matches (line) "clausetester-ouput didn't match expectations: ~s"  line)
+			       matches)
 			   (declare (ignore formula))
 			   (if (not (equal worked? "1"))
 			       (push (intern label 'keyword) failures)

@@ -75,11 +75,23 @@
 (defun pred-class (class arg)
   (logical-class *logic-generator*  class arg))
 
+(defvar *quantifier-scoped* nil)
+
 (defun l-forall (vars &rest expressions)
-  (logical-forall *logic-generator* vars expressions))
+  (assert (every 'logic-var-p vars) (vars)
+	  "Anything quantified over needs to be a variable but got forall ~a" vars)
+  (assert (= (length expressions) 1) (expressions)
+	  "Expected a single expression inside :forall but got: ~a" expressions)
+  (let ((*quantifier-scoped* (append vars *quantifier-scoped*)))
+    (logical-forall *logic-generator* vars expressions)))
 
 (defun l-exists (vars &rest expressions)
-  (logical-exists *logic-generator* vars expressions))
+  (assert (every 'logic-var-p vars) (vars)
+	  "Anything quantified over needs to be a variable but got exists ~a" vars)
+  (assert (= (length expressions) 1) (expressions)
+	  "Expected a single expression inside :exists but got: ~a" expressions)
+  (let ((*quantifier-scoped* (append vars *quantifier-scoped*)))
+    (logical-exists *logic-generator* vars expressions)))
 
 (defun l-implies (antecedent consequent)
   (logical-implies *logic-generator* antecedent consequent))

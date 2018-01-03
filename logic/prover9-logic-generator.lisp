@@ -1,14 +1,14 @@
 (in-package :logic)
 
 (defclass prover9-logic-generator (logic-generator)
-  ((variable-prefix :accessor variable-prefix :initarg :name-prefix :initform "")))
+  ((name-prefix :accessor name-prefix :initarg :name-prefix :initform "")))
 
 (defmethod normalize-names ((g prover9-logic-generator) e)
   (cond ((and (symbolp e) (char= (char (string e) 0) #\?))
 	 (camelcase-uparrow (subseq (string e) 1)))
-	((symbolp e) (concatenate 'string (variable-prefix g) (camelcase-uparrow (string e))))
+	((symbolp e) (concatenate 'string (name-prefix g) (camelcase-uparrow (string e))))
 	((and (stringp e) (find #\( e :test 'char=)) e) ;; already done
-	((stringp e) (concatenate 'string (variable-prefix g) (camelcase-uparrow e)))
+	((stringp e) (concatenate 'string (name-prefix g) (camelcase-uparrow e)))
 	((uri-p e) (camelcase-uparrow (if (and (boundp '*default-kb*) *default-kb*)
 				  (uri-label e)
 				  (#"replaceAll" (uri-full e) ".*/" ""))) )

@@ -38,7 +38,7 @@
 
 (defun mace-or-prover9 (which assumptions goals &key (timeout 10) (interpformat :baked) (show-translated-axioms nil)
 						  max-memory domain-min-size domain-max-size max-time-per-domain-size  hints
-						  expected-proof
+						  expected-proof term-ordering max-weight cac-redundancy skolems-last
 			&aux settings)
 
   (assert (numberp timeout) (timeout) "Timeout should be a number of seconds") 
@@ -46,10 +46,16 @@
 
   (push (format nil "assign(max_seconds,~a)" timeout) settings)
   (when (eq which :mace4)
+    (when max-weight (push (format nil "assign(max_weight, ~a)" max-weight) settings))
     (when domain-max-size (push (format nil "assign(end_size, ~a)" domain-max-size) settings))
     (when domain-min-size (push (format nil "assign(start_size, ~a)" domain-min-size) settings))
     (when max-memory (push (format nil "assign(max_megs, ~a)" max-memory) settings))
-    (when max-time-per-domain-size (push (format nil "assign(max_seconds_per, ~a)" max-time-per-domain-size) settings)))
+    (when max-time-per-domain-size (push (format nil "assign(max_seconds_per, ~a)" max-time-per-domain-size) settings))
+    (when skolems-last (push (format nil "~a(skolems_last)~%" (string-downcase (string skolems-last))) settings))
+    )
+  (when (eq which :prover9)
+    (when cac-redundancy (push (format nil "~a(cac_redundancy)~%" (string-downcase (string cac-redundancy))) settings))
+    (when term-ordering (push (format nil "assign(order, ~a)" term-ordering) settings)))
   (let* ((input (prepare-prover9-input assumptions goals :settings settings :show-translated-axioms show-translated-axioms :hints hints))
 	 (output
 	   (run-program-string->string
@@ -142,12 +148,12 @@
 				      (format nil "~a ~a" (if (equal value "0") "-" " ") form))
 			 1 2))	    
 	    ;; get rid of the skolem functions and negatives (things that don't hold)
-	    (let ((matched (reverse (all-matches it "\\n([A-Za-z0-9]+) = (\\d+)\\." 1 2)))
+	    (let ((matched (reverse (all-matches it "\\n([A-Za-z0-9_]+) = (\\d+)\\." 1 2)))
 		  (domain-size (caar (all-matches it "% Interpretation of size (\\d+)" 1))))
 	      (setq matched (handle-equated-names matched))
 	      (let ((reduced (#"replaceAll"  (#"replaceAll" it "\\s(-|f\\d+|c\\d+).*" "") "\\n{2,}" (string #\newline))))
 		;; suck up the names of the universals and other constants
-		(setq reduced (#"replaceAll" (#"replaceAll" reduced "\\n([A-Za-z0-9]+) = (\\d+)\\." "")  "(?m)^%.*\\n" "" ))
+		(setq reduced (#"replaceAll" (#"replaceAll" reduced "\\n([_A-Za-z0-9]+) = (\\d+)\\." "")  "(?m)^%.*\\n" "" ))
 		;; There may be other instances - skolems. Let's find and rename them
 		(let* ((mentioned-numbers 
 			 (remove-duplicates 
@@ -248,5 +254,7 @@
   (let ((lines (cdr (cl-user::split-at-char string #\newline))))
     (loop for line in lines
 	  for split = (funcall 'cl-user::split-at-regex  (#"replaceAll" line "\\s+" "") "[(),]")
-	  collect (mapcar 'intern (mapcar 'logic::de-camel-case (butlast split))))))
+	  unless (#"matches" line "^\\s*$")
+	    collect (mapcar 'intern (mapcar 'logic::de-camel-case (butlast split))))))
+
 

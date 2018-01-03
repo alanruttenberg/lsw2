@@ -6,18 +6,22 @@
    (domain-sort :accessor domain-sort :initarg :domain-sort :initform '|Int|)))
 
 (defmethod normalize-names ((g z3-logic-generator) e)
-  (cond ((and (symbolp e) (char= (char (string e) 0) #\?))
-	 (intern (subseq (string e) 1)))
-	((keywordp e) e)
-	((and (symbolp e) (find #\- (string e))
-	      (intern (camelCase (replace-all (string e) "(\\d+)" (lambda(e) (camelCase (format nil "~r" (read-from-string e)))) 1)))))
-	((uri-p e) (intern 
-			     (camelCase
-			      (if (and (boundp '*default-kb*) *default-kb*)
-				  (uri-label e)
-				  (#"replaceAll" (uri-full e) ".*/" "")))))
-	((atom e) e)
-	(t (mapcar (lambda(e) (normalize-names g e)) e))))
+  (if (and (symbolp e) (digit-char-p (char (string e) 0)))
+      (normalize-names g (format nil "~r~a" (parse-integer (string (char (string e) 0))) (subseq (string e) 1)))
+      (flet ((replace-numbers (name)
+	       (replace-all (string name) "(\\d+)" (lambda(e) (camelCase (format nil "~r" (read-from-string e)))) 1)))
+	(cond ((and (symbolp e) (char= (char (string e) 0) #\?))
+	       (normalize-names g (intern (subseq (string e) 1))))
+	      ((keywordp e) e)
+	      ((and (symbolp e) (find #\- (string e)))
+	       (intern (camelCase (replace-numbers e))))
+	      ((uri-p e) (intern 
+			  (camelCase
+			   (if (and (boundp '*default-kb*) *default-kb*)
+			       (uri-label e)
+			       (#"replaceAll" (uri-full e) ".*/" "")))))
+	      ((atom e) e)
+	      (t (mapcar (lambda(e) (normalize-names g e)) e))))))
 
 (defmethod z3-quantifier-vars ((g z3-logic-generator) vars)
   (normalize-names g vars))
