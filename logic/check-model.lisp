@@ -114,15 +114,18 @@
     (with-open-file (f interpretation-file :direction :output)
       (setq *last-clausetester-input* (ladr-write-positive-ground-model model theory 'string))
       (write-string *last-clausetester-input* f))
-    (let ((results (setq *last-clausetester-output*
-			 (run-program-string->string
-			  (prover-binary "clausetester")
-			  (list (namestring (truename interpretation-file)))
-			  (second (setq *last-clausetester-input* (list *last-clausetester-input*  (render-axioms (make-instance 'prover9-logic-generator :name-prefix "_") (collect-axioms-from-spec theory)))))
-			  ))))
+    (let ((results  (run-program-string->string
+		    (prover-binary "clausetester")
+		    (list (namestring (truename interpretation-file)))
+		    (second (setq *last-clausetester-input* 
+				  (list *last-clausetester-input*  
+					(render-axioms (make-instance 'prover9-logic-generator :name-prefix "_")
+						       (collect-axioms-from-spec theory)))))
+		    )))
+      (setq *last-clausetester-output* results)
       (let ((error? (search "%ready to abort" results )))
 	(when error?
-	  (let ((last-newline (position #\newline results :from-end t :end error?)))
+	  (let ((last-newline (or (position #\newline results :from-end t :end error?) 0)))
 	    (error "Clausetester error: ~a" (subseq results (1+ last-newline))))))
       (with-input-from-string (s results)
 	(let ((s2 (make-string-output-stream)))
@@ -144,8 +147,8 @@
 			       matches)
 			   (declare (ignore formula))
 			   (if (not (equal worked? "1"))
-			       (push (intern label 'keyword) failures)
-			       (push (intern label 'keyword) successes))
+			       (push (intern (string-upcase label) 'keyword) failures)
+			       (push (intern (string-upcase label) 'keyword) successes))
 			   )))
 		finally
 		   (return (values :failed failures))
