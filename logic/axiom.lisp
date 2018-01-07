@@ -212,7 +212,7 @@
 (defmethod pprint-spec-axiom-names (spec &key  &allow-other-keys)
   (pprint-spec-axioms spec :only-name t))
 
-(defmethod pprint-spec-axioms (spec &key only-name (plist nil) &allow-other-keys)
+(defmethod pprint-spec-axioms (spec &key only-name (plist nil) with-colons &allow-other-keys)
   (let ((*print-case* :downcase))
     (map nil (lambda(e)
 	       (if (formula-sexp-p e)
@@ -225,7 +225,9 @@
 		   (loop for ((k v) . more) on (axiom-plist e) do (format t "~a:~a" k v) (when more (format t ", ")))))
 	       (terpri)
 	       (let ((*print-pretty* t))
-		 (format t "~%~a" (axiom-sexp e)))
+		 (if with-colons
+		 (format t "~%~s" (axiom-sexp e))
+		 (format t "~%~a" (axiom-sexp e))))
 	       (terpri)))
 	 (logic::collect-axioms-from-spec (if (symbolp spec) (list spec) spec))
 	 )))
