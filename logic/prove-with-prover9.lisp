@@ -39,6 +39,7 @@
 (defun mace-or-prover9 (which assumptions goals &key (timeout 10) (interpformat :baked) (show-translated-axioms nil)
 						  max-memory domain-min-size domain-max-size max-time-per-domain-size  hints
 						  expected-proof term-ordering max-weight cac-redundancy skolems-last
+						  return-proof return-proof-support no-output
 			&aux settings)
 
   (assert (numberp timeout) (timeout) "Timeout should be a number of seconds") 
@@ -92,14 +93,19 @@
 				    (if (search "SEARCH FAILED" output)
 					:failed
 					nil)))))
-		(let ((output
-			(multiple-value-list
-			 (ecase which
-			   (:mace4
-			    (cook-mace4-output output interpformat))
-			   (:prover9 output)))))
-		  (when *debug* (princ (car output)))
-		  output)
+		(if return-proof
+		    (prover9-output-proof-section output)
+		    (if return-proof-support
+			(get-proof-support output)
+			(unless no-output
+			  (let ((output
+				  (multiple-value-list
+				   (ecase which
+				     (:mace4
+				      (cook-mace4-output output interpformat))
+				     (:prover9 output)))))
+			    (when *debug* (princ (car output)))
+			    output))))
 		)))))
 
 (defun proof-to-hints (assumptions goals &optional (timeout 10))
@@ -204,8 +210,8 @@
 		  (close (process-output process)))))
 	  output)))
 
-(defun prover9-prove (assumptions goals  &key (timeout 10) (show-translated-axioms nil))
-  (mace-or-prover9  :prover9 assumptions goals :timeout timeout :show-translated-axioms show-translated-axioms))
+(defun prover9-prove (assumptions goals  &rest keys &key (timeout 10) (show-translated-axioms nil) &allow-other-keys)
+  (apply 'mace-or-prover9  :prover9 assumptions goals :timeout timeout :show-translated-axioms show-translated-axioms keys))
 	
 (defun prover9-check-unsatisfiable (assumptions &rest keys  &key expected-proof &allow-other-keys)
   (let ((result (apply 'prover9-prove assumptions nil keys)))
@@ -258,3 +264,17 @@
 	    collect (mapcar 'intern (mapcar 'logic::de-camel-case (butlast split))))))
 
 
+(defun prover9-output-proof-section (output)
+  (and (search "THEOREM PROVED" output)
+       (caar (all-matches output "(?sm)={30,30} PROOF =+$(.*?)={30,30} end of proof =+$" 1))))
+  
+(defun get-proof-support (prover9-output)
+  (if (consp prover9-output)
+      (setq prover9-output (car prover9-output)))
+  (if (search "THEOREM PROVED" prover9-output)
+      (let* ((proof-section (prover9-output-proof-section prover9-output))
+	     (without-goal-deny (#"replaceAll" proof-section "(?m)^(.*((label\\(goal)|(\\[deny)).*?)$" ""))
+	     (labels (mapcar 'car (all-matches without-goal-deny "# label\\(\"([^\"]+?)\"" 1))))
+	(remove-duplicates (mapcar 'keywordify (mapcar 'string-upcase labels))))
+      (values nil :wasnt-a-proof)))
+    
