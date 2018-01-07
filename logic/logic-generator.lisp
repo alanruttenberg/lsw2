@@ -176,6 +176,11 @@
 (defmethod render-axiom ((g symbol) (a string))
   (render-axiom (make-instance g) a))
 
+
+(defmethod render-axioms :around (any axs)
+  (let ((*print-case* :downcase))
+    (call-next-method)))
+
 (defmethod render-axioms ((g logic-generator b) axs)
   (if (stringp axs)
       axs
@@ -193,7 +198,8 @@
 	    (:latex 'latex-logic-generator)
 	    (:clif 'clif-logic-generator)
 	    (:dol 'dol-logic-generator)
-	    )))
+	    ))
+	(*print-case* :downcase))
     (flet ((doit ()
 	     (let ((axioms (append (if (stringp assumptions) assumptions
 					 (collect-axioms-from-spec assumptions))
