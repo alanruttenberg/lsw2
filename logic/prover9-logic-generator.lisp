@@ -77,8 +77,8 @@
 		 (format nil "~{% ~a~%~}" (and (axiom-description a) (jss::split-at-char (axiom-description a) #\newline)))
 		 ax
 		 (if (axiom-name a)
-		     (format nil " # label(\"~a\") .~%" (axiom-name a))
-		     (format nil ".~%")))))
+		     (format nil " # label(\"~a\") .~%~%" (axiom-name a))
+		     (format nil ".~%~%")))))
 
 
 (defmethod render-axioms ((generator prover9-logic-generator) axs)
