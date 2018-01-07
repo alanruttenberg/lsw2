@@ -16,7 +16,7 @@
 (asdf:defsystem util
   :name "LSW2 utilities"
   :author "Alan Ruttenberg" :version "2.0.0"
-  :depends-on (xpath-lsw xmls xptest)
+  :depends-on (xpath-lsw xmls xptest lparallel)
   :components
   ((:mvn-module maven
     :dependencies 
@@ -54,6 +54,7 @@
 	     (:file "send-prowl-notification")
 	     (:file "vagrant")
 	     (:file "exit-hook")
-	     (:file "tree")))))
+	     (:file "tree")
+	     (:file "background")))))
 
 
