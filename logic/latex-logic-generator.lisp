@@ -5,7 +5,8 @@
    (insert-line-breaks :accessor insert-line-breaks :initarg :insert-line-breaks :initform nil)
    (prettify-names :accessor prettify-names :initform t :initarg :prettify-names)
    (show-names :accessor show-names :initform t :initarg :show-names)
-   (write-descriptions :accessor write-descriptions :initform nil :initarg :write-descriptions)))
+   (write-descriptions :accessor write-descriptions :initform nil :initarg :write-descriptions)
+   (numbered :accessor numbered :initform nil :initarg :numbered)))
 
 (defmethod normalize-names ((g latex-logic-generator) e)
   (cond ((and (symbolp e) (char= (char (string e) 0) #\?))
@@ -131,10 +132,16 @@
 	      (eval (rewrite-to-axiom-generation-form (make-explicit-parentheses g (axiom-sexp a))))))))))
 
 (defmethod render-axioms ((generator latex-logic-generator) axs)
-  (if (stringp axs)
-      axs
-      (format nil "~{~a~^~%~}" (mapcar (lambda(e) (render-axiom generator e)) axs))
-      ))
+  (let ((count 0))
+    (if (stringp axs)
+	axs
+	(format nil "~{~a~^~%~}" 
+		(mapcar (lambda(e)
+			  (concatenate 'string
+				       (if (numbered generator) (format nil "~a. " (incf count))
+					   "")
+				       (render-axiom generator e))) axs))
+		)))
 
 
 ;; even using breqn there is trouble with long parenthesized expressions
