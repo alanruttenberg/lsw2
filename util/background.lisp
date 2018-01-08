@@ -67,6 +67,10 @@
 	when el
 	  do (write-string (status-line el) (terpri))))
 
+(defun flush-jobs ()
+  (loop for i below (length *jobs*)
+	do (setf (aref *jobs* i) nil)))
+
 (defun % (number)
   (let ((job (aref *jobs* (1- number))))
     (if (null job)
