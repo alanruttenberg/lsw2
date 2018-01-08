@@ -46,6 +46,9 @@
   (maybe-remind-to-install)
 
   (push (format nil "assign(max_seconds,~a)" timeout) settings)
+  ;; autodenials - not confident about this setting, but the effect was in certain proofs that (horn nets) the total
+  ;; proof was in parts, and so the code that got the proof support was confused.
+  (push "clear(auto_denials)" settings)
   (when (eq which :mace4)
     (when max-weight (push (format nil "assign(max_weight, ~a)" max-weight) settings))
     (when domain-max-size (push (format nil "assign(end_size, ~a)" domain-max-size) settings))
@@ -264,11 +267,11 @@
 	    collect (mapcar 'intern (mapcar 'logic::de-camel-case (butlast split))))))
 
 
-(defun prover9-output-proof-section (output)
+(defun prover9-output-proof-section (&optional (output *last-prover9-output*))
   (and (search "THEOREM PROVED" output)
        (caar (all-matches output "(?sm)={30,30} PROOF =+$(.*?)={30,30} end of proof =+$" 1))))
   
-(defun get-proof-support (prover9-output)
+(defun get-proof-support (&optional (prover9-output *last-prover9-output*))
   (if (consp prover9-output)
       (setq prover9-output (car prover9-output)))
   (if (search "THEOREM PROVED" prover9-output)
