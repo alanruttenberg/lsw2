@@ -53,4 +53,6 @@
    #:formula-elements
    #:vampire-check-unsatisfiable
    #:prover9-check-unsatisfiable
+   #:prover9-output-proof-section
+   #:get-proof-support
   ))
