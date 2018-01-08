@@ -20,11 +20,11 @@
 ;;; current package
 
 (defpackage "ENCAPSULATE" (:USE "CL" "SYSTEM")
-	    (:export "TRACE" "UNTRACE" "ADVISE" "UNADVISE" "ARGLIST"))
+	    (:export "TRACE" "UNTRACE" "ADVISE" "UNADVISE" "ARGLIST" "ARGS"))
 
 (in-package "ENCAPSULATE")
 
-(shadowing-import '(trace untrace advise unadvise arglist) 'cl-user)
+(shadowing-import '(trace untrace advise unadvise arglist args) 'cl-user)
 
 (defvar *loading-removes-encapsulation* nil
   "If true, loading a new method definition from a file will remove any tracing and advice on the method")
