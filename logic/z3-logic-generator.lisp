@@ -90,14 +90,16 @@
 
   
 (defmethod render-axiom ((g z3-logic-generator) (a axiom))
-  (let ((bare (call-next-method)))
-    (if (with-declarations g)
-	(concatenate 'string 
-		     (generate-declarations g (list a))
-		     (to-string g `(assert ,(normalize-names g bare))))
-	(if (and (with-names g) (axiom-name a))
-	    (to-string g `(assert (|!| ,(normalize-names g bare) |:named| ,(replace-all (string (axiom-name a)) "(\\d+)" (lambda(e) (camelCase (format nil ".~r" (read-from-string e)))) 1))))
-	    (to-string g `(assert ,(normalize-names g bare)))))))
+  (flet ((replace-angle (name)
+	   (#"replaceAll" (#"replaceAll"  (string name) "<" ".lt.") ">" ".gt.")))
+    (let ((bare (call-next-method)))
+      (if (with-declarations g)
+	  (concatenate 'string 
+		       (generate-declarations g (list a))
+		       (to-string g `(assert ,(normalize-names g bare))))
+	  (if (and (with-names g) (axiom-name a))
+	      (to-string g `(assert (|!| ,(normalize-names g bare) |:named| ,(replace-angle (replace-all (string (axiom-name a)) "(\\d+)" (lambda(e) (camelCase (format nil ".~r" (read-from-string e)))) 1)))))
+	      (to-string g `(assert ,(normalize-names g bare))))))))
 
 (defmethod render-axioms ((g z3-logic-generator) (a list))
   (apply 'concatenate 'string

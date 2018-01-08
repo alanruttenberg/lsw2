@@ -114,9 +114,18 @@
       (setf (prover-output expected-proof) answer))
     (if (#"matches" answer "(?s)^unsat.*")
 	(let ((names (mapcar 'car (all-matches (subseq answer 6)  "([A-Za-z.+-]+)" 1))))
-	  (mapcar (lambda(e) (keywordify (string-upcase (replace-all e "(?i)\\.((zero)|(one)|(two)|(three)|(four)|(five)|(six)|(seven)|(eight)|(nine))"
-					  (lambda(fix) (second (assoc fix '(("zero" "0") ("one" "1") ("two" "2") ("three" "3") ("four" "4") ("five" "5") ("six" "6") ("seven" "7") ("eight" "8") ("nine" "9"))
-								      :test 'equalp))) 1)))) 
+	  (mapcar (lambda(e) (keywordify 
+			      (string-upcase
+			       (#"replaceAll" 
+			       (#"replaceAll" 
+			       (replace-all
+				e
+				"(?i)\\.((zero)|(one)|(two)|(three)|(four)|(five)|(six)|(seven)|(eight)|(nine))"
+				(lambda(fix) (second (assoc fix '(("zero" "0") ("one" "1") ("two" "2") ("three" "3")
+								  ("four" "4") ("five" "5") ("six" "6") ("seven" "7")
+								  ("eight" "8") ("nine" "9")) :test 'equalp))) 1)
+			       "\\.gt\\." ">") ;; unmangle names
+			       "\\.lt\\." "<")))) 
 		  names))
 	answer)))
 
