@@ -102,8 +102,8 @@
 	    (or (swank-emacs-inspect uri)
 		(call-next-method))))))
 
-(defvar cl-user::*after-swank-init-hook* nil)
-(pushnew 'define-owl-emacs-inspect cl-user::*after-swank-init-hook*)
+(defvar cl-user::*after-slime-starts-hook* nil)
+(pushnew 'define-owl-emacs-inspect cl-user::*after-slime-starts-hook*)
 
 
 
