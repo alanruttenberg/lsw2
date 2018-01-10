@@ -55,6 +55,7 @@
 	     (:file "vagrant")
 	     (:file "exit-hook")
 	     (:file "tree")
-	     (:file "background")))))
+	     (:file "background")
+	     (:file "slime-extras")))))
 
 

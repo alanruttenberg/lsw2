@@ -225,3 +225,22 @@
 		    (t (push word words) (incf so-far (length word)))))
 	   (when words (end-line)))
 	 (format nil (concatenate 'string "~{~a~^" separator "~}") (reverse lines))))
+
+;; adapted from swank::call/truncated-output-to-string
+(defun truncating-print (object length  &key (downcase t))
+  (let ((buffer (make-string (1+ length)))
+	(fill-pointer 0))
+    (block buffer-full
+      (flet ((write-output (string)
+	       (let* ((free (- length fill-pointer))
+		      (count (min free (length string))))
+		 (replace buffer string :start1 fill-pointer :end2 count)
+		 (incf fill-pointer count)
+		 (when (> (length string) free)
+		   (replace buffer (string (code-char 8230)) :start1 fill-pointer)
+		   (return-from buffer-full buffer)))))
+	(let ((stream (ext:make-slime-output-stream #'write-output)))
+	  (let ((*print-case* (if downcase :downcase *print-case*)))
+	    (princ object stream)
+	    (finish-output stream))
+	  (subseq buffer 0 fill-pointer))))))

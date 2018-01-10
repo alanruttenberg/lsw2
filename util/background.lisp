@@ -27,14 +27,14 @@
 (defmethod status-line ((job job))
   (let ((done (job-ended job)))
     (if done 
-	(format nil "%~a finished in ~1,'0d seconds ~a"
+	(format nil "%~a finished in ~,2f seconds ~a"
 		(1+ (job-slot job))
 		(/ (- (job-ended job) (job-started job)) 1000.0)
-		(job-form job))
-	(format nil "%~a running ~1,'0d  seconds ~a form" 
+		 (truncating-print (job-form job) 90))
+	(format nil "%~a running ~,2f  seconds ~a" 
 		(1+ (job-slot job))
 		(/ (- (#"currentTimeMillis" 'system)  (job-started job)) 1000.0)
-		(job-form job)))))
+		(truncating-print (job-form job) 90)))))
 
 (defvar *jobs* (make-array 10 :adjustable t))
 
@@ -50,7 +50,7 @@
      (setf (aref *jobs* (job-slot ,job)) ,job)
      (setf (job-future ,job) (lparallel:future (unwind-protect ,form 
 						 (setf (job-ended ,job) (#"currentTimeMillis" 'system) )
-						 (print (status-line ,job)))))
+						 (princ (status-line ,job)))))
      ,job)))
 
 (defun next-open-job-slot ()
