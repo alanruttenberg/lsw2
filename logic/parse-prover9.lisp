@@ -177,6 +177,30 @@
   (declare (ignore period-at-end))
   (list `(:formula ,a)))
 
+(defun setting (a period-at-end)
+  (declare (ignore period-at-end))
+  (list `(:setting ,a)))
+
+(defun list-directive (a period-at-end)
+  (if a
+      `((:start-list ,a))
+      '((:end-list))))
+
+(defun end-list (period-at-end)
+  (declare (ignore period-at-end))
+  (list `(:end-list)))
+
+(defun formula-kind-1 (fk open a close)
+  (declare (ignore period-at-end))
+  a)
+
+(defun formula-kind-end (end)
+  (declare (ignore period-at-end))
+  nil)
+
+(defun end-of-list (a period)
+  '((:end-of-list)))
+
 (defun formula-with-attributes (a attributes period-at-end)
   (declare (ignore period-at-end))
   (list `(:formula ,a ,@attributes)))
@@ -203,6 +227,23 @@
   (declare (ignore comment))
   formula)
 
+(defun value (&rest args)
+  (car args))
+
+(defun assign (&rest args)
+  `(:assign ,(third args) ,(fifth args) ))
+
+(defun set (&rest args)
+  `(:assign ,(third args) t))
+
+(defun unset (&rest args)
+  `(:assign ,(third args) nil))
+
+(defun conditional (if open id close dot1 settings end dot2)
+  `(:if ,(keywordify (string-upcase id))
+	,@settings))
+
+	
 ;; Example:
 ;; f(a) -> ((a & b) -> c)
 ;; -> (:implies (f a) (:implies ((:and a b))  c))
@@ -244,12 +285,17 @@
 (yacc::define-parser *prover9-parser*
   (:start-symbol expressions)
   (:terminals (id & |\|| -> <-> = |(| |)| |,| - |all| |exists| |.| = |!=| :commentnewline :comment :commentblock string number :attribute
-									  :|label#| :|action#| :|answer#| :|bsub_hint_wt#|))
-  (:precedence ((:nonassoc "#") (:left |all| |exists|) (:left -) (:left  & |\||)  (:right = |!=|) (:right -> <-> ) (:nonassoc |.| )))
+									  :|label#| :|action#| :|answer#| :|bsub_hint_wt#| |set| |assign| |unset|
+									  |if| |end_if| |formulas| |end_of_list|))
+  ;; From left to right higher to lower. See prover9 table below
+  (:precedence ((:nonassoc -) (:nonassoc = !=)  (:nonassoc |all| |exists|) (:right &) (:right |\||) (:nonassoc -> <-> <-)))
   (expressions
    (expression #'expressions)
    (expressions expression #'expressions))
   (expression
+   (setting |.| #'setting)
+   (list-kind |.| #'list-directive)
+   (conditional )
    (formula |.| #'formula)
    (formula attributes |.| #'formula-with-attributes)
    comment)
@@ -260,6 +306,31 @@
    (:attribute attribute-name  string #'an-attribute))
   (attribute-name
    :|label#| :|answer#| :|action#| :|bsub_hint#|)
+  (setting-name
+   (id #'variable))
+  (setting-value
+   (number #'value)
+   (string #'value)
+   )
+  (list-kind
+   set-list
+   end-list)
+  (set-list
+   (|formulas| |(| id  |)|  #'formula-kind-1))
+  (end-list
+   (|end_of_list|  #'null))
+  (conditional
+   (|if| |(| id |)| |.| expressions |end_if| |.| #'conditional))
+  (setting
+   (set-flag )
+   (unset-flag)
+   (assign))
+  (set-flag
+   (|set| |(| setting-name |)| #'set))
+  (unset-flag
+   (|unset| |(| setting-name |)| #'unset))
+  (assign
+   (|assign| |(| setting-name |,| setting-value |)| #'assign))
   (comment
    (:comment string #'comment)
    (:commentnewline string #'comment)
@@ -302,7 +373,11 @@
              (if (null value)
                  (values nil nil)
                  (let ((terminal
-			 (cond ((member value '(& ||\| - = <-> -> |(| |)| |,| |all| |exists| |!=| :attribute :|label#| :|action#| :|answer#| :|bsub_hint_wt#| :commentnewline :comment :commentblock |.|)) value
+			 (cond ((member value '(& ||\| - = <-> -> |(| |)| |,| |all| |exists| |!=| 
+						:attribute :|label#| :|action#| :|answer#| :|bsub_hint_wt#| 
+						:commentnewline :comment :commentblock |.|
+						|set| |unset| |assign|
+						|if| |end_if| |formulas| |end_of_list|)) value
 				)
                               ((symbolp value) 'id)
 			      ((stringp value) 'string)
@@ -319,13 +394,19 @@
 	(*package* (find-package :logic)))
     (pprint (cadar (parse-prover9 string)))))
 
-(defun prover9-to-lsw (path axiom-prefix)
+(defun prover9-to-lsw (path axiom-prefix &key (parenthesize-with-prover9 t))
   (let ((forms (let ((*package* (find-package :logic)))
-		 (logic::parse-prover9 (uiop/stream:read-file-string path)))))
+		 (if parenthesize-with-prover9
+		     (logic::parse-prover9 (parenthesize-prover9-file path))
+		     (logic::parse-prover9 (uiop/stream:read-file-string path))))))
     (with-open-file (f (merge-pathnames (make-pathname :type "lisp") path) :if-does-not-exist :create :if-exists :supersede :direction :output)
       (format f "(in-package :logic)~%~%")
-      (format f ";; translated from ~a~%~%" (namestring (truename path)))
+      (format f ";; translated from ~a~%" (namestring (truename path)))
+      (when parenthesize-with-prover9
+	(format f ";; Sorry, comments were removed because we used prover9 to explicitly parenthesize~%"))
+      (terpri f)
       (loop with counter = 0
+	    with which-list = nil
 	    with theory = (intern (string axiom-prefix) :keyword)
 	    for form in forms
 	    for label = (third (find-if (lambda(e) (and (consp e) (eq (car e) :attribute) (eq (second  e) :label#) (third e))) form) )
@@ -337,9 +418,192 @@
 			(pprint
 			   `(def-logic-axiom ,(or label (intern (format nil "~a-~a" (string axiom-prefix) (incf counter)) :keyword))
 					,(second form)
-				      :theory ,theory)
-			 f)))
+			      :theory ,theory
+			      ,@(if which-list `(:prover9-list ,(keywordify (string-upcase which-list))))
+			      )
+			   f)))
+		     ((or (eq (car form) :setting))
+		     (let ((*package* (find-package :logic))
+			   (*print-case* :downcase))
+		       (terpri f)
+		       (format f ";; ~a" (second form))))
+		     ((or (eq (car form) :if))
+		     (let ((*package* (find-package :logic))
+			   (*print-case* :downcase))
+		       (terpri f)
+		       (format f ";; ~s" form)))
+		     ((eq (car form) :end-list)
+		      (setq which-list nil))
+		     ((eq (car form) :start-list)
+		      (setq which-list (second form)))
+		     ((eq (car form) :comment)
+		      (format f " #|~a|# " (second form)))
 		     ((eq (car form) :commentnewline)
 		      (loop for line in (jss::split-at-char (second form) #\newline)
-			    do (format f "~&;; ~a~%" line))))))))
+			    do (format f "~&;; ~a~%" line)))
+		     (t (print form)))))))
 
+(defun parenthesize-prover9-expression (formula)
+  "take a single formula and run the prover9 parenthesization"
+  (let ((input 
+	  (with-output-to-string (s)
+	    (loop for setting in 
+		  '("set(echo_input)."
+		    "set(quiet)."
+		    "clear(print_initial_clauses)."
+		    "clear(print_given)."
+		    "clear(print_gen)."
+		    "clear(print_kept)."
+		    "clear(print_labeled)."
+		    "clear(print_clause_properties)."
+		    "clear(print_proofs)."
+		    "clear(default_output)."
+		    "assign(stats, none)."
+		    "clear(clocks)."
+		    "clear(bell)."
+		    "formulas(usable)."
+		    "end_of_list."
+		    )
+		  do (princ setting s))
+	    (format s "formulas(assumptions).~%~a~%end_of_list." formula)
+	    )))
+    (let ((output (cl-user::run-program-string->string (logic::prover-binary "prover9")  '("-p" "-t 0") input)))
+      (caar (jss::all-matches output "(?s).*=+ INPUT =+.*?formulas\\(assumptions\\)\\.\\s*(.*?)\\s*end_of_list.\\s*=+ end of input =+.*" 1)))))
+
+(defun rename-variables (expression)
+  (tree-replace (lambda(e) (if (and (symbolp e) (char= (char (string e) 0) #\?))
+			       (intern (format nil "?VARIABLE-~a" (subseq (string e) 1)))
+			       e))
+		expression))
+
+;; we have to rename variables so that we can compare incorrect formulas - ones which leave a variable out of scope
+
+(defun equivalent-formulas (a b)
+  (or (equalp a b)
+      (multiple-value-bind (errorp res)	
+	  (ignore-errors (prover9-prove nil `(:iff ,(rename-variables a) ,(rename-variables b))))
+	(or (and (typep errorp 'condition)
+		 (values nil (apply 'format nil (slot-value errorp 'sys::format-control) (slot-value errorp 'sys::format-arguments))))
+	    (eq errorp :proved))) 
+      ))
+
+(defun compare-precedence-to-prover9 (expression)
+  (let* ((*print-pretty* t)
+	 (*print-case* :downcase)
+	 (*print-escape* nil)
+	 (*print-readably* nil)
+	 (wo (second (first (logic::parse-prover9 expression))))
+	 (w (second (first (logic::parse-prover9 (logic::parenthesize-prover9-expression expression))))))
+    (princ wo) (terpri)
+    (princ w) (terpri)
+    (multiple-value-bind (res error)
+	(equivalent-formulas w wo)
+      (when error
+	(print error))
+      res)))
+	
+    (or (equalp wo w)
+	(multiple-value-bind (errorp res)	
+	    (ignore-errors (prover9-prove nil `(:iff ,(rename-variables w) ,(rename-variables wo))))
+	  (print
+	   (or (and (typep errorp 'condition)
+		    (apply 'format nil (slot-value errorp 'sys::format-control) (slot-value errorp 'sys::format-arguments)))
+	       (eq errorp :proved))) )
+	)))
+
+;; (compare-precedence-to-prover9 "(all a ImmaterialEntity(a) <-> IndependentContinuant(a) & -(exists b  exists t  (MaterialEntity(b) & continuantPartOfAt(b, a,t)))).")
+;; (compare-precedence-to-prover9 "(all a ContinuantFiatBoundary(a)  <-> (exists b  ((ImmaterialEntity(a) &                      
+;;                                 ZeroDimensionalSpatialRegion(b) |
+;; 			                     OneDimensionalSpatialRegion(b) |
+;; 				                 TwoDimensionalSpatialRegion(b)) &
+;; 								 (all t  locatedInAt(a,b,t)) &
+;; 								 -(exists c exists t SpatialRegion(c) & continuantPartOfAt(c,a,t))))).")
+;; (compare-precedence-to-prover9 "(all a (RelationalQuality(a) <->  (exists b  exists c exists t (IndependentContinuant(b) &
+;; 							 IndependentContinuant(c) &
+;; 						     qualityOfAt(a,b,t) &
+;; 							 qualityOfAt(a,c,t))))).")
+
+(defun parenthesize-prover9-file (path)
+  "take a file prover9 parenthesization, returning the result as a string"
+  (let ((input 
+	  (with-output-to-string (s)
+	    (loop for setting in 
+		  '("set(echo_input)."
+		    "set(quiet)."
+		    "clear(print_initial_clauses)."
+		    "clear(print_given)."
+		    "clear(print_gen)."
+		    "clear(print_kept)."
+		    "clear(print_labeled)."
+		    "clear(print_clause_properties)."
+		    "clear(print_proofs)."
+		    "clear(default_output)."
+		    "assign(stats, none)."
+		    "clear(clocks)."
+		    "clear(bell)."
+		    "formulas(usable)."
+		    "end_of_list."
+		    )
+		  do (princ setting s))
+	    (with-open-file (f path :direction :input)
+	      (loop for line = (read-line f nil :eof)
+		    while (not (eq line :eof))
+		    do
+		       (write-string line s)
+		       (terpri s))))))
+    (let ((output (cl-user::run-program-string->string (logic::prover-binary "prover9")  '("-p" "-t 0") input)))
+      (caar (jss::all-matches output "(?s).*=+ INPUT =+.*?formulas\\(usable\\).\\s*end_of_list.\\s*(.*?)=+ end of input =+.*" 1)))))
+
+
+#|
+Prover 9 precedence.
+
+Type 	Example 	Standard Prefix 	Comment
+infix 	a*(b*c) 	*(a,*(b,c)) 	like Prolog's xfx
+infix_left 	a*b*c 	*(*(a,b),c) 	like Prolog's yfx
+infix_right 	a*b*c 	*(a,*(b,c)) 	like Prolog's xfy
+prefix 	--p 	-(-(p)) 	like Prolog's fy
+prefix_paren 	-(-p) 	-(-(p)) 	like Prolog's fx
+postfix 	a'' 	'('(a)) 	like Prolog's yf
+postfix_paren	(a')' 	'('(a)) 	like Prolog's xf
+ordinary 	*(a,b) 	*(a,b) 	takes away parsing properties 
+
+Default values:
+
+op(810, infix_right,  "#" ).  % for attaching attributes to clauses
+	    
+op(800, infix,      "<->" ).  % equivalence in formulas
+op(800, infix,       "->" ).  % implication in formulas
+op(800, infix,       "<-" ).  % backward implication in formulas
+op(790, infix_right,  "|" ).  % disjunction in formulas or clauses
+op(780, infix_right,  "&" ).  % conjunction in formulas
+
+% Quantifiers (a special case) have precedence 750.
+	    
+op(700, infix,        "=" ).  % equal in atomic formulas
+op(700, infix,       "!=" ).  % not equal in atomic formulas
+op(700, infix,       "==" ).  
+op(700, infix,        "<" ).
+op(700, infix,       "<=" ).
+op(700, infix,        ">" ).
+op(700, infix,       ">=" ).
+	    
+op(500, infix,        "+" ).
+op(500, infix,        "*" ).
+op(500, infix,        "@" ).
+op(500, infix,        "/" ).
+op(500, infix,        "\" ).
+op(500, infix,        "^" ).
+op(500, infix,        "v" ).
+
+op(350, prefix,       "-" ).  % logical negation in formulas or clauses
+op(300, postfix,      "'" ).
+
+Higher precedence means closer to the root of the object, and lower precedence means the the symbol binds more closely. For example, assume that the following declarations are in effect.
+
+op(790, infix_right,  "|" ).  % disjunction in formulas or clauses
+op(780, infix_right,  "&" ).  % conjunction in formulas
+
+
+Then the string a & b | c is an abbreviation for (a & b) | c. 
+|#

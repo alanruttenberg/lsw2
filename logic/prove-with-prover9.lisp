@@ -29,7 +29,7 @@
     (when (or show-translated-axioms *debug*)
       (format t "Prover Assumptions:~% ~a~%" assumptions)
       (format t "Prover Goal:~%~a~%" goals))
-    (let ((base (format nil "~{~a.~%~}formulas(sos).~%~aend_of_list.~%formulas(goals).~%~a~%end_of_list.~%"
+    (let ((base (format nil "~{~a.~%~}formulas(assumptions).~%~aend_of_list.~%formulas(goals).~%~a~%end_of_list.~%"
 			settings assumptions (or goals ""))))
       (if hints
 	  (concatenate 'string base hints)
