@@ -71,14 +71,18 @@ Which can then be used as !material-entity
 	   (setq abbreviation (format nil "blank:~a" (subseq abbreviation 2))))
 	 (if string
 	     (progn
+	     
 	       (when format-args
 	       (setq string (apply 'format nil string format-args)))
 	       (when (char= (char string 0) #\/)
 		 (setq string (concatenate 'string "file://" string))))
+	     (progn
+	         (when (eql (char abbreviation 0) #\|)
+		 (return-from make-uri (intern (uri-full (apply 'make-uri string (subseq abbreviation 1) format-args)))))
 	     (setq string (unabbreviate-namespace
 			   (if format-args
 			       (setq abbreviation (apply 'format nil abbreviation format-args))
-			       abbreviation))))
+			       abbreviation)))))
 	 (or (gethash string *interned-uris*)
 	     (setf (gethash string *interned-uris*)
 		   (internal-make-uri string abbreviation blank?))))))
