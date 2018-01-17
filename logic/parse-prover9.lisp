@@ -217,6 +217,7 @@
   (declare (ignore b))
   (append (if (consp a) a (list a)) (list c)))
 
+;;*
 (defun comment (token string)
   (list `(,token ,string)))
 
@@ -233,7 +234,7 @@
 (defun assign (&rest args)
   `(:assign ,(third args) ,(fifth args) ))
 
-(defun set (&rest args)
+(defun set-one (&rest args)
   `(:assign ,(third args) t))
 
 (defun unset (&rest args)
@@ -326,7 +327,7 @@
    (unset-flag)
    (assign))
   (set-flag
-   (|set| |(| setting-name |)| #'set))
+   (|set| |(| setting-name |)| #'set-one))
   (unset-flag
    (|unset| |(| setting-name |)| #'unset))
   (assign
@@ -502,14 +503,7 @@
 	(print error))
       res)))
 	
-    (or (equalp wo w)
-	(multiple-value-bind (errorp res)	
-	    (ignore-errors (prover9-prove nil `(:iff ,(rename-variables w) ,(rename-variables wo))))
-	  (print
-	   (or (and (typep errorp 'condition)
-		    (apply 'format nil (slot-value errorp 'sys::format-control) (slot-value errorp 'sys::format-arguments)))
-	       (eq errorp :proved))) )
-	)))
+
 
 ;; (compare-precedence-to-prover9 "(all a ImmaterialEntity(a) <-> IndependentContinuant(a) & -(exists b  exists t  (MaterialEntity(b) & continuantPartOfAt(b, a,t)))).")
 ;; (compare-precedence-to-prover9 "(all a ContinuantFiatBoundary(a)  <-> (exists b  ((ImmaterialEntity(a) &                      
