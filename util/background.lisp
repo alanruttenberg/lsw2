@@ -38,20 +38,22 @@
 
 (defvar *jobs* (make-array 10 :adjustable t))
 
+(unless lparallel:*kernel*
+  (setq lparallel:*kernel* (lparallel:make-kernel *default-lparallel-worker-count*)))
+
 (defmacro & (form)
   (let ((job (make-symbol "JOB")))
-  `(let* ((,job (make-instance 
-		'job 
-		:started (#"currentTimeMillis" 'system) 
-		:slot (next-open-job-slot)
-		:form ',form)))
-     (unless lparallel:*kernel*
-       (setq lparallel:*kernel* (lparallel:make-kernel *default-lparallel-worker-count*)))
-     (setf (aref *jobs* (job-slot ,job)) ,job)
-     (setf (job-future ,job) (lparallel:future (unwind-protect ,form 
-						 (setf (job-ended ,job) (#"currentTimeMillis" 'system) )
-						 (princ (status-line ,job)))))
-     ,job)))
+    `(let* ((,job (make-instance 
+		   'job 
+		   :started (#"currentTimeMillis" 'system) 
+		   :slot (next-open-job-slot)
+		   :form ',form)))
+
+       (setf (aref *jobs* (job-slot ,job)) ,job)
+       (setf (job-future ,job) (lparallel:future (unwind-protect ,form 
+						   (setf (job-ended ,job) (#"currentTimeMillis" 'system) )
+						   (princ (status-line ,job)))))
+       ,job)))
 
 (defun next-open-job-slot ()
   (loop for el across *jobs*
@@ -71,12 +73,13 @@
   (loop for i below (length *jobs*)
 	do (setf (aref *jobs* i) nil)))
 
-(defun % (number)
+(defun % (number &optional show-command)
   (let ((job (aref *jobs* (1- number))))
     (if (null job)
 	(format t "No job ~a~%" number)
 	(progn
 	  (setf (aref *jobs* (1- number)) nil)
+	  (when show-command (pprint (job-form job)) (terpri))
 	  (lparallel::force (job-future job))))))
 
 (defun %. (number)
