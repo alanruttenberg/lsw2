@@ -35,8 +35,7 @@
 						 (merge-pathnames "tmp/" *vampire-shared-directory-remote*))))
 		 ""
 		 )
-	      (assert (or (not error-output) (not (#"matches" error-output "(?s).*VM must be running.*"))) () "Vampire failed because vagrant wasn't up when it should have been")
-	      output
+	      (assert (or (not error-output) ) () "Vampire failed: ~a" error-output)
 	    ))))
     (let ((file (uiop/stream::get-temporary-file :directory "/tmp")))
       (with-open-file (f file :direction :output)
