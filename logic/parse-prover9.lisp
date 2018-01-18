@@ -4,23 +4,23 @@
 ;;
 ;; So far this is enough to parse John Beverley's prover9 formulas
 ;; e.g. in https://github.com/johnbeve/Argument-Ontology/tree/master/Axioms
+;; It understands prover9's free variable defaults, either :u-z or :prolog-style, but you have to tell it which to use - it's not automatic yet
 ;;
-;; all x all y all t(properContinuantPartOfAt(x,y,t) -> (exists z (all w(continuantPartOfAt(w,z,t) <-> (continuantPartOfAt(w,x,t) & continuantPartOfAt(w,y,t)))))).
+;; (pprint (parse-prover9 "all x all y all t(properContinuantPartOfAt(x,y,t) -> (exists z (all w(continuantPartOfAt(w,z,t) <-> (continuantPartOfAt(w,x,t) & continuantPartOfAt(w,y,t)))))).")
 ;; ->
-;; (:FORALL (?X)
-;;  (:FORALL (?Y)
-;;   (:FORALL (?T)
-;;    (:IMPLIES (PROPER-CONTINUANT-PART-OF-AT ?X ?Y ?T)
-;;     (:EXISTS (?Z)
-;;      (:FORALL (?W)
-;;       (:IFF (CONTINUANT-PART-OF-AT ?W ?Z ?T)
-;;        (:AND (CONTINUANT-PART-OF-AT ?W ?X ?T)
-;;         (CONTINUANT-PART-OF-AT ?W ?Y ?T)))))))))
-;;
-;; Today it parses one formula at a time.
-;; TODO: parse a whole file
-;; Note: Haven't tested with any prover9 past that. I'm not confident I understand the precedent rules for now.
-;; Ignores case, which probably needs to be attended to.
+;; ((:formula
+;;   (:forall (?x ?y ?t)
+;;    (:implies (proper-continuant-part-of-at ?x ?y ?t)
+;;     (:exists (?z)
+;;      (:forall (?w)
+;;       (:iff (continuant-part-of-at ?w ?z ?t)
+;;        (:and (continuant-part-of-at ?w ?x ?t)
+;;         (continuant-part-of-at ?w ?y ?t)))))))))
+
+
+;; (prover9-to-lsw <path> <prefix> :parenthesize-with-prover9 t/nil :free-variable-mode :u-z/:prolog-style)
+;; creates <path>.lisp, with axioms named numerically starting with prefix, and key theory :prefix.
+;; expects formulas(...) ... end_of_list directives. Puts the list as :prover9-list key on the axiom
 
 (defvar *prover9-readtable* (let ((it (copy-readtable)))
 			      (setf (readtable-case it) :preserve)
@@ -108,12 +108,13 @@
   (if (= (char-code (char string 0)) 8593)  ;; we've got an uparrow
       (if (find #\- string :test 'char=)
 	  (camelCase (subseq string 1) t) ;; it's a multi-word, render as camelcase with initialcap 
-	  (subseq string 1))  ;; it's a single word - leave as is.
+	  (let ((it (subseq string 1)))
+		  (setf (char it 0) (char-upcase (char it 0)))
+		  it)) ;; it's a single word - capitalize
       ;; otherwise, camelcase it but pass the cached property as the switch between initialcap and not.
       (camelCase string (and *prover9-record-initialcap*
 			     (get (intern string :keyword) :camelcase-initialcap)))))
 					 
-
 ;; Variables in LSW logic have ? prepended.
 ;; symbols in general need to be rewritten from camel case
 (defun variable (a) (intern (format nil "?~a" (de-camel-case a)) 'logic))
@@ -261,23 +262,40 @@
 ;; symbols variables, but then to go and change back the ones that are not mentioned in a scoped quantification to
 ;; ordinary symbols.
 
-(defun fix-non-quantified-symbols (expr &optional quantified)
-  (cond ((numberp expr) expr)
-	((atom expr)
-	 (if (member expr quantified)
-	     expr
-	     (if (char= (char (string expr) 0) #\?)
-		 (intern (subseq (string expr) 1) 'logic)
-		 expr)))
-	((member (car expr)  '(:forall :exists))
-	 ;; there's just one formula inside
-	 (let ((vars (second expr)))
-	   `(,(car expr) ,vars ,(fix-non-quantified-symbols (third expr) (append quantified vars)))))
-	((symbolp (car expr))
-	 (cons (car expr)
-	       (mapcar (lambda(e) (fix-non-quantified-symbols e quantified))
-		       (cdr expr))))
-	(t (error "fix-non-quantified-symbols has a bug or you do: ~a" expr))))
+(defun free-by-prover-9-syntax (expr free-variable-mode)
+  (let ((firstchar (char (camelCase-uparrow (subseq (string expr) 1)) 0)))
+    (ecase free-variable-mode
+      (:u-z (member firstchar '(#\u #\v #\w #\x #\y #\z) :test 'char=))
+      (:prolog-style (upper-case-p firstchar)))))
+
+(defun fix-non-quantified-symbols (expr free-variable-mode)
+  (let ((free nil))
+    (labels ((fix (expr quantified)
+	   (cond ((numberp expr) expr)
+		 ((atom expr)
+		  (if (member expr quantified) 
+		      expr
+		      ;; FIXME check here whether a variable is free according to the prover9 defaults (set-prolog-variables)
+		      (if  (char= (char (string expr) 0) #\?)
+			   (if (free-by-prover-9-syntax expr free-variable-mode)
+			       (progn (pushnew expr free) expr)
+			       (intern (subseq (string expr) 1) 'logic))
+			  expr)))
+		 ((member (car expr)  '(:forall :exists))
+		  ;; there's just one formula inside
+		  (let ((vars (second expr)))
+		    `(,(car expr) ,vars ,(fix (third expr) (append quantified vars)))))
+		 ((symbolp (car expr))
+		  (cons (car expr)
+			(mapcar (lambda(e) (fix e quantified))
+				(cdr expr))))
+		 (t (error "fix-non-quantified-symbols has a bug or you do: ~a" expr)))))
+      (let ((fixed (fix expr nil)))
+	(if free
+	    (progn
+	      (let ((*print-pretty* t)) (warn "Free variable ~a found in ~a" free expr))
+	      `(:formula (:forall (,@free) ,(second fixed))))
+	    fixed)))))
 
 ;; this is the parser description for cl-yacc
 ;; There's a BNF at https://www.dwheeler.com/formal_methods/prover9-bnf.txt
@@ -288,7 +306,7 @@
   (:terminals (id & |\|| -> <-> = |(| |)| |,| - |all| |exists| |.| = |!=| :commentnewline :comment :commentblock string number :attribute
 									  :|label#| :|action#| :|answer#| :|bsub_hint_wt#| |set| |assign| |unset|
 									  |if| |end_if| |formulas| |end_of_list|))
-  ;; From left to right higher to lower. See prover9 table below
+  ;; From left to right higher to lower. See prover9 table below. I think I have this right now
   (:precedence ((:nonassoc -) (:nonassoc = !=)  (:nonassoc |all| |exists|) (:right &) (:right |\||) (:nonassoc -> <-> <-)))
   (expressions
    (expression #'expressions)
@@ -386,20 +404,24 @@
                               (t (error "Unexpected value ~S" value)))))
                    (values terminal value))))))
 
-(defun parse-prover9 (string)
+(defun parse-prover9 (string &key (free-variable-mode :u-z)) ;; or prolog-style-variables 
   (let ((*package* (find-package :logic)))
-    (mapcar 'fix-non-quantified-symbols (mapcar 'remove-redundant-parentheses (yacc::parse-with-lexer (prover9-list-lexer (tokenize-prover9-formula string)) *prover9-parser*)))))
+    (loop for form in (mapcar 'remove-redundant-parentheses
+			       (yacc::parse-with-lexer (prover9-list-lexer (tokenize-prover9-formula string)) 
+						       *prover9-parser*))
+	  collect (fix-non-quantified-symbols form free-variable-mode))))
 
-(defun prover9-pprint-formula (string)
+
+(defun prover9-pprint-formula (string &key (free-variable-mode :u-z))
   (let ((*print-case* :downcase) 
 	(*package* (find-package :logic)))
-    (pprint (cadar (parse-prover9 string)))))
+    (pprint (cadar (parse-prover9 string :free-variable-mode free-variable-mode)))))
 
-(defun prover9-to-lsw (path axiom-prefix &key (parenthesize-with-prover9 t))
+(defun prover9-to-lsw (path axiom-prefix &key (parenthesize-with-prover9 t) (free-variable-mode :u-z))
   (let ((forms (let ((*package* (find-package :logic)))
 		 (if parenthesize-with-prover9
-		     (logic::parse-prover9 (parenthesize-prover9-file path))
-		     (logic::parse-prover9 (uiop/stream:read-file-string path))))))
+		     (parse-prover9 (parenthesize-prover9-file path) :free-variable-mode free-variable-mode)
+		     (parse-prover9 (uiop/stream:read-file-string path ))))))
     (with-open-file (f (merge-pathnames (make-pathname :type "lisp") path) :if-does-not-exist :create :if-exists :supersede :direction :output)
       (format f "(in-package :logic)~%~%")
       (format f ";; translated from ~a~%" (namestring (truename path)))
@@ -418,7 +440,8 @@
 			(terpri f)
 			(pprint
 			   `(def-logic-axiom ,(or label (intern (format nil "~a-~a" (string axiom-prefix) (incf counter)) :keyword))
-					,(second form)
+					,(simplify-copulas (second form))
+;					,(second form)
 			      :theory ,theory
 			      ,@(if which-list `(:prover9-list ,(keywordify (string-upcase which-list))))
 			      )
@@ -442,7 +465,29 @@
 		     ((eq (car form) :commentnewline)
 		      (loop for line in (jss::split-at-char (second form) #\newline)
 			    do (format f "~&;; ~a~%" line)))
-		     (t (print form)))))))
+		     (t (print form)))))
+    (merge-pathnames (make-pathname :type "lisp") path)))
+
+
+(defun consolidate-copula (e type)
+  (let ((result 
+	  (if (and (consp e) (eq (car e) type))
+	      (let ((queue (cdr e)))
+		(loop for next = (pop queue)
+		      until (null next)
+		      if (and (consp next)
+			      (eq (car next) type))
+			do (setq queue (append queue (cdr next)))
+		      else  collect (simplify-copulas next) into conjuncts
+		      finally (return `(,type ,@conjuncts))))
+	      e)))
+    result))
+  
+;; flatten reduce nested :and or :or 
+(defun simplify-copulas (form)
+  (tree-replace (lambda(e) (consolidate-copula e :or))
+		(tree-replace (lambda(e) (consolidate-copula e :and))
+			      form)))
 
 (defun parenthesize-prover9-expression (formula)
   "take a single formula and run the prover9 parenthesization"
@@ -479,22 +524,22 @@
 
 ;; we have to rename variables so that we can compare incorrect formulas - ones which leave a variable out of scope
 
-(defun equivalent-formulas (a b)
+(defun equivalent-formulas (a b &key (with 'z3-prove))
   (or (equalp a b)
       (multiple-value-bind (errorp res)	
-	  (ignore-errors (prover9-prove nil `(:iff ,(rename-variables a) ,(rename-variables b))))
+	  (ignore-errors (funcall with nil `(:iff ,(rename-variables a) ,(rename-variables b))))
 	(or (and (typep errorp 'condition)
 		 (values nil (apply 'format nil (slot-value errorp 'sys::format-control) (slot-value errorp 'sys::format-arguments))))
 	    (eq errorp :proved))) 
       ))
 
-(defun compare-precedence-to-prover9 (expression)
+(defun compare-precedence-to-prover9 (expression &key (with 'z3-prove))
   (let* ((*print-pretty* t)
 	 (*print-case* :downcase)
 	 (*print-escape* nil)
 	 (*print-readably* nil)
-	 (wo (second (first (logic::parse-prover9 expression))))
-	 (w (second (first (logic::parse-prover9 (logic::parenthesize-prover9-expression expression))))))
+	 (wo (second (first (parse-prover9 expression))))
+	 (w (second (first (parse-prover9 (parenthesize-prover9-expression expression))))))
     (princ wo) (terpri)
     (princ w) (terpri)
     (multiple-value-bind (res error)
