@@ -15,7 +15,7 @@
 		    (if (numberp next)
 			(format nil "(cl-user::% ~a ~a)" next showcommand)
 			(format nil "(cl-user::jobs)" next)))))
-	  (if (#"matches" (car args) ".*&\\s*$")
+	  (if (#"matches" (car args) "(?s).*&\\s*$")
 	      (setf (car args)
 		    (format nil "(cl-user::& ~a)"
 			    (#"replaceAll" (car args) "(?s)&\\s*$" "")))))))
