@@ -1,5 +1,6 @@
 (in-package :logic)
 
+;; TODO somewhere: For a proof, the proof support should be satisfiable
 (defvar *debug* nil)
 (defvar *last-mace4-model* nil)
 (defvar *last-prover9-input* nil)
@@ -9,16 +10,20 @@
 ;; https://github.com/alanruttenberg/ladr
 ;; https://github.com/alanruttenberg/iprover
 
+(defvar cl-user::*ladr-binaries* "~/repos/ladr/bin/")
+;(setq *ladr-binaries* "~/repos/ladr/bin/")
 (defun prover-binary (name)
-  (if (probe-file "/usr/bin/prover9")
-      (format nil "/usr/bin/~a" name)
-      (system-relative-pathname
-       "logic"
-       (make-pathname :directory
-		      (list :relative
-			    (string-downcase (string (uiop/os:operating-system)))
-			    "prover9")
-		      :name name))))
+  (namestring (truename (if cl-user::*ladr-binaries*
+      (format nil "~a~a" cl-user::*ladr-binaries* name)
+      (if (probe-file "/usr/bin/prover9")
+	  (format nil "/usr/bin/~a" name)
+	  (system-relative-pathname
+	   "logic"
+	   (make-pathname :directory
+			  (list :relative
+				(string-downcase (string (uiop/os:operating-system)))
+				"prover9")
+			  :name name)))))))
 
 
 ;; allow assumptions to be the fully rendered assumptions + negated goal.
@@ -80,22 +85,20 @@
 	  (error "~a error: ~a in: ~a" (string-downcase (string which)) error what))))
     (let ((reason (caar (all-matches output "(?s)Process \\d+ exit \\((.*?)\\)" 1))))
       (flet ((maybe-exceeded-resource-limit ()
-	       (if (equal reason "max_sec_no")
-		   :timeout
-		   (if (equal reason "max_megs_no")
-		       :out-of-memory
-		       (intern (string-upcase (string reason)) 'keyword)))))	       
+	       (if  (or (equal reason "max_sec_no") (equal reason "max_seconds"))
+		    :timeout
+		    (if  (or (equal reason "max_megs") (equal reason "max_megs_no"))
+			 :out-of-memory
+			 (intern (string-upcase (string reason)) 'keyword)))))
 	(values (ecase which
 		  (:mace4 (if (search "interpretation" output)
 			      :sat
 			      (maybe-exceeded-resource-limit)))
-		  (:prover9 (if (search "THEOREM PROVED" output)
-				:proved
-				(if (search "exit (max_seconds)" output)
-				    :timeout
-				    (if (search "SEARCH FAILED" output)
-					:failed
-					nil)))))
+		  (:prover9 (if  (search "THEOREM PROVED" output)
+				 :proved
+				 (if (search "SEARCH FAILED" output)
+				     :failed
+				     (maybe-exceeded-resource-limit)))))
 		(if return-proof
 		    (prover9-output-proof-section output)
 		    (if return-proof-support
@@ -235,6 +238,14 @@
       (when expected-proof
 	(setf (result expected-proof) new-result))
       new-result)))
+
+(defun prover9-check-true (axiom &rest keys)
+  (let ((result (apply 'prover9-check-unsatisfiable (negate-axiom axiom) keys)))
+    (if (eq result :unsat)
+	:proved
+	(if (eq result :sat)
+	    :disproved
+	    result))))
 
 (defun mace4-check-satisfiability-alt (assumptions &rest keys &key expected-proof &allow-other-keys)
   "Version that starts with a minimum domain size (12) and only allows 1 second per domain. This tends to work for a bunch of cases"
