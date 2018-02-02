@@ -26,6 +26,9 @@
 (defmethod z3-quantifier-vars ((g z3-logic-generator) vars)
   (normalize-names g vars))
 
+(defmethod logical-relation ((g z3-logic-generator) head &rest args)
+  (normalize-names g `(,head ,@args)))
+
 (defmethod logical-forall ((g z3-logic-generator) vars expressions)
   `(forall ,(mapcar (lambda(e) `(,e ,(domain-sort g))) (z3-quantifier-vars g vars)) ,@expressions))
 

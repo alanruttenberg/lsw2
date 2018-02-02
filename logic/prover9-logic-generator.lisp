@@ -1,5 +1,12 @@
 (in-package :logic)
 
+;; FIXME the below renders without problem even though ?t isn't explicitly scoped
+;; (:forall (?o) (:implies 
+;; 		  (:and 
+;; 		   (instance-of ?o occurrent ?t)
+;; 		   (:not (instance-of ?o temporal-region ?t)))
+;; 		  (:exists (?t) (occupies-temporal-region ?o ?t)))))
+
 (defclass prover9-logic-generator (logic-generator)
   ((name-prefix :accessor name-prefix :initarg :name-prefix :initform "")
    (with-names :accessor with-names :initarg :with-names :initform t)
@@ -30,6 +37,9 @@
 	      (mapcar (lambda(e) (maybe-render-function-expression g e)) (normalize-names g (cdr expression))))
       (normalize-names g expression))
   )
+
+(defmethod logical-relation ((g prover9-logic-generator) head &rest args)
+  (maybe-render-function-expression g (normalize-names g `(,head ,@args))))
 
 (defmethod prover-quantifier-vars ((g prover9-logic-generator) vars)
   (normalize-names g vars))
