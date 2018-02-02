@@ -14,7 +14,9 @@
    (form :accessor job-form :initarg :form)
    (started :accessor job-started :initarg :started)
    (slot :accessor job-slot :initarg :slot)
-   (ended :accessor job-ended :initarg :ended :initform nil)))
+   (ended :accessor job-ended :initarg :ended :initform nil)
+   (stdout :accessor job-stdout :initarg :stdout)
+   ))
 
 (defmethod print-object ((job job) stream)
   (if (slot-boundp job 'future)
@@ -47,12 +49,26 @@
 		   'job 
 		   :started (#"currentTimeMillis" 'system) 
 		   :slot (next-open-job-slot)
-		   :form ',form)))
-
+		   :form ',form
+		   :stdout *standard-output*)))
        (setf (aref *jobs* (job-slot ,job)) ,job)
-       (setf (job-future ,job) (lparallel:future (unwind-protect ,form 
-						   (setf (job-ended ,job) (#"currentTimeMillis" 'system) )
-						   (princ (status-line ,job)))))
+       (let (;; capture debugger hook otherwise not properly bound inside thread
+	     (debugger-hook *debugger-hook*) 
+	     ;; if we're running in swank we have to make sure *buffer-readtable* and *buffer-package* are bound
+	     (maybe-swank-vars (if (find-package :swank)
+				   (list (intern "*BUFFER-PACKAGE*" :swank) (intern "*BUFFER-READTABLE**" :swank))))
+	     (maybe-swank-vals (if (find-package :swank)
+				   (list *package* *readtable*))))
+	 (setf (job-future ,job) 
+	       (lparallel:future (let ((done nil)
+				       (*debugger-hook* debugger-hook))
+				   (progv maybe-swank-vars maybe-swank-vals
+				     (unwind-protect (multiple-value-prog1
+						       ,form
+						       (setq done t))
+				       (setf (job-ended ,job) (#"currentTimeMillis" 'system) )
+				       (when done (princ (status-line ,job) (job-stdout ,job)))
+				       (unless done (setf (aref *jobs* (job-slot ,job)) nil))))))))
        ,job)))
 
 (defun next-open-job-slot ()
@@ -69,9 +85,12 @@
 	when el
 	  do (write-string (status-line el) (terpri))))
 
-(defun flush-jobs ()
-  (loop for i below (length *jobs*)
-	do (setf (aref *jobs* i) nil)))
+(defun flush-jobs (&rest which)
+  (if which
+      (loop for i in which
+	    do (setf (aref *jobs* i) nil))
+      (loop for i below (length *jobs*)
+	    do (setf (aref *jobs* i) nil))))
 
 (defun % (number &optional show-command)
   (let ((job (aref *jobs* (1- number))))
