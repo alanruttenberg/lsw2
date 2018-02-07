@@ -3,7 +3,10 @@
 
 ;(loop for s in '(l-forall l-exists l-and l-or l-iff l-equal l-implies logical-forall logical-exists logical-and logical-or logical-iff logical-equal logical-implies pred-property pred-class pred-property pred-class *use-holds* logic-generator logical-holds) do (shadowing-import s 'cl-user))
 	      
-(defclass logic-generator () ())
+(defclass logic-generator () 
+  ((binary-inverses :accessor binary-inverses :initarg :binary-inverses :initform nil)
+   (ternary-inverses :accessor ternary-inverses :initarg :ternary-inverses :initform nil)
+   (rewrite-inverses? :accessor rewrite-inverses? :initarg :rewrite-inverses? :initform t)))
 
 (defgeneric logical-forall ((g logic-generator) vars expressions))
 (defgeneric logical-exists ((g logic-generator) vars expressions))
@@ -26,6 +29,17 @@
 	(apply 'logical-holds g head args)
 	`(,head ,@args)))
 
+(defmethod logical-relation :around ((g logic-generator) head &rest args)
+  (let ((pair (and (rewrite-inverses? g)
+		   (cond ((= (length args) 2)
+			  (find head (binary-inverses g) :key 'second))
+			 ((= (length args) 3)
+			  (find head (ternary-inverses g) :key 'second))
+			 ))))
+    (if pair
+	(apply #'call-next-method g (first pair) (second args) (first args) (cddr args))
+	(call-next-method))))
+		   
 (defmethod logical-class ((g logic-generator) class el)
   (if *use-holds*
       (logical-holds g class el)
@@ -84,6 +98,10 @@
 	  "Expected a single expression inside :forall but got: ~a" expressions)
   (let ((*quantifier-scoped* (append vars *quantifier-scoped*)))
     (logical-forall *logic-generator* vars expressions)))
+
+(defun l-relation (head &rest args)
+  (apply 'logical-relation *logic-generator* head args))
+    
 
 (defun l-exists (vars &rest expressions)
   (assert (every 'logic-var-p vars) (vars)
@@ -193,7 +211,7 @@
 (defmethod render-axioms ((g symbol) axs)
   (render-axioms (make-instance g) axs))
 
-(defun render (which assumptions &optional goals &key path at-beginning at-end)
+(defun render (which assumptions &optional goals &key path at-beginning at-end sort)
   (let ((generator-class
 	  (ecase which
 	    (:z3 'z3-logic-generator)
@@ -209,6 +227,8 @@
 					 (collect-axioms-from-spec assumptions))
 				     (if (stringp goals) goals
 					 (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals))))))
+	       (when (eq sort :label)
+		   (setq axioms (sort axioms 'cl-user::number-aware-string-lessp :key (cl-user::compose 'string 'axiom-name))))
 	       (if (eq which :dol)
 		   (render-ontology
 		    (make-instance generator-class)

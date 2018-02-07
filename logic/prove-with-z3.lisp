@@ -153,6 +153,15 @@
 	  (setf (result expected-proof) result))
 	result))))
 
+(defun z3-check-true (axiom &rest keys)
+  (let ((result (apply 'z3-check-satisfiability (negate-axiom axiom) keys)))
+    (if (eq result :unsat)
+	:proved
+	(if (eq result :sat)
+	    :disproved
+	    result))))
+      
+
 (defun z3-model-symbol (s)
   (intern (string-upcase (#"replaceAll" (string s) "([A-Z])" "-$1")) 'keyword))
  

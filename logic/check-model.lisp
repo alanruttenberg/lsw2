@@ -114,14 +114,16 @@
     (with-open-file (f interpretation-file :direction :output)
       (setq *last-clausetester-input* (ladr-write-positive-ground-model model theory 'string))
       (write-string *last-clausetester-input* f))
-    (let ((results  (run-program-string->string
-		    (prover-binary "clausetester")
-		    (list (namestring (truename interpretation-file)))
-		    (second (setq *last-clausetester-input* 
-				  (list *last-clausetester-input*  
-					(render-axioms (make-instance 'prover9-logic-generator :name-prefix "_")
+    (multiple-value-bind (results error)
+	(run-program-string->string
+	 (prover-binary "clausetester")
+	 ;; -b -1 means don't set a memory limit. We run into the default limit at about domain size 40
+	 (list (namestring (truename interpretation-file)) )
+	 (second (setq *last-clausetester-input* 
+		       (list *last-clausetester-input*  
+			     (render-axioms (make-instance 'prover9-logic-generator :name-prefix "_" )
 						       (collect-axioms-from-spec theory)))))
-		    )))
+		    )
       (setq *last-clausetester-output* results)
       (let ((error? (search "%ready to abort" results )))
 	(when error?
@@ -151,7 +153,7 @@
 			       (push (intern (string-upcase label) 'keyword) successes))
 			   )))
 		finally
-		   (return (values :failed failures))
+		   (return (values :failed failures error))
 		))))))
   
     

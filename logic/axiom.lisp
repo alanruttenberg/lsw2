@@ -162,7 +162,9 @@
 			,@(mapcar (lambda(e) 
 				    (if (and (consp e) (or (find (car e) keys :key 'car) (find (car e) keys :key 'second)))
 					e
-					`(quote ,e)))
+					(if (and (consp e) (not (logic-var-p (car e))))
+					    `(l-relation ,@(mapcar (lambda(el) (list 'quote el))  e))
+					    `(quote ,e))))
 				  (mapcar #'rewrite (cdr expression)))))
 		     (t expression))
 	       ))
@@ -193,6 +195,11 @@
 					 (axiom-sexp (get-axiom (second e)))
 					 e))
 			  a)))
+  (when (tree-find :axioms a)
+    (setq a (tree-replace (lambda(e) (if (and (consp e) (eq (car e) :axioms))
+					 `(:and ,@(mapcar 'axiom-sexp (mapcar 'get-axiom (rest e))))
+					 e))
+			  a)))
   (when (tree-find :owl a)
     (setq a (tree-replace (lambda(e) (if (and (consp e) (eq (car e) :owl))
 					 (axiom-sexp (owl-sexp-to-fol (second e)))
@@ -206,6 +213,10 @@
 (defmethod negate-axiom ((a axiom))
   (make-instance 'axiom 
 		 :sexp `(:not ,(axiom-sexp a))
+
+
+
+
 		 :name (intern (concatenate 'string "NEGATED-" (string (axiom-name a))) 'keyword)
 		 :description (concatenate 'string "(negated) " (axiom-description a))
 		 :from a))
@@ -301,5 +312,39 @@
 	 (definition-p (axiom-sexp a)))
 	(t nil)))
 
+;; flatten reduce nested :and or :or 
+(defun simplify-and-or (form)
+  (flet ((consolidate-and-or (e type)
+	   (let ((result 
+		   (if (and (consp e) (eq (car e) type))
+		       (let ((queue (cdr e)))
+			 (loop for next = (pop queue)
+			       until (null next)
+			       if (and (consp next)
+				       (eq (car next) type))
+				 do (setq queue (append queue (cdr next)))
+			       else  collect (simplify-and-or next) into conjuncts
+			       finally (return `(,type ,@conjuncts))))
+		       e)))
+	     result)))
+    (tree-replace (lambda(e) (consolidate-and-or e :or))
+		  (tree-replace (lambda(e) (consolidate-and-or e :and))
+				form))))
+
+(defun rename-variables (expression)
+  (tree-replace (lambda(e) (if (and (symbolp e) (char= (char (string e) 0) #\?))
+			       (intern (format nil "?VARIABLE-~a" (subseq (string e) 1)))
+			       e))
+		expression))
+
+;; we have to rename variables so that we can compare incorrect formulas - ones which leave a variable out of scope
+(defun equivalent-formulas (a b &key (with 'z3-prove))
+  (or (equalp a b)
+      (multiple-value-bind (errorp res)	
+	  (ignore-errors (funcall with nil `(:iff ,(rename-variables a) ,(rename-variables b))))
+	(or (and (typep errorp 'condition)
+		 (values nil (apply 'format nil (slot-value errorp 'sys::format-control) (slot-value errorp 'sys::format-arguments))))
+	    (eq errorp :proved))) 
+      ))
 
 

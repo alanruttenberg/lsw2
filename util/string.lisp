@@ -244,3 +244,31 @@
 	    (princ object stream)
 	    (finish-output stream))
 	  (subseq buffer 0 fill-pointer))))))
+
+(defun number-aware-string-lessp (s1 s2 &key (start1 0) (start2 0)
+                               (end1 (length s1)) (end2 (length s2)))
+  (let ((lt t) (gt nil) (eq nil) (d1 0) (d2 0))
+    (loop
+     (when (and (= start1 end1) (= start2 end2)) (return eq))
+     (when (= start1 end1) (return lt))
+     (when (= start2 end2) (return gt))
+     ;;
+     (when 
+         (and
+          (> start1 d1) 
+          (> start2 d2) 
+          (digit-char-p (char s1 start1)) 
+          (digit-char-p (char s2 start2)))
+       (setq d1 (1+ start1)) (setq d2 (1+ start2))
+       (loop 
+        (when (or (= d1 end1) (not (digit-char-p (char s1 d1)))) (return))
+        (incf d1))
+       (loop 
+        (when (or (= d2 end2) (not (digit-char-p (char s2 d2)))) (return))
+        (incf d2)) 
+       (when (> (- d1 start1) (- d2 start2)) (return gt))
+       (when (< (- d1 start1) (- d2 start2)) (return lt)))
+     ;;
+     (when (char-lessp (char s1 start1) (char s2 start2)) (return lt))
+     (when (char-greaterp (char s1 start1) (char s2 start2)) (return gt))
+     (incf start1) (incf start2))))
