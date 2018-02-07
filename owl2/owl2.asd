@@ -61,7 +61,7 @@
 	     (:file "domain-and-range")
 	     (:file "short-form-providers")
 	     (:file "release")
-	     (:file "html-description")
+;	     (:file "html-description")
 	     (:file "describe")
 	     (:file "logger-control")
 	     (:file "owl-to-fol")
