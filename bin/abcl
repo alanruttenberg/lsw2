@@ -1,6 +1,6 @@
 #!/bin/bash
 # r=ram, s=stack, b=bits, j=java, g=verbose gc, c=trace class loading, d=wait for jdi. Environment variables if not command line args.
-
+ulimit -s 32768
 bits="-d32"
 gc=("-XX:-PrintGCDetails" "-XX:-PrintGCTimeStamps") 
 cl=("-XX:-TraceClassLoading" "-XX:-TraceClassUnloading")
