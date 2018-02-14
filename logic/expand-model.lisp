@@ -175,6 +175,13 @@
   (every (lambda(e) (tree-find e body)) 
 	 (remove-if-not 'logic-var-p head)))
 
+
+(defun dnf (form)
+  (ginsberg-cnf-dnf:dnf
+   (tree-replace
+    (lambda(e) (or (second (assoc e '((:implies if) (:and and) (:or or) (:not not) (:iff <=>) ))) e))
+    form)))
+	    
 ;; If the form has an iff surrounded only by universally quantified variables, split into two implications one for each
 ;; direction.
 ;; e.g. (:forall (?x) (:iff (f ?x) (g ?x))) -> (:forall (?x) (:implies (f ?x) (g ?x))), (:forall (?x) (:implies (g ?x) (f ?x)))
@@ -190,7 +197,7 @@
 					      (progn (setq done :exists) e)
 					      (if (eq e :iff) (progn (setq done :iff) '|<=| ) e)))))
 				  formula)))
-      (if (eq done :iff) (list replaced (subst '|=>| '|<=| replaced))
+      (if (eq done :iff) (list replaced (subst '=> '<= replaced))
 	  (list formula)))))
     
 ;; Strategy is either :keep-skolems, or :replace-existentials. Resulting formula has no quantifiers, but does have free
@@ -269,6 +276,8 @@
 					do (setf (gethash sig seen) (list* label head (remove-duplicates clauses :test 'equalp))))))
 	  (alexandria::hash-table-values seen))))  
 
+
+
 ;; alternatives-strategy, a valid list for generate-alternatives
 ;; dnf-strategy, a valid filter list for filter-dnf
 ;; quantifier-strategy, a valid stategy to remove-quantifiers
@@ -280,7 +289,10 @@
 ;; 
 ;; Output is a list of (label (:implies (:and (f ?x ...) ...) (g ?x ..)))
 
-(defun generate-rules (&key (alternatives-strategy '(:head-variables-bound)) (quantifier-strategy :keep-skolems) (dnf-filters '(:no-mixed)) check-with-reasoner :theory theory :check check)
+(defun generate-rules (&key (alternatives-strategy '(:head-variables-bound))
+		  	    (quantifier-strategy :keep-skolems)
+			    (dnf-filters '(:no-mixed))
+			    check-with-reasoner theory check)
   (let ((candidates
 	  (loop for ax in (collect-axioms-from-spec check)
 		append 
@@ -291,12 +303,13 @@
 			      (generate-alternatives 
 			       alternatives-strategy 
 			       (filter-dnf dnf-filters
-					   (dnf (formula-translate
-						 (remove-quantifiers quantifier-strategy maybe-split))))
+					   (dnf (remove-quantifiers quantifier-strategy maybe-split)))
 			       (axiom-name ax))
 			    for candidate =  `(:implies  (:and ,@(cdr alt)) ,(car alt))
 			    for vars = (fourth (multiple-value-list (formula-elements candidate)))
-			    when (and (car  alt) (cdr alt) (not (equal (caar alt) :=)))
+			    when (and (car  alt) (cdr alt) ;; make sure there's both a head and clause 
+				      (not (equal (caar alt) :=)) ;; don't include rules generating equality
+				      (not (member  (car alt) (cdr alt) :test 'equalp))) ;; remove tautologies (head is one of clauses)
 			      collect  (list label `(:forall ,vars ,candidate)))))))
     (if (not check-with-reasoner)
 	(mapcar (lambda(e) (list (car e) (third (second e)))) candidates)
@@ -332,7 +345,7 @@
   (loop for el = *assertions* then (funcall (second el))
 	until (symbolp el)
 	unless (eq (caar el) '=)
-	collect (car el)))
+	  collect (car el)))
 
 ;; Report a comparison of an inferred kb compared to a reference.
 ;; reference is a list of propositions

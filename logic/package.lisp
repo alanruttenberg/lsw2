@@ -3,6 +3,10 @@
 		       "*VAMPIRE-SHARED-DIRECTORY-REMOTE*" "*VAMPIRE-SHARED-DIRECTORY-LOCAL*" "CAMELCASE" "*DEFAULT-URI-BASE*"
 		       "GET-VAGRANT-BOX-ID" "GET-VAGRANT-BOX-WD" "GET-VAGRANT-BOX-STATUS" "VAGRANT-BOX-UP") 
 		      do (intern early :cl-user)))
+(defpackage :ginsberg-cnf-dnf
+  (:use cl)
+  (:export #:dnf #:cnf))
+
 (defpackage :logic
   (:use cl)
   (:import-from :cl-user cl-user::owl-sexp-to-fol cl-user::run-program-string->string
@@ -13,8 +17,9 @@
 		cl-user::*vampire-shared-directory-remote* cl-user::*vampire-shared-directory-local*
 		cl-user::*running-in-vagrant* cl-user::*vampire-box-name* cl-user::*vampire-executable* cl-user::print-db
 		cl-user::tree-replace cl-user::tree-find cl-user::tree-walk cl-user::tree-remove-if cl-user::?
-		cl-user::remember-assertion cl-user::remember-rule cl-user::forward-chain cl-user::make-empty-stream cl-user::*rules* cl-user::*assertions*
 		)
+  (:import-from :winston-ai  #:remember-assertion #:remember-rule #:forward-chain #:make-empty-stream #:*rules* #:*assertions*)
+  (:import-from :ginsberg-cnf-dnf ginsberg-cnf-dnf::<= ginsberg-cnf-dnf::=> ginsberg-cnf-dnf::<=>) 
   (:import-from :jss jss::all-matches)
   (:import-from :sys sys::run-program sys::process-output sys::process-input)
   (:import-from :asdf asdf::system-relative-pathname)

@@ -1,7 +1,8 @@
 ;;; This file was stolen from Matt Ginsberg's MVL 3/8/93 via https://github.com/cgay/lisp-to-dylan/blob/master/test/cnf.lisp
 ;;; modified for LSW
 
-(in-package :logic)
+(defpackage :ginsberg-cnf-dnf)
+(in-package :ginsberg-cnf-dnf)
 
 (defparameter *logical-operators* '(<= => <=> and or not if))
 
