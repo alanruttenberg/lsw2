@@ -107,19 +107,23 @@ to avoid consing, which can land up be quite a lot"
   "Take spec and interpreation as list of positive propositions, with optional pairs of inverse relations to rewrite, and 
 check each of them, as would ladr's clausetester. Return either :satisfying-model or :failed. In the latter case the 
 second value is the list of formulas that failed"
-  (let ((results 
-	  (lparallel:pmapcan 
-	   (lambda(e) (if (evaluate-formula
-			   (car (rewrite-inverses (list (axiom-sexp (get-axiom e)))
-						  :binary-inverses binary-inverses
-						  :ternary-inverses ternary-inverses))
-			   model)
-			  nil
-			  (list e)))
-	   (map 'vector 'axiom-name (collect-axioms-from-spec spec)))))
-    (if results
-	(values :failed results)
-	:satisfying-model)))
+  (let ((rewritten (rewrite-inverses spec
+				     :binary-inverses binary-inverses
+				     :ternary-inverses ternary-inverses
+				     :copy-names? t)))
+    (let ((results 
+	    (lparallel:pmapcan 
+	     (lambda(e) (if (evaluate-formula
+			     (car (rewrite-inverses (list (axiom-sexp e))
+						    :binary-inverses binary-inverses
+						    :ternary-inverses ternary-inverses))
+			     model)
+			    nil
+			    (list (axiom-name e))))
+	     (coerce rewritten 'vector))))
+      (if results
+	  (values :failed results)
+	  :satisfying-model))))
 
 
 
