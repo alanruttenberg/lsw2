@@ -278,29 +278,32 @@
 ;;
 ;; Note: Rules that have an equality as head are ignored
 ;; 
-;; Output is a list of (label (:forall (?x...) (:implies (:and (f ?x ...) ...) (g ?x ..))))
+;; Output is a list of (label (:implies (:and (f ?x ...) ...) (g ?x ..)))
 
 (defun generate-rules (&key (alternatives-strategy '(:head-variables-bound)) (quantifier-strategy :keep-skolems) (dnf-filters '(:no-mixed)) check-with-reasoner :theory theory :check check)
-  (loop for ax in (collect-axioms-from-spec check)
-	append 
-	(loop for maybe-split in (maybe-split-top-iff  (axiom-sexp ax))
-	      append
-	      (loop for (label . alt)
-		      in 
-		      (generate-alternatives 
-		       alternatives-strategy 
-		       (filter-dnf dnf-filters
-				   (dnf (formula-translate
-					 (remove-quantifiers quantifier-strategy maybe-split))))
-		       (axiom-name ax))
-		    for candidate =  `(:implies  (:and ,@(cdr alt)) ,(car alt))
-		    for vars = (fourth (multiple-value-list (formula-elements candidate)))
-		    when (and (car  alt) (cdr alt) (not (equal (caar alt) :=))
-			      (or (not check-with-reasoner)
-				  (eq 
-				   :proved
-				   (z3-prove theory `(:forall ,vars ,candidate) :timeout (if (numberp check-with-reasoner) check-with-reasoner 2)))))
-		      collect  (list label candidate)))))
+  (let ((candidates
+	  (loop for ax in (collect-axioms-from-spec check)
+		append 
+		(loop for maybe-split in (maybe-split-top-iff  (axiom-sexp ax))
+		      append
+		      (loop for (label . alt)
+			      in 
+			      (generate-alternatives 
+			       alternatives-strategy 
+			       (filter-dnf dnf-filters
+					   (dnf (formula-translate
+						 (remove-quantifiers quantifier-strategy maybe-split))))
+			       (axiom-name ax))
+			    for candidate =  `(:implies  (:and ,@(cdr alt)) ,(car alt))
+			    for vars = (fourth (multiple-value-list (formula-elements candidate)))
+			    when (and (car  alt) (cdr alt) (not (equal (caar alt) :=)))
+			      collect  (list label `(:forall ,vars ,candidate)))))))
+    (if (not check-with-reasoner)
+	(mapcar (lambda(e) (list (car e) (third (second e)))) candidates)
+	(lparallel::pmapcan (lambda(rule)
+			      (if (eq :proved (z3-prove theory (second rule) :timeout (if (numberp check-with-reasoner) check-with-reasoner 2)))
+				  (list (list (first rule) (third (second rule))))))
+			    candidates))))
 
 ;; Currently using the old code from winston ai, but might switch to prolog.
 ;; Those rules use the syntax (? v) for my ?v
@@ -328,6 +331,7 @@
   (forward-chain)
   (loop for el = *assertions* then (funcall (second el))
 	until (symbolp el)
+	unless (eq (caar el) '=)
 	collect (car el)))
 
 ;; Report a comparison of an inferred kb compared to a reference.

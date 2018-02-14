@@ -7,8 +7,11 @@
 
 (defun tree-find (sym tree &key (test #'eq))
   (cond ((atom tree)
-	 (funcall test sym tree))
+	 (if (funcall test sym tree) tree))
 	(t (some (lambda(el) (tree-find sym el :test test)) tree))))
+
+(defun tree-find-if (tree fn)
+  (tree-walk tree (lambda(e) (when (funcall fn e) (return-from tree-find-if e)))))
 
 (defun f (tree fn)
   (cond ((atom tree)
