@@ -265,7 +265,17 @@
 
 ;; return predicates, constants, function symbols in formula
 (defun formula-elements (sexp)
-  (when (not (keywordp (car sexp)))
+  ;; expecting an sexp but accept a spec.
+  ;; sexp might be missing :fact
+  ;; spec can be '(:name ...) '((:kind ..))) ((:forall ..))
+  ;; it's a spec if
+  ;;  1) it starts with a keyword other than :forall ...
+  ;;  2) the first element is an axiom
+  ;;  3) The first element is a list
+  (when (or (and (keywordp (car sexp))
+		 (not (member (car sexp) '(:forall :exists :and :or :iff :implies := :not))))
+	    (consp (car sexp))
+	    (typep (car sexp) 'axiom))
     (setq sexp `(:and ,@(mapcar 'axiom-sexp (collect-axioms-from-spec sexp)))))
   (let ((predicates nil)
 	(constants nil)
