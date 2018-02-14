@@ -304,6 +304,16 @@
       (walk exp)
       (values predicates constants functions variables))))
 
+(defun definition-p (a)
+  (cond ((formula-sexp-p a)
+	 (when (eq (car a) :forall)
+	   (when (eq (car (third a)) :iff)
+	     (or (not (keywordp (car (second (third a)))))
+		 (not (keywordp (car (third  (third a)))))))))
+	((typep a 'axiom)
+	 (definition-p (axiom-sexp a)))
+	(t nil)))
+
 ;; flatten reduce nested :and or :or 
 (defun simplify-and-or (form)
   (flet ((consolidate-and-or (e type)
@@ -338,4 +348,5 @@
 		 (values nil (apply 'format nil (slot-value errorp 'sys::format-control) (slot-value errorp 'sys::format-arguments))))
 	    (eq errorp :proved))) 
       ))
+
 
