@@ -265,6 +265,8 @@
 
 ;; return predicates, constants, function symbols in formula
 (defun formula-elements (sexp)
+  (when (not (keywordp (car sexp)))
+    (setq sexp `(:and ,@(mapcar 'axiom-sexp (collect-axioms-from-spec sexp)))))
   (let ((predicates nil)
 	(constants nil)
 	(variables nil)
