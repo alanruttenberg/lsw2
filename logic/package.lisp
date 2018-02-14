@@ -12,19 +12,22 @@
 		cl-user::get-vagrant-box-wd cl-user::vagrant-box-up
 		cl-user::*vampire-shared-directory-remote* cl-user::*vampire-shared-directory-local*
 		cl-user::*running-in-vagrant* cl-user::*vampire-box-name* cl-user::*vampire-executable* cl-user::print-db
-		cl-user::tree-replace cl-user::tree-find cl-user::tree-walk cl-user::tree-remove-if
+		cl-user::tree-replace cl-user::tree-find cl-user::tree-walk cl-user::tree-remove-if cl-user::?
+		cl-user::remember-assertion cl-user::remember-rule cl-user::forward-chain cl-user::make-empty-stream cl-user::*rules* cl-user::*assertions*
 		)
   (:import-from :jss jss::all-matches)
   (:import-from :sys sys::run-program sys::process-output sys::process-input)
   (:import-from :asdf asdf::system-relative-pathname)
+  (:shadowing-import-from :cl-user cl-user::axiom)
   (:export
    #:l-forall #:l-exists #:l-and #:l-or #:l-iff #:l-equal #:l-not
    #:l-implies #:pred-property #:pred-class #:*use-holds*
    #:logic-generator #:with-logic-var #:with-logic-vars #: #:
-   #:def-logic-axiom #:axiom-sexp #:axiom-name #:axiom-description
+   #:def-logic-axiom #:axiom-sexp #:axiom-name #:axiom-description #:axiom
    #:delete-axiom #:get-axiom #:prover9-prove #:mace4-find-model #:mace4-check-satisfiability #:mace4-check-satisfiability-alt #:logic-var-p
    #:clausetester-check-model 
    #:get-axioms #:tree-walk #:tree-replace
+   #:ladr-write-positive-ground-model
    #:prover9-logic-generator
    #:*last-mace4-model* 
    #:*last-prover9-input* 
@@ -47,7 +50,7 @@
    #:*last-z3-input* #:*last-z3-output*
    #:*last-vampire-input* #:*last-vampire-output*
    #:*last-clausetester-input*   #:*last-clausetester-output*
-   #:def-expect-satisfiable #:def-expect-unsatisfiable #:def-expect-provable #:def-expect-not-entailed 
+   #:def-expect-satisfiable #:def-expect-unsatisfiable #:def-expect-provable #:def-expect-not-entailed  #:*expected-proofs* 
    #:run-proof #:proof-form #:render-proof #:prove-with
    #:clif-logic-generator #:dol-logic-generator
    #:render-ontology
@@ -57,4 +60,7 @@
    #:prover9-check-true
    #:prover9-output-proof-section
    #:get-proof-support
+   #:rewrite-inverses
+   #:evaluate-formula 
+   #:evaluate-formulas 
   ))
