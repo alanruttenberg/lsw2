@@ -31,9 +31,11 @@
      (:file "parse-prover9")
      (:file "proof")
      (:file "check-model")
-     (:file "formula-tester"))
+     (:file "formula-tester")
+     (:file "cnf")
+     (:file "expand-model"))
     :depends-on ("package" "main")))
-  :depends-on (:cl-ansi-text :yacc)
+  :depends-on (:cl-ansi-text :yacc :winston-forward-chain)
   )
 
 
