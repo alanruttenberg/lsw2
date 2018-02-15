@@ -20,6 +20,8 @@
 (defmacro getenv ( &environment env)
   env)
 
+(defvar *debug-eval-formula* nil)
+
 (defun evaluate-formula (formula interpretation)
   "Take a logical formula and test against an interpretation given as the list of positive propositions. 
 Works by transforming the formula into a function, compiling it, and running it. The list macros are used 
@@ -46,7 +48,12 @@ to avoid consing, which can land up be quite a lot"
 			       (let ((success t))
 				 (dolist (,@vars universe)
 				   (unless ,body
-				     (return-from ,label (setq success nil))))
+				     (progn (when *debug-eval-formula*
+					      (when (member (car ',(third body)) '(list2 list3 list4 list5))
+						(let ((form ',(cdr (third body))))
+						  (setq form (list* (second (car form)) (cdr form)))
+						  (format t ":forall ~a missed ~a=~a~%"  form ',(first vars) ,(first vars)   ))))
+					    (return-from ,label (setq success nil)))))
 				 success)))
 			  `(:forall (,(car vars))
 			     (:forall (,@(cdr vars))
@@ -57,7 +64,12 @@ to avoid consing, which can land up be quite a lot"
 			    `(block ,label
 			       (dolist (,@vars universe nil)
 				 (if ,body
-				     (return-from ,label t)))))
+				     (return-from ,label t)))
+			       (when *debug-eval-formula*
+				 (when (member (car ',(third body)) '(list2 list3 list4 list5))
+				   (let ((form ',(cdr (third body))))
+				     (setq form (list* (second (car form)) (cdr form)))
+				     (format t ":exists ~a no success~%"  form    ))))))
 			  `(:exists (,(car vars))
 			     (:exists (,@(cdr vars))
 			       ,body))))

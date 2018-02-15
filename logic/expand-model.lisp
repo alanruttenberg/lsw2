@@ -365,11 +365,19 @@
 	)
     ;; Report props in kb but not reference, but skip the equality assertions we added
     (loop for prop in (remove '= props :key 'car)
-	  if (not (member prop everything :test 'equalp)) do (incf bad) and do (print prop) else do (incf good))
+	  if (not (member prop everything :test 'equalp))
+	    do (incf bad)
+	    and collect prop into bad-ones
+	  else do (incf good)
+	  finally
+    	     (map nil 'print (sort bad-ones 'string-lessp :key 'princ-to-string)))
+
     (print "---")
     
     (loop for prop in everything
 	  if (not (member prop props :test 'equalp))
-	    sum 1 into missing and do (print prop)  
-	  finally (return (list (length base) good bad missing)))
+	    sum 1 into missing and collect prop into missing-ones
+	  finally 
+	     (map nil 'print (sort missing-ones 'string-lessp :key 'princ-to-string))
+	     (return (list (length base) good bad missing)))
     ))
