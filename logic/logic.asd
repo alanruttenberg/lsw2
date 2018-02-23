@@ -31,11 +31,12 @@
      (:file "parse-prover9")
      (:file "proof")
      (:file "check-model")
+     (:file "prolog")
      (:file "formula-tester")
      (:file "cnf")
      (:file "expand-model"))
     :depends-on ("package" "main")))
-  :depends-on (:cl-ansi-text :yacc :winston-forward-chain)
+  :depends-on (:cl-ansi-text :yacc :winston-forward-chain :paiprolog)
   )
 
 
