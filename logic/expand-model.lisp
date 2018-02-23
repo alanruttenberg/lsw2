@@ -177,10 +177,22 @@
 
 
 (defun dnf (form)
-  (ginsberg-cnf-dnf:dnf
+  (ginsberg-cnf-dnf::dnf
    (tree-replace
     (lambda(e) (or (second (assoc e '((:implies if) (:and and) (:or or) (:not not) (:iff <=>) ))) e))
     form)))
+
+(defun cnf (form)
+  (ginsberg-cnf-dnf::cnf
+   (tree-replace
+    (lambda(e) (or (second (assoc e '((:implies if) (:and and) (:or or) (:not not) (:iff <=>) ))) e))
+    form)))
+
+(defun dnf-formula (form)
+  (subst :not 'not `(:or ,@(mapcar (lambda(e) (if (= (length e) 1) (car e) `(:and ,@e))) (dnf form)))))
+
+(defun cnf-formula (form)
+  (subst :not 'not `(:and ,@(mapcar (lambda(e) (if (= (length e) 1) (car e) `(:or ,@e))) (cnf form)))))
 	    
 ;; If the form has an iff surrounded only by universally quantified variables, split into two implications one for each
 ;; direction.
@@ -381,3 +393,4 @@
 	     (map nil 'print (sort missing-ones 'string-lessp :key 'princ-to-string))
 	     (return (list (length base) good bad missing)))
     ))
+
