@@ -33,6 +33,13 @@
 (defmethod latex-quantifier-vars ((g latex-logic-generator) vars)
   (normalize-names g vars))
 
+(defmethod logical-relation ((g latex-logic-generator) head &rest args)
+  (format nil "\\text{~a}(~{~a~^,~})" (normalize-names g head )
+	  (mapcar (lambda(e) (let ((sym (normalize-names g e)))
+			       (if (logic-var-p e) 
+				   (format nil "\\text{{\\it ~a}}" sym)
+				   (format nil "\\text{~a}" sym))))
+		  args)))
 (defmethod logical-forall ((g latex-logic-generator) vars expressions)
   (format nil "~{\\forall ~a\\, ~} ~{~a~}"  (latex-quantifier-vars g vars)
 	  (mapcar (lambda(e)(latex-expression g e)) expressions)))
