@@ -81,7 +81,7 @@
 	 ,@body))))
 
 (defun logic-var-p (thing)
-  (and (symbolp thing) (char= (char (string thing) 0) #\?)))
+  (and (symbolp thing) (char= (char (string thing) 0) #\?) (> (length (string thing)) 1)))
 
 (defun pred-property (head &rest args)
   (apply 'logical-relation *logic-generator* head args))
