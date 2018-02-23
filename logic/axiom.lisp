@@ -33,9 +33,9 @@
 					       (loop for function in functions collect `(:function ,(keywordify function)))
 					       (loop for const in constants collect `(:constant ,(keywordify const)))
 					       (loop for (k v) on ',key-values by #'cddr
-						     collect (list k (if (symbolp k)
+						     collect (list k (if (symbolp v)
 									 (keywordify v)
-									 k))))))))))
+									 v))))))))))
 
 (defmethod print-object ((a axiom) stream)
   (let ((*print-case* :downcase))
@@ -205,8 +205,9 @@
 					 (axiom-sexp (owl-sexp-to-fol (second e)))
 					 e)) a)))
   a)
-			       
 
+(defmethod axiom-sexp ((s symbol))
+  (axiom-sexp (get-axiom s)))
 
 (defmethod negate-axiom ((a list)) `(:not ,a))
 
