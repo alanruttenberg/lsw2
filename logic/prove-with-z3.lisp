@@ -165,7 +165,7 @@
 (defun z3-model-symbol (s)
   (intern (string-upcase (#"replaceAll" (string s) "([A-Z])" "-$1")) 'keyword))
  
-(defparameter *z3-model-symbol-package* (make-package "Z3Z3" :use '(cl)))
+(defvar *z3-model-symbol-package* (make-package "Z3Z3" :use '(cl)))
 
 (defun transform-z3-model (z3-output)
   (if (equal z3-output "") 

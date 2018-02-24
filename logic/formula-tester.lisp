@@ -115,7 +115,7 @@
 ;;      nil))))
 ;; ->
 
-(defun convert-logic (formula)
+(defun convert-logic (formula &optional tracevars)
   (if (atom formula)
       formula
       (case (car formula)
@@ -127,21 +127,23 @@
 		    `(let ((success t))
 		       (tagbody 
 			  (dolist (,(car vars) universe)
-			    (unless ,(convert-logic body)
+			    (unless ,(convert-logic body tracevars)
 			      (setq success nil)
-			      (go ,label)))
+			      (go ,label))
+			    ,@(if tracevars `((setf (svref trace ,(position (car vars) tracevars)) nil)) nil))
 			  ,label)
-		       success))
+			success))
 		  (convert-logic
 		   `(:forall (,(car vars))
 		      (:forall (,@(cdr vars))
-			,body))))))
+			,body))
+		   tracevars))))
 	(:forall-enumerated
 	 (let ((vars (car (second formula)))
 	       (bindings (cdr (second formula)))
 	       (body (third formula)))
 	   `(loop for ,vars in ',bindings
-		 always ,(convert-logic body))))
+		 always ,(convert-logic body tracevars))))
 	(:exists
 	    (let ((vars (second formula))
 		  (body (third formula)))
@@ -150,21 +152,23 @@
 		    `(let ((success nil))
 		       (tagbody 
 			  (dolist (,(car vars) universe)
-			    (when ,(convert-logic body)
+			    (when ,(convert-logic body tracevars)
 			      (setq success t)
-			      (go ,label)))
+			      (go ,label))
+			    ,@(if tracevars `((setf (svref trace ,(position (car vars) tracevars)) nil)) nil)
+			    )
 			  ,label)
 		       success))
 		  (convert-logic
 		   `(:exists (,(car vars))
 		      (:exists (,@(cdr vars))
-			,body))))))
+			,body)) tracevars))))
 	(:and
 	 (let ((label (gensym)))
 	   `(let ((success t))
 	      (tagbody
 		 ,@(loop for conjunct in (cdr formula)
-			 collect `(unless ,(convert-logic conjunct)
+			 collect `(unless ,(convert-logic conjunct tracevars)
 				    (setq success nil)
 				    (go ,label)))
 		 ,label)
@@ -174,7 +178,7 @@
 	   `(let ((success nil))
 	      (tagbody
 		 ,@(loop for conjunct in (cdr formula)
-			 collect `(when ,(convert-logic conjunct)
+			 collect `(when ,(convert-logic conjunct tracevars)
 				    (setq success t)
 				    (go ,label)))
 		 ,label)
@@ -183,16 +187,16 @@
 	    (let ((ant (gensym))
 		  (cons (gensym)))
 	      `(let* ((,ant ,(convert-logic (second formula)))
-		      (,cons (if ,ant ,(convert-logic (third formula)))))
+		      (,cons (if ,ant ,(convert-logic (third formula) tracevars))))
 		 (or (not ,ant) ,cons))))
 	(:iff 
 	    (let ((ant (gensym))
 		  (cons (gensym)))
-	      `(let ((,ant ,(convert-logic (second formula)))
-		     (,cons ,(convert-logic (third formula))))
+	      `(let ((,ant ,(convert-logic (second formula) tracevars))
+		     (,cons ,(convert-logic (third formula) tracevars)))
 		 (eq ,ant ,cons))))
 	(:fact 
-	 (convert-logic (second formula)))
+	 (convert-logic (second formula) tracevars))
 	(:distinct 
 	 t)
 	(:=
@@ -201,7 +205,7 @@
 	   `(eq ,(if (logic-var-p a) a `(quote ,a))
 		,(if (logic-var-p b) b `(quote ,b)))))
 	(:not 
-	    `(not ,(convert-logic (second formula))))
+	    `(not ,(convert-logic (second formula) tracevars)))
 	(otherwise formula))))
 
 ;; Optimization of the top loop (in many cases)
@@ -470,11 +474,53 @@
 	      (make-instance 'axiom :sexp rewritten-sexp :name (axiom-name ax))
 	      rewritten-sexp))))
 
+;; Walk down a form in which bindings have been substituted, evaluating each subform
+;; Facts are translated to either (:true <fact>) or (:false <fact>)
+;; Expressions (forms starting with a keyword) are translated to
+;; style=:nested same as other forms
+;; style=:right-of-keyword ((<keyword> :true) ... ) or ((<keyword> :false) ... )
+;; style=:left-of-keyword ((:true <keyword>) ... ) or ((:false <keyword>) ... )
+;; style=:hyphen (<keyword>-true ...) or  (<keyword>-false ...)
+(defun annotate-lossage (form model &optional (style :hyphen))
+  (flet ((annotate-one (form status)
+	   (ecase style
+	     (:nested (list status form))
+	     (:hyphen (if (keywordp (car form)) (list* (intern (concatenate 'string (string (car form)) "-" (string status)) 'keyword) (cdr form))))
+	     (:left-of-keyword (if (keywordp (car form)) (list* (list status (car form)) (cdr form)) (list status form)))
+	     (:right-of-keyword (if (keywordp (car form)) (list* (list (car form) status) (cdr form)) (list status form))))))
+    (if (some 'logic-var-p form)
+	form
+	(let ((status (if (evaluate-bound form model) :true :false)))
+	  (cond ((member (car form) '(:forall :exists))
+		 (if (some 'logic-var-p (second form))
+		     (annotate-one form status)
+		     (annotate-one (list (car form) (second form) (annotate-lossage (third form) model)) status)))
+		((member (car form) '(:and :or :iff :implies :not))
+		 (annotate-one (list* (car form) (mapcar (lambda(e) (annotate-lossage e model)) (cdr form))) status))
+		(t (list status form)))))))
 
-(defun evaluate-formula (formula interpretation &key trace show-form (implies-optimize nil))
+;; take a formula in which a set of bindings has been substituted and evaluate it.
+;; This consists of evaluating after removing constants where a quantifying variable of a forall or exists 
+(defun evaluate-bound (form model)
+  (labels ((thin-quantifiers (form)
+	     (if (consp form)
+		 (if (member (car form) '(:forall :exists))
+		     (let ((qvars (remove-if-not 'logic-var-p (second form))))
+		       (if (null qvars)
+			   (thin-quantifiers (third form))
+			   `(,(car form) ,qvars
+			     ,(thin-quantifiers (third form)))))
+		     (if (member (car form) '(:and :or :iff :implies :not))
+			 `(,(car form) ,@(mapcar #'thin-quantifiers (cdr form)))
+			 form))
+		 form)))
+    (evaluate-formula (thin-quantifiers form) model)))
+
+(defun evaluate-formula (formula interpretation &key trace show-form return-annotated (implies-optimize nil))
   "Take a logical formula and test against an interpretation given as the list of positive propositions. 
 Works by transforming the formula into a function, compiling it, and running it. The list macros are used 
 to avoid consing, which can land up be quite a lot"
+  (when (keywordp formula) (setq formula (axiom-sexp formula)))
   (let ((paiprolog::*trail*  (make-array 200 :fill-pointer 0 :adjustable t)))
     (when (and implies-optimize (or (not (numberp implies-optimize)) (>= (quantified-depth formula) implies-optimize)))
       (multiple-value-bind (vars ant cons) 
@@ -491,22 +537,30 @@ to avoid consing, which can land up be quite a lot"
 				  collect
 				  (list (intern (format nil "VEC-~a" size))
 					`(make-array ,size)))
-			,(convert-logic converted))))
+			,(convert-logic converted tracevars))))
 	      (kb (make-hash-table :test 'equalp))
 	      (universe (remove-duplicates (apply 'append (mapcar 'cdr interpretation)))))
 	  (setq *count* 0)
 	  (setq *abort* nil)
 	  (dolist (prop interpretation) (setf (gethash (coerce prop 'simple-vector) kb) t))
 	  (if show-form
-	      (pprint (ext:macroexpand-all fun))
-	      (let ((compiled (compile nil fun)))
-					;   (pprint fun)
-					;      (funcall (eval fun) universe kb))))
-		(values (funcall compiled universe kb trace-array)
-			(and trace (map 'list 'list tracevars trace-array))
-			kb
-			compiled
-			*count*))))))))
+	      (let ((*print-right-margin* 200)) (pprint (ext:macroexpand-all fun)))
+	      (let* ((compiled (compile nil fun))
+		     (evaluation (funcall compiled universe kb trace-array)))
+		(if (and trace (not evaluation))
+		    (let* ((trace-bindings (remove nil (map 'list 'cons tracevars trace-array) :key 'cdr))
+			   (annotated (annotate-lossage (if trace-bindings
+							    (paiprolog::subst-bindings trace-bindings (normalize-qvars formula))
+							    formula)
+							interpretation)))
+		      (unless return-annotated 
+			(pprint annotated))
+		      (if return-annotated
+			  (values annotated trace-bindings)
+			  evaluation))
+		    (values evaluation
+			    (and trace (map 'list 'cons tracevars trace-array) )
+			    *count*)))))))))
 
 (defun test ()
   (loop for int in '(((f a) (g a)) ((g a)) ((f a)) ())

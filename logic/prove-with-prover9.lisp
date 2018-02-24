@@ -80,9 +80,9 @@
       (when error
 	(let ((what (caar (all-matches output "%%START ERROR%%(.*)%%END ERROR%%" 1))))
 	  ;; FIXME. This is a problem with inspect being called from a thread. Should be fixed in inspect
-	  (let #+swank ((swank::*buffer-package* *package*) (swank::*buffer-readtable* *readtable*)) #-swank nil
-	    (inspect (cons input output)))
-	  (error "~a error: ~a in: ~a" (string-downcase (string which)) error what))))
+	  ;; (let #+swank ((swank::*buffer-package* *package*) (swank::*buffer-readtable* *readtable*)) #-swank nil
+	  ;;   (inspect (cons input output)))
+	   (error "~a error: ~a in: ~a" (string-downcase (string which)) error what))))
     (let ((reason (caar (all-matches output "(?s)Process \\d+ exit \\((.*?)\\)" 1))))
       (flet ((maybe-exceeded-resource-limit ()
 	       (if  (or (equal reason "max_sec_no") (equal reason "max_seconds"))
