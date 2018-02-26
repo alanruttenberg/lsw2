@@ -1,3 +1,4 @@
+(in-package :cl-user)
 (defvar *unblanked* nil)
 (defvar *collect-triples*)
 (defvar *triple-collector*)
