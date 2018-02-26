@@ -567,7 +567,11 @@ to avoid consing, which can land up be quite a lot"
       for answer in '(t t nil t)
 	always (eq (logic::evaluate-formula '(:forall (?x) (:implies (f ?x) (g ?x))) int) answer)))
 
-(defun evaluate-formulas (spec model &key binary-inverses ternary-inverses (debug nil debug-supplied-p) (implies-optimize 4))
+(defvar *default-forall-implies-optimization-level* 4
+  "Use it when quantifiers are nested at least this deep. nil to not use the optimization")
+    
+
+(defun evaluate-formulas (spec model &key binary-inverses ternary-inverses (debug nil debug-supplied-p) (implies-optimize *default-forall-implies-optimization-level*))
   "Take spec and interpreation as list of positive propositions, with optional pairs of inverse relations to rewrite, and 
 check each of them, as would ladr's clausetester. Return either :satisfying-model or :failed. In the latter case the 
 second value is the list of formulas that failed"
