@@ -32,7 +32,8 @@
 ;; the formula isn't used in the facts, compile a prolog predicate function for it.
 
 (defun compile-prolog-predicates-for-unused-relations (facts &optional (formulas (mapcar 'axiom-sexp (alexandria::hash-table-values *axioms*))))
-  (let ((predicates-in-db (formula-elements `(:and ,@facts)))) ;; compute this because paiprolog doesn't keep a list of predicate/arity 
+  (let ((predicates-in-db (formula-elements `(:and ,@facts)))) ;; compute this because paiprolog doesn't keep a list of predicate/arity
+    (loop for (pred arity) in predicates-in-db do (setf (get pred :fact-only) t))
     (let ((predicates-in-formulas (formula-elements `(:and ,@formulas))))
       (loop for (predicate arity)
 	      in (set-difference predicates-in-formulas predicates-in-db :test 'equalp)
@@ -50,3 +51,31 @@
 	   (tree-replace (lambda (e) (if (keywordp e) (intern (string e)) e)) form)))
     (eval `(paiprolog::<- ,(fix-keywords head) ,@(fix-keywords clauses)))))
 
+(in-package :paiprolog)
+;; 
+(defun compile-predicate (symbol arity clauses)
+  "Compile all the clauses for a given symbol/arity
+  into a single LISP function."
+  (let ((*predicate* (make-predicate symbol arity))    ;***
+        (parameters (make-parameters arity)))
+    (if (get symbol :fact-only)
+	(let ((defun 
+		  `(defun ,*predicate* (,@parameters cont)
+		     (let ((old-trail (fill-pointer *trail*)))
+			(loop for clause in ',clauses
+			      for first = t then nil
+			      do (unless first (undo-bindings! old-trail))
+				 (if (loop for arg in (list ,@parameters)
+					   for el in (car clause)
+					   always 
+					   (unify! arg el))
+				     (funcall cont)))))))
+	  (compile (eval defun)))
+		  
+	 (compile
+	  (eval
+	   `(defun ,*predicate* (,@parameters cont)
+	      .,(maybe-add-undo-bindings
+		 (mapcar #'(lambda (clause)
+			     (compile-clause parameters clause 'cont))
+			 clauses))))))))
