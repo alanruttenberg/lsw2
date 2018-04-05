@@ -420,6 +420,10 @@
 	((and (stringp el) (char= (char el 0) #\<)
 	      (char= (char el (1- (length el))) #\>))
 	 el)
+	((and (consp el) (eq (car el) :literal))
+	 (let ((value (second el))
+	       (datatype (third el)))
+	   (format nil "\"~a\"~a~a" value (if datatype "^^" "") (if datatype (maybe-sparql-format-uri datatype) ""))))
 	((consp  el)
 	 (mapcar #'maybe-sparql-format-uri el))
 	(t
