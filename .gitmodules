@@ -1,0 +1,3 @@
+[submodule "logic/winston-ai"]
+	path = logic/winston-ai
+	url = https://github.com/alanruttenberg/winston-ai.git
