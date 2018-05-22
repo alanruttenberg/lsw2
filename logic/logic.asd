@@ -13,6 +13,10 @@
   ((:module "package" :pathname ""
     :components
     ((:file "package")))
+   (:module "graal" :components
+            ((:mvn "fr.lirmm.graphik/graal-io-dlgp/1.3.1")
+             (:mvn "fr.lirmm.graphik/graal-kb/1.3.1")
+	     ))
    (:module "main" :pathname ""
     :components
     ((:file "axiom")
@@ -37,7 +41,7 @@
      (:file "formula-tester")
      (:file "cnf")
      (:file "expand-model"))
-    :depends-on ("package" "main")))
+    :depends-on ("package" "main" "graal")))
   :depends-on (:cl-ansi-text :yacc :winston-forward-chain :paiprolog)
   )
 
