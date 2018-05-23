@@ -1,34 +1,30 @@
 (in-package :logic)
 
 (defclass graal-kb ()
-  ((kb :accessor kb)
+  ((kb :accessor kb :initform nil)
    (dlgp-parser :accessor dlgp-parser :initform (new 'dlgpparser ""))
-   (facts :accessor facts :initform nil :initarg facts)
-   (rules :accessor rules :initform nil :initarg rules)
+   (rules :accessor rules :initform (jss::new 'linkedlistruleset) :initarg rules)
+   (store :accessor store :initform (jss::new 'DefaultInMemoryGraphStore))
    (graal-rules :accessor graal-rules :initform (new 'linkedlistruleset))
    (rule-names :accessor rule-names :initform (make-hash-table :test 'equalp))))
-
    
-(defmethod initialize-instance  ((kb graal-kb) &key  &allow-other-keys)
-  (call-next-method)
-  (setf (kb kb) (new 'defaultKnowledgeBase (dlgp-parser kb)))
-  (set-java-field (kb kb) "approach" #1"Approach.SATURATION_ONLY" t)
-  (setq @ kb))
+;; This gets called the first time the kb is needed, in order that the calls to add facts and
+;; add rules have been done. It uses the KbBuilder since that seems to be the only documented way
+;; to set the Approach.
 
-;(setq dkb (new 'defaultKnowledgeBase (new 'DlgpParser "p(X) :- q(X). q(X) :- r(X). r(X) :- s(X).  s(a).")))
-;(set-java-field dkb "approach" #1"Approach.SATURATION_ONLY")
+(defmethod maybe-instantiate-kb ((kb graal-kb))
+  (unless (kb kb)
+    (let ((builder (new 'kbbuilder)))
+      (#"setStore" builder (store kb))
+      (#"setOntology" builder (rules kb))
+      (#"setApproach" builder #1"Approach.SATURATION_ONLY")
+      (setf (kb kb) (#"build" builder)))))
 
-;; public void testSaturate() throws ParseException, AtomSetException, KnowledgeBaseException {
-;; 		KnowledgeBase kb = new DefaultKnowledgeBase(
-;; 				new DlgpParser("p(X) :- q(X). q(X) :- r(X). r(X) :- s(X).  s(a)."));
-;; 		kb.saturate();
-;; 		Assert.assertTrue(kb.getFacts().contains(DlgpParser.parseAtom("r(a).")));
-;; 		Assert.assertTrue(kb.getFacts().contains(DlgpParser.parseAtom("q(a).")));
-;; 		Assert.assertTrue(kb.getFacts().contains(DlgpParser.parseAtom("p(a).")));
-;; 		kb.close();
-;; 	}
-
-
+;; Our usual symbols come in but need to be mangled to fit into the syntax for dlgp,
+;; which only allows letters, numbers and underscore (and spaces in labels)
+;; We camelcase as usual but also prepend "n" if the term starts with a number
+;; since that's not allowed in dlgp.
+;; Rewrites symbols to strings
 (defun dlgp-mangle (sexp)
   (cl-user::tree-replace (lambda(el) 
 			   (cond ((and (symbolp el) (char= (char (string el) 0) #\?))
@@ -42,22 +38,24 @@
 				 (t el)))
 			 sexp))
 
+;; Invert the mangling (to the extent possible). 
 (defun dlgp-unmangle (term)
   (when (#"matches" term "^n(\\d+\\S+)$")
     (setq term (subseq term 1)))
   (intern (de-camel-case term)))
 				       
-
+;; Parses and save the parsed rules, so they can be used when we create the KB.
 (defmethod add-rules ((kb graal-kb) rules)
-  (let ((list (jss::get-java-field (kb kb) "ruleset" t)))
+  (let ((list (rules kb)))
     (loop for rule in rules
 	  for dlgp = (translate-to-dlgp kb rule)
-	  unless nil;(find #\= dlgp :test 'char=)
-	    do (#"add" list (#"parseRule" 'dlgpparser dlgp)))
+	  do (#"add" list (#"parseRule" 'dlgpparser dlgp)))
     list))
 
+;; Parses and save the facts, so they can be used when we create the KB.
+;; The fact is either a list of atoms or a list of a lable and a list of atoms
 (defmethod add-facts ((kb graal-kb) facts)
-  (let ((store (jss::get-java-field (kb kb) "store" t)))
+  (let ((store (store kb)))
     (loop for fact in facts
 	  do (if (consp (second fact))
 		 (#"add" store (#"parseAtom" 'dlgpparser
@@ -70,14 +68,23 @@
 						     (dlgp-mangle (car fact))
 						     (dlgp-mangle (rest fact)))))))))
 
+;; Work around a bug in which saturate gets a null pointer exception if called before a query is done.
+
+(defvar +fes-saturate+
+  (load-time-value
+   (let ((it (find "fesSaturate" (#"getDeclaredMethods" (jss::find-java-class 'graal.kb.DefaultKnowledgeBase)) :key #"getName" :test 'string-equal)))
+     (#"setAccessible" it t)
+     it)))
+
 (defmethod get-saturated ((kb graal-kb))
-  (#"saturate" (kb kb))
+  (maybe-instantiate-kb kb)
+  (java::jcall +fes-saturate+ (kb kb))
+;  (#"saturate" (kb kb)) ; crashes
   (loop for fact in (jss::iterable-to-list (#"getFacts" (logic::kb kb)))
-	collect (cons (intern (de-camel-case (#"getIdentifier"(#"getPredicate" fact))))
-		      (mapcar 'intern
-			      (mapcar 'de-camel-case
-				      (map 'list #"getIdentifier" (#"toArray" (#"getTerms" fact))))))))
-					
+	collect (cons (intern (dlgp-unmangle (#"getIdentifier"(#"getPredicate" fact))))
+			      (mapcar 'dlgp-unmangle
+				      (map 'list #"getIdentifier" (#"toArray" (#"getTerms" fact)))))))
+
 
 ;; rules are either:
 ;; (:implies (:and ...) consequent)
@@ -123,23 +130,54 @@
 			    (format nil "~a(~{~a~^,~})" (car form) (rest form)))) body)))))
 
 
+;; Get all predicates 
 (defmethod all-predicates ((kb graal-kb))
-  (mapcar (lambda(e) (list (#"getIdentifier" e) (#"getArity" e) e))
-	  (jss::j2list (#"getPredicates" (#"getFacts" kb)))))
+  (maybe-instantiate-kb kb)
+  ;; Need to get the ones in the KB as well as the ones in the rules, since you might call this before the database is
+  ;; saturated.
+  (let ((from-facts (jss::j2list (#"getPredicates" (#"getFacts" (kb kb)))))
+	(from-rules (loop for rule across (#"toArray" (rules kb))
+			  append
+			  (cl-user::set-to-list (#"getPredicates" (#"getHead" rule)))
+			  append
+			  (cl-user::set-to-list (#"getPredicates" (#"getBody" rule))))))
+    (remove '=
+	    (remove-duplicates
+	     (mapcar (lambda(e) (list (dlgp-unmangle (#"getIdentifier" e)) (#"getArity" e) e))
+		     (append from-facts from-rules))
+	     :test (lambda(a b) (and (eq (car a) (car b)) (eq (second a) (second b)))))
+	    :key 'car)))
 
+;; Execute a query against the KB using the DLGP query syntax
+;; Returns the values of the variables in the order they are given in the query
 (defmethod dlgp-query ((kb graal-kb) query)
   (let ((q (#"parseQuery" 'dlgpparser query)))
     (let ((results (#"query" (kb kb) q)))
-      (cl-user::with-constant-signature ((has-next "hasNext")
-				(next "next"))
-	(loop :while (has-next results)
-	      :collect (next results)))
-      )))
+      (loop while (#"hasNext" results)
+	    for res = (#"next" results)
+	    for values = (mapcar 'dlgp-unmangle (mapcar #"getIdentifier" (jss::j2list (#"createImageOf" res (#"getTerms" res)))))
+	    collect values
+	    ))))
 
-(defmethod get-predicates ((kb graal-kb))
-    (mapcar (lambda(e) (list (#"getIdentifier" e) (#"getArity" e) e)) 
-	    (jss::j2list (#"getPredicates" (#"getFacts" (logic::kb kb))))))
-      
+;; Get all the facts by accumulating query results for one predicate at a time.
+;; Should have same result as get-saturated
+(defmethod get-all-facts ((kb graal-kb))
+  (maybe-instantiate-kb kb)
+  (cl-user::with-constant-signature ((has-next "hasNext")
+				     (next "next"))
+    (let ((res 
+	    (loop with vars = (mapcar 'string '(x y z w u v r s))
+		  for (pred arity ) in (all-predicates kb)
+		  for results =  (setq @@@@ (#"query" (kb kb) (#"parseQuery" 'dlgpparser (format nil "?(~{~a~^,~}) :- ~a(~{~a~^,~}).~%" (subseq vars 0 arity) (dlgp-mangle pred) (subseq vars 0 arity)))))
+		  append 
+		  (loop while (has-next results)
+			for res = (next results)
+			for values = (mapcar 'dlgp-unmangle (mapcar #"getIdentifier" (jss::j2list (#"createImageOf" res (#"getTerms" res)))))
+			collect (cons pred values)
+			))))
+      res)))
+
+
 (defmethod java::print-java-object-by-class ((class (eql :|fr.lirmm.graphik.graal.core.atomset.graph.PredicateVertex|)) obj stream)
     (print-unreadable-object (obj stream :type nil :identity nil)
       (format stream "predicate ~a/~a" (#"getIdentifier" obj) (#"getArity" obj))))
@@ -148,6 +186,6 @@
   (print-unreadable-object (obj stream :type nil :identity nil)
     (let ((keys (mapcar #"getIdentifier" (jss::j2list (#"getTerms" obj))))
 	  (values (mapcar #"getIdentifier" (jss::j2list (#"getValues" obj)))))
-      (format stream "binding ~{~a~^,~}" (loop for key in keys for value in values
+      (format stream "~a ~{~a~^,~}" (#"toString" obj) (loop for key in keys for value in values
 	    collect (format nil "~a=~a" key (dlgp-unmangle value)))))))
 
