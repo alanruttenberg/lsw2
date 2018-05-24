@@ -1,14 +1,14 @@
 ;; Author: Alan Ruttenberg
 ;; Date: September 24, 2013
 
-(defun jar-map (jar-or-jars fn &key (read-type :buffer))
+(defun jar-map (jar-or-jars fn &key (read-type :buffer) (file-class 'jarfile))
   "given a jar file or a list of jar files, call fn on the string that is the decompressed entry.
 TODO: Add filtering by path name, so we can look only in, say, the XML files"
   (catch 'abort-jar-map
     (loop for jar in (if (consp jar-or-jars) jar-or-jars (list jar-or-jars))
        with buffer-size = 0
        with buffer = nil
-       for jarfile = (new 'jarfile (new 'file (namestring (truename jar))))
+       for jarfile = (new file-class (new 'file (namestring (truename jar))))
        for entries = (#"entries" jarfile)
        do
        (loop while (#"hasMoreElements" entries)
@@ -47,8 +47,10 @@ TODO: Add filtering by path name, so we can look only in, say, the XML files"
 		       ))
 		  ((t (error "don't know read-type other than :buffer and :stream")))))
 	  )
-       )))
+	  )))
 
+(defun zip-map (zip-or-zips fn &rest keys)
+  (apply 'jar-map zip-or-zips fn :file-class 'zipfile keys))
 
 ;; Create a thread for each jar file. Each thread executes
 ;; thread-run-function passed the name of a jar file.  Call
