@@ -302,46 +302,68 @@
 ;; Output is a list of (label (:implies (:and (f ?x ...) ...) (g ?x ..)))
 
 (defun generate-rules (&key (alternatives-strategy '(:head-variables-bound))
-		  	    (quantifier-strategy :keep-skolems)
-			    (dnf-filters '(:no-mixed))
-			    check-with-reasoner theory check)
-  (let ((candidates
-	  (loop for ax in (collect-axioms-from-spec check)
-		append 
-		(loop for maybe-split in (maybe-split-top-iff  (axiom-sexp ax))
-		      append
-		      (loop for (label . alt)
-			      in 
-			      (generate-alternatives 
-			       alternatives-strategy 
-			       (filter-dnf dnf-filters
-					   (dnf (remove-quantifiers quantifier-strategy maybe-split)))
-			       (axiom-name ax))
-			    for candidate =  `(:implies  (:and ,@(cdr alt)) ,(car alt))
-			    for vars = (fourth (multiple-value-list (formula-elements candidate)))
-			    when (and (car  alt) (cdr alt) ;; make sure there's both a head and clause 
-				      (not (equal (caar alt) :=)) ;; don't include rules generating equality
-				      (not (member  (car alt) (cdr alt) :test 'equalp))) ;; remove tautologies (head is one of clauses)
-			      collect  (list label `(:forall ,vars ,candidate)))))))
+			 (quantifier-strategy :keep-skolems)
+			 (dnf-filters '(:no-mixed))
+			 check-with-reasoner theory check)
+  (let* ((raw-candidates
+	   (loop for ax in (collect-axioms-from-spec check)
+		 append 
+		 (loop for maybe-split in (maybe-split-top-iff  (axiom-sexp ax))
+		       append
+		       (generate-alternatives 
+			alternatives-strategy 
+			(filter-dnf dnf-filters
+				    (dnf (remove-quantifiers quantifier-strategy maybe-split)))
+			(axiom-name ax)))))
+	 (candidates-slim (absorb-equality-in-body raw-candidates))
+	 (candidates-fol (loop for (label head . body) in candidates-slim
+			      for candidate = `(:implies  (:and ,@body) ,head)
+			      for vars = (fourth (multiple-value-list (formula-elements candidate)))
+			      when (and head body		    ;; make sure there's both a head and clause 
+					(not (equal (car head) :=)) ;; don't include rules generating equality
+					(not (member  head body :test 'equalp))) ;; remove tautologies (head is one of clauses)
+				collect  (list label `(:forall ,vars ,candidate)))))
     (if (not check-with-reasoner)
-	(mapcar (lambda(e) (list (car e) (third (second e)))) candidates)
+	(mapcar (lambda(e) (list (car e) (third (second e)))) candidates-fol)
 	(lparallel::pmapcan (lambda(rule)
 			      (if (eq :proved (z3-prove theory (second rule) :timeout (if (numberp check-with-reasoner) check-with-reasoner 2)))
 				  (list (list (first rule) (third (second rule))))))
-			    candidates))))
+			    candidates-fol))))
+
+;; sometimes there are rules of this form (:implies (:and (p ?a) (:= ?a ?b) (q ?b)) (r ?a))
+;; This is silly, since you can just write (:implies (:and (p ?a) (q ?a)) (r ?a))
+;; More importantly, won't work in graal, which doesn't have equality
+;; So look for the equalities, and substitute one for the other, preferably picking the symbol that occurs in the head 
+
+(defun absorb-equality-in-body (rules)
+  (loop for (label head . body) in rules
+	collect
+	   (loop for clause in body
+		 if (eq (car clause) :=)
+		   collect clause into equals
+		 else
+		   collect clause into new-body
+		 finally
+		    (progn
+		      (loop for (nil a b) in equals
+			    do (if (find a head)
+				   (setq new-body (subst a b new-body))
+				   (setq new-body (subst b a new-body))))
+		      (return (list* label head new-body)))))
+  )
 
 ;; Currently using the old code from winston ai, but might switch to prolog.
 ;; Those rules use the syntax (? v) for my ?v
 ;; This function rewrites the latter to the former
 (defun rewrite-variables-for-forward-chainer (form)
-  (substitute '= := (tree-replace (lambda(e) 
+  (substitute '= := (cl-user::tree-replace (lambda(e) 
 				    (if (and (symbolp e) (eq (char (string e) 0) #\?) )
 					`(? ,(intern (subseq (string e) 1)))
 					e))
 				  form)))
 
 ;; Forward chain the rules starting with assertions and return the resultant list of asserted and inferred propositions
-(defun forward-chain-rules (rules assertions) 
+(defun winston-forward-chain-rules (rules assertions) 
   (setq *rules* (make-empty-stream) 
 	*assertions* (make-empty-stream))  
   (loop for ass in assertions
@@ -358,6 +380,17 @@
 	until (symbolp el)
 	unless (eq (caar el) '=)
 	  collect (car el)))
+
+
+(defun graal-forward-chain-rules (rules assertions)
+  (let ((kb (make-instance 'graal-kb)))
+    (set-rules kb rules)
+    (set-facts kb assertions)
+    (get-all-facts kb)
+    ))
+
+(defun forward-chain-rules (rules assertions)
+  (graal-forward-chain-rules rules assertions))
 
 ;; Report a comparison of an inferred kb compared to a reference.
 ;; reference is a list of propositions
