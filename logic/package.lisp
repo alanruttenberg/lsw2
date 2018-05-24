@@ -26,7 +26,7 @@
   (:import-from :asdf asdf::system-relative-pathname)
   (:shadowing-import-from :cl-user cl-user::axiom)
   (:export
-   #:l-forall #:l-exists #:l-and #:l-or #:l-iff #:l-equal #:l-not
+   #:l-forall #:l-exists #:l-and #:l-or #:l-iff #:l-equal #:l-not #:l-=
    #:l-implies #:pred-property #:pred-class #:*use-holds*
    #:logic-generator #:with-logic-var #:with-logic-vars #: #:
    #:def-logic-axiom #:axiom-sexp #:axiom-name #:axiom-description #:axiom

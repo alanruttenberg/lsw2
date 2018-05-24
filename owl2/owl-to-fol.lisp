@@ -77,7 +77,7 @@
   (with-logic-var a
     (with-logic-var b
       (with-logic-var c
-	(l-forall (list *classinstancevar* a b)
+	(l-forall (list a b c)
 		  (l-implies (l-and (o-pred-property property a c)
 				    (o-pred-property property b c))
 			     (l-= a b)))))))
@@ -213,14 +213,16 @@
 		      (loop for b in rest 
 			    collect (l-not (l-= a b))))))
 
-(defmacro o-objectmincardinality (property number)
+(defmacro o-objectmincardinality (number property class)
   (with-logic-vars (is number)
     (apply 'l-and
 	   (list*
 	    (macroexpand `(o-differentindividuals ,@is))
-	    (loop for i in is collect (o-pred-property property *classinstancevar* i))))))
+	    (loop for i in is collect 
+			      (l-and (let ((*classinstancevar* i)) (o-class-expression class))
+				     (o-pred-property property *classinstancevar* i)) )))))
 
-(defmacro o-objectexactcardinality (property number)
+(defmacro o-objectexactcardinality (number property class)
   (with-logic-vars (is number)
     (apply 'l-and
 	   (list*
@@ -231,10 +233,10 @@
 				  (apply 'l-or
 					 (loop for i in is collect (l-= i other)))))
 	     )
-	    (loop for i in is collect (o-pred-property property *classinstancevar* i)))
+	    (loop for i in is collect (l-and (let ((*classinstancevar* i)) (o-class-expression class)) (o-pred-property property *classinstancevar* i))))
 	   )))
 
-(defmacro o-objectmaxcardinality (property number)
+(defmacro o-objectmaxcardinality (number property class)
   (with-logic-vars (is number)
     (apply 'l-and
 	   (list*
@@ -244,7 +246,7 @@
 				  (apply 'l-or
 					 (loop for i in is collect (l-= i other)))))
 	     )
-	    (loop for i in is collect (o-pred-property property *classinstancevar* i)))
+	    (loop for i in is collect (l-and (let ((*classinstancevar* i)) (o-class-expression class)) (o-pred-property property *classinstancevar* i))))
 	   )))
 
 ;HasKey( CE ( OPE1 ... OPEm ) ( DPE1 ... DPEn ) )
@@ -297,6 +299,7 @@
 			(intern (concatenate 'string "O-" (string expression)) 'cl-user)
 			expression))
 		   ((uri-p expression) expression)
+		   ((numberp expression) expression)
 		   (t (mapcar #'o-rewrite expression)))))
     (macroexpand-1 (o-rewrite (mapcar 'rewrite-owl-canonical-functional expression)))))
 
