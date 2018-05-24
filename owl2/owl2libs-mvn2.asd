@@ -30,7 +30,10 @@
 		  "net.sourceforge.owlapi/owlapi-distribution/4.2.6"
 		  "net.sourceforge.owlapi/owlexplanation/2.0.0"
 		  "de.sciss/prefuse-core/1.0.1"
-		  "de.sciss/prefuse-demos/1.0.1")
+		  "de.sciss/prefuse-demos/1.0.1"
+		  ;; pellet brings in "jgrapht:jgrapht-jdk1.5:0.7.3" but this conflicts with newer version, so exclude that one below
+		  "org.jgrapht/jgrapht-core/0.9.0"
+		  ) 
 		:managed-dependencies
 		("org.slf4j/slf4j-api/1.7.21"
 		 "org.apache.httpcomponents:httpcore:4.4.5"
@@ -38,7 +41,9 @@
 		 "net.sourceforge.owlapi:owlapi-distribution:4.2.6")
 		:exclusions
 		("net.sourceforge.owlapi:owlapi-osgidistribution"
-		 "edu.stanford.protege:org.protege.editor.owl"))
+		 "edu.stanford.protege:org.protege.editor.owl"
+		 "org.jgrapht:jgrapht-jdk1.5:0.7.3"
+		 ))
    (:module rest :pathname "lib" :components
             ((:bundle "uk.ac.manchester.cs.owl.factplusplus-1.6.5")
 	     (:jar-file "LSWTreeview-1.0.0")
