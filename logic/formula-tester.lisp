@@ -1,5 +1,7 @@
 (in-package :logic)
 
+(defvar *count* 0)
+
 ;; Rename quantified-over variable so that each is distinct
 (defun normalize-qvars (form &optional (already (make-hash-table)))
   (if (and (consp form)
@@ -595,3 +597,22 @@ second value is the list of formulas that failed"
 	  (if results
 	      (values :failed results)
 	      :satisfying-model)))))
+
+
+(defun annotate-lossage-html (formula model)
+  (let ((lines (cl-user::split-at-char 
+		(let ((*print-right-margin* 60))
+		  (with-output-to-string (s) (pprint (evaluate-formula formula (expanded-model) :trace t :return-annotated t ) s)))  #\newline)))
+	
+    (loop for line in lines
+	  for line2 = (#"replaceAll" line "(:((forall)|(exists)|(implies)|(and)|(or)|(not)|(iff)|(=)))" "<b>$1</b>")
+	  for ((pre sep tval after)) = (jss::all-matches line2 "(.*?)([-:]){0,1}((true)|(false))(.*)" 1 2 3 6)
+	  do 
+	     (cond ((null tval)
+		    (format t "<div class=\"label\"></div><div class=\"value\">~a</div><br>~%" (#"replaceAll" line " " "&nbsp;")))
+		   ((equal sep ":")
+		    (format t "<div class=\"label\">~a</div><div class=\"value\">~a~a</div><br>~%" 
+			    tval
+			    (#"replaceAll" (subseq "          " 0  (length tval)) " " "&nbsp;")
+			    (#"replaceAll" (subseq after 0 (1- (length after))) " " "&nbsp;")))
+		   (t (format t "<div class=\"label\">~a</div><div class=\"value\">~a~a</div><br>~%" tval (#"replaceAll" pre " " "&nbsp;") (#"replaceAll" after " " "&nbsp;" )))))))
