@@ -40,8 +40,11 @@
 
 (defvar *jobs* (make-array 10 :adjustable t))
 
-(unless lparallel:*kernel*
+(defun reset-workers ()
   (setq lparallel:*kernel* (lparallel:make-kernel *default-lparallel-worker-count*)))
+
+(unless lparallel:*kernel*
+  (reset-workers))
 
 (defmacro & (form)
   (let ((job (make-symbol "JOB")))
@@ -106,3 +109,15 @@
     (if (null job)
 	(format t "No job ~a~%" number)
 	job)))
+
+;; Sometimes the kernel gets screwed for reasons I don't understand
+;; Call this if you think it should be doing nothing
+;; It asks to parallel sleep #workers
+;; If they are all empty the sleep measured for the whole should be around the sleep for one.
+;; Suppose only 3 of 10 are actually working, then it will take 4 times to do the 10, 3 at a time and 1 at the end.
+(defun check-all-workers-alive ()
+  (let ((start (#"currentTimeMillis" 'System))
+	(howmany (length (lparallel.kernel::workers lparallel::*kernel*))))
+    (lparallel::pmapcar 'sleep (loop repeat howmany collect 0.25))
+    (values (< (- (#"currentTimeMillis" 'System) start)  300) (- (#"currentTimeMillis" 'System) start))))
+  
