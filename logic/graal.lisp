@@ -213,10 +213,10 @@
 
 (defun test-graal ()
   (let ((kb (make-instance 'graal-kb)))
-    (add-facts kb '((p x) (q x)))
-    (add-rules kb '((((p ?x) (q ?x)) (r ?x))))
-    (assert (member '(r x) (get-all-facts kb) :test 'equalp) () "simple graal test failed")
-    (assert (member '(r x) (get-all-facts kb t) :test 'equalp) () "simple graal test failed")
+    (set-facts kb '((p x) (q x)))
+    (set-rules kb '((((p ?x) (q ?x)) (r ?x))))
+    (assert (member '(r x) (get-all-facts kb) :test 'equalp) () "simple graal test (saturate) failed")
+    (assert (member '(r x) (get-all-facts kb t) :test 'equalp) () "simple graal test (query) failed")
     kb))
 
 ;; Returns a string with the dglp that if parsed would yield the kb

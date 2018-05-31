@@ -40,7 +40,8 @@
      (:file "prolog")
      (:file "formula-tester")
      (:file "cnf")
-     (:file "expand-model"))
+     (:file "expand-model")
+     (:file "graal"))
     :depends-on ("package" "main"
 			   "graal"
 			   )))

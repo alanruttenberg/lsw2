@@ -66,7 +66,7 @@
 			      for first = t then nil
 			      do (unless first (undo-bindings! old-trail))
 				 (if (loop for arg in (list ,@parameters)
-					   for el in (car clause)
+					   for el in (cdr (car clause))
 					   always 
 					   (unify! arg el))
 				     (funcall cont)))))))
