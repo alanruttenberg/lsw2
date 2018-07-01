@@ -361,3 +361,29 @@
       ))
 
 
+;; yy should do this with a pattern lang
+;; For non-binary relations expects the quantified variables that are swapped to be the LAST in the first :forall 
+(defun does-formula-express-inverse (formula &aux vars )
+  (let ((sexp (axiom-sexp formula)))
+
+    (and
+     (eq (car sexp) :forall)
+     (setq vars (last (second sexp) 2))
+     (eq (car (third sexp)) :iff)
+     (let ((lhs (second (third sexp)))
+	   (rhs (third (third sexp))))
+       (and (equal (length lhs) (length rhs))
+	    (equal (subseq lhs 1 3) vars)
+	    (equal (subseq rhs 1 3) (reverse vars))
+	    (equalp (cdddr lhs) (cdddr rhs))
+	    (list (first lhs) (first rhs) (if (cdddr rhs) :ternary :binary))
+	    )))))
+
+(defun inverses-from-spec (spec)
+  (let ((formulas (collect-axioms-from-spec spec)))
+    (loop for formula in formulas
+	  for (r inverse-r kind) = (does-formula-express-inverse formula)
+	  when (eq kind :binary) collect (list r inverse-r) into binaries
+	    when (eq kind :ternary) collect (list r inverse-r) into ternaries
+	      finally (return (list binaries ternaries)))))
+			 
