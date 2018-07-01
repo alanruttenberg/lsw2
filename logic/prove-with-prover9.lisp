@@ -44,7 +44,7 @@
 (defun mace-or-prover9 (which assumptions goals &key (timeout 10) (interpformat :baked) (show-translated-axioms nil)
 						  max-memory domain-min-size domain-max-size max-time-per-domain-size  hints
 						  expected-proof term-ordering max-weight cac-redundancy skolems-last
-						  return-proof return-proof-support no-output
+						  return-proof return-proof-support no-output self-label-ground
 			&aux settings)
 
   (assert (numberp timeout) (timeout) "Timeout should be a number of seconds") 
@@ -65,7 +65,8 @@
   (when (eq which :prover9)
     (when cac-redundancy (push (format nil "~a(cac_redundancy)~%" (string-downcase (string cac-redundancy))) settings))
     (when term-ordering (push (format nil "assign(order, ~a)" term-ordering) settings)))
-  (let* ((input (prepare-prover9-input assumptions goals :settings settings :show-translated-axioms show-translated-axioms :hints hints))
+  (let* ((input (prepare-prover9-input assumptions goals :settings settings :show-translated-axioms show-translated-axioms :hints hints
+				       :generator (make-instance 'prover9-logic-generator :self-label-ground self-label-ground)))
 	 (output
 	   (run-program-string->string
 	    (ecase which (:mace4 (prover-binary "mace4")) (:prover9 (prover-binary "prover9")))

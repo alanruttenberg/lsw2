@@ -309,6 +309,8 @@
 	(tree-walk form (lambda(e) (when (and (symbolp e) (char= (char (string e) 0) #\?)) (pushnew e them)))))
     them))
 
+(defvar *prolog-lock* (bt:make-lock))
+
 (defun rewrite-to-iterate-over-pattern-bindings (vars implication)
   ;; expect implies pattern has only :and :or :not :exists :=
   ;; get the implies pattern.
@@ -322,7 +324,9 @@
 	 (to-solve (intersection vars-in-implication vars))
 	 (to-iterate (set-difference vars to-solve)) 
 	 (query (rewrite-as-prolog-phase-2 (move-negation-and-simplify (rewrite-as-prolog-phase-1 (second standardized)))))
-	 (bindings (eval `(paiprolog::prolog-collect ,to-solve ,query))))
+	 (bindings 
+	   (bt:with-lock-held (*prolog-lock*)
+	     (eval `(paiprolog::prolog-collect ,to-solve ,query)))))
     `(:forall-enumerated (,(if (= (length to-solve) 1) (car to-solve) to-solve) ,@bindings)
        (,@(if to-iterate (list :forall to-iterate) (list :and))
         (:implies ,(second implication) ,(third implication))))))
@@ -599,10 +603,10 @@ second value is the list of formulas that failed"
 	      :satisfying-model)))))
 
 
-(defun annotate-lossage-html (formula model)
+(defun debug-formula (formula model)
   (let ((lines (cl-user::split-at-char 
 		(let ((*print-right-margin* 60))
-		  (with-output-to-string (s) (pprint (evaluate-formula formula (expanded-model) :trace t :return-annotated t ) s)))  #\newline)))
+		  (with-output-to-string (s) (pprint (evaluate-formula formula model :trace t :return-annotated t ) s)))  #\newline)))
 	
     (loop for line in lines
 	  for line2 = (#"replaceAll" line "(:((forall)|(exists)|(implies)|(and)|(or)|(not)|(iff)|(=)))" "<b>$1</b>")

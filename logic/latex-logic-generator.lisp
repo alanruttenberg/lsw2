@@ -4,7 +4,7 @@
   ((formula-format :accessor formula-format :initarg :formula-format :initform "~a:~%~a")
    (insert-line-breaks :accessor insert-line-breaks :initarg :insert-line-breaks :initform nil)
    (prettify-names :accessor prettify-names :initform t :initarg :prettify-names)
-   (show-names :accessor show-names :initform t :initarg :show-names)
+   (with-names :accessor with-names :initform t :initarg :with-names)
    (write-descriptions :accessor write-descriptions :initform nil :initarg :write-descriptions)
    (numbered :accessor numbered :initform nil :initarg :numbered)))
 
@@ -41,11 +41,11 @@
 				   (format nil "\\text{~a}" sym))))
 		  args)))
 (defmethod logical-forall ((g latex-logic-generator) vars expressions)
-  (format nil "~{\\forall ~a\\, ~} ~{~a~}"  (latex-quantifier-vars g vars)
+  (format nil "\\forall ~{~a\\,~} ~{~a~}"  (latex-quantifier-vars g vars)
 	  (mapcar (lambda(e)(latex-expression g e)) expressions)))
 
 (defmethod logical-exists ((g latex-logic-generator) vars expressions)
-  (format nil "~{\\exists ~a\\, ~} ~{~a~}"  (latex-quantifier-vars g vars)
+  (format nil "\\exists ~{~a\\~^,~} ~{~a~}"  (latex-quantifier-vars g vars)
 	  (mapcar (lambda(e)(latex-expression g e)) expressions)))
 
 (defmethod logical-implies ((g latex-logic-generator) antecedent consequent)
@@ -132,7 +132,7 @@
 		       (axiom-description a)
 		       "")
 
-      (if (show-names g)
+      (if (with-names g)
 	  (format nil (formula-format g) name
 	      (eval (rewrite-to-axiom-generation-form (make-explicit-parentheses g (axiom-sexp a)))))
 	  (format nil (formula-format g) 

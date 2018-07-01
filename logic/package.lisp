@@ -24,7 +24,7 @@
   (:import-from :ginsberg-cnf-dnf ginsberg-cnf-dnf::<= ginsberg-cnf-dnf::=> ginsberg-cnf-dnf::<=>) 
   (:import-from :sys sys::run-program sys::process-output sys::process-input)
   (:import-from :asdf asdf::system-relative-pathname)
-  (:shadowing-import-from :cl-user cl-user::axiom)
+  (:shadowing-import-from :cl-user cl-user::axiom cl-user::spec cl-user::name cl-user::result)
   (:export
    #:l-forall #:l-exists #:l-and #:l-or #:l-iff #:l-equal #:l-not #:l-=
    #:l-implies #:pred-property #:pred-class #:*use-holds*
@@ -83,4 +83,22 @@
    #:rules-for-spec
    #:expand-seed
    #:compute-rules
-   ))
+   #:*last-checked-seed*
+   #:*last-expanded-model*
+   #:*last-checked-spec*
+   #:check-theory-with-model-seed
+   #:def-check-theory-with-model-seed
+   #:explain-inference
+   #:name
+   #:seed
+   #:expect-failing-formulas
+   #:expect-propositions
+   #:unexpected-propositions
+   #:expect-unsat
+   #:result
+   #:run-check
+   #:check-unsat
+   #:theory-check-with-seed
+   #:*theory-checks*   ))
+
+

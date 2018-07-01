@@ -210,12 +210,12 @@
 (defmethod render-axioms ((g symbol) axs)
   (render-axioms (make-instance g) axs))
 
-(defun render (which assumptions &optional goals &key path at-beginning at-end sort)
+(defun render (which assumptions &optional goals &key path at-beginning at-end sort (with-names t))
   (let ((generator-class
 	  (ecase which
 	    (:z3 'z3-logic-generator)
 	    (:prover9 'prover9-logic-generator)
-	    (:vampire 'z3-logic-generator)
+	    (:vampire 'vampire-logic-generator)
 	    (:latex 'latex-logic-generator)
 	    (:clif 'clif-logic-generator)
 	    (:dol 'dol-logic-generator)
@@ -230,18 +230,18 @@
 		   (setq axioms (sort axioms 'cl-user::number-aware-string-lessp :key (cl-user::compose 'string 'axiom-name))))
 	       (if (eq which :dol)
 		   (render-ontology
-		    (make-instance generator-class)
+		    (make-instance generator-class :with-names with-names)
 		    "Anonymous" axioms)
 		   (concatenate
 		    'string
 		    (or (and at-beginning (format nil "~a~%" at-beginning)) "")
 		    (if (eq which :vampire)
-			(let ((g (make-instance generator-class :with-names nil)))
+			(let ((g (make-instance generator-class   :with-names with-names)))
 			  (render-axioms g axioms))
 			(if (eq which :z3)
-			    (let ((g (make-instance generator-class :with-names t)))
-			      (render-axioms g axioms))
-			    (render-axioms generator-class axioms)))
+			    (let ((g (make-instance generator-class  :with-names with-names )))
+			      (render-axioms g axioms ))
+			    (render-axioms (make-instance generator-class  :with-names with-names ) axioms )))
 		    (or (and at-end (format nil "~a~%" at-end))  ""))))))
       (if path
 	(with-open-file (f path :direction :output :if-does-not-exist :create :if-exists :supersede)

@@ -10,7 +10,8 @@
 (defclass prover9-logic-generator (logic-generator)
   ((name-prefix :accessor name-prefix :initarg :name-prefix :initform "")
    (with-names :accessor with-names :initarg :with-names :initform t)
-   (more-whitespace  :accessor more-whitespace :initarg :more-whitespace :initform t)))
+   (more-whitespace  :accessor more-whitespace :initarg :more-whitespace :initform t)
+   (self-label-ground :accessor self-label-ground :initarg :self-label-ground :initform nil)))
 
 (defmethod normalize-names ((g prover9-logic-generator) e)
   (cond ((and (symbolp e) (char= (char (string e) 0) #\?))
@@ -89,11 +90,12 @@
 		 (format nil "~{% ~a~%~}" (and (axiom-description a) (jss::split-at-char (axiom-description a) #\newline)))
 		 ax
 		 (if (and (axiom-name a) (with-names g))
-		     (format nil " # label(\"~a\") .~%~%" (axiom-name a))
+		     (if (and (is-ground a) (self-label-ground g))
+			 (format nil " # label(\"fact:~a\") .~%~%" (second (axiom-sexp a)))
+			 (format nil " # label(\"~a\") .~%~%" (axiom-name a)))
 		     (if (more-whitespace g)
-			 (format nil ".~%~%")
+			 (if (with-names g) (format nil ".~%~%") (format nil ".~%"))
 			 (format nil ".~%"))))))
-
 
 (defmethod render-axioms ((generator prover9-logic-generator) axs)
   (if (stringp axs)

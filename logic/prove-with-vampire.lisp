@@ -15,6 +15,8 @@
 
 (defclass vampire-logic-generator (z3-logic-generator) ())
 
+(defmethod with-names ((g vampire-logic-generator)) nil)
+
 (defun run-vampire (input timeout &optional (mode :vampire) (switches nil))
   (if *running-in-vagrant* 
       (progn
@@ -36,6 +38,7 @@
 		 ""
 		 )
 	      (assert (or (not error-output) ) () "Vampire failed: ~a" error-output)
+	      output
 	    ))))
     (let ((file (uiop/stream::get-temporary-file :directory "/tmp")))
       (with-open-file (f file :direction :output)

@@ -56,6 +56,7 @@
 	     (:file "exit-hook")
 	     (:file "tree")
 	     (:file "background")
-	     (:file "slime-extras")))))
+	     (:file "slime-extras")
+	     (:file "threads")))))
 
 

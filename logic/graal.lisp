@@ -6,8 +6,17 @@
    (rules :accessor rules :initarg rules)
    (store :accessor store :initform (new 'DefaultInMemoryGraphStore))
    (mangled-labels :accessor mangled-labels :initform (make-hash-table :test 'equalp))
-   (rule-names :accessor rule-names :initform (make-hash-table :test 'equalp))))
+   (rule-names :accessor rule-names :initform (make-hash-table :test 'equalp))
+   (with-inequality :accessor with-inequality :initarg :with-inequality :initform nil)
+   (with-equality :accessor with-equality :initarg :with-equality :initform nil)))
    
+;; Future enhancement: allow rules with equality or inequality assuming unique name assumption
+;; Graal doesn't support this natively. It could if allowed one to assert the unique name assumption
+;; 
+;; We could, in theory handle this ourselves in the rule system by adding assertions (equal x x) for all elements of the
+;; universe, and adding (different x y) for x,y in universe, and translating clauses that use equality or inequality
+;; into clauses that use these pseudo-equality predicates
+
 ;; This gets called the first time the kb is needed, in order that the calls to add facts and add rules have been
 ;; done. It uses the KbBuilder since that seems to be the only documented way to set the Approach. Probably should 
 
@@ -79,7 +88,7 @@
   (setf (kb kb) nil)
   (let ((list (setf (rules kb) (new 'linkedlistruleset))))
     (loop for rule in rules
-	  for dlgp = (translate-rule-to-dlgp kb rule)
+	  for dlgp = (if (stringp rule) rule (translate-rule-to-dlgp kb rule))
 	  do (#"add" list (#"parseRule" 'dlgpparser dlgp)))
     list))
 
@@ -97,9 +106,28 @@
 		 (#"add" store (#"parseAtom" 'dlgpparser
 					     (format nil "~a(~{~a~^,~})."
 						     (dlgp-mangle-symbol kb (car fact))
-						     (dlgp-mangle-form kb (rest fact)))))))))
+						     (dlgp-mangle-form kb (rest fact)))))))
+
+    (when (with-equality kb)
+      (let ((ground (reduce 'union (mapcar 'cdr facts))))
+	(loop for g in ground
+	      do (#"add" store (#"parseAtom" 'dlgpparser
+					     (format nil "~a(~{~a~^,~})."
+						     (dlgp-mangle-symbol kb 'same)
+						     (dlgp-mangle-form kb (list g g))))))))
+    (when (with-inequality kb)
+      (let ((ground (reduce 'union (mapcar 'cdr facts))))
+	(loop for (g1 . rest) on ground
+	      do
+		 (loop for g2 in rest
+		       when (not (eq g1 g2))
+			 do (#"add" store (#"parseAtom" 'dlgpparser
+							(format nil "~a(~{~a~^,~})."
+								(dlgp-mangle-symbol kb 'different)
+								(dlgp-mangle-form kb (list g1 g2)))))))))))
 
 ;; rules are either:
+;; A string, in which case it is expected that it is a DLGP format rule
 ;; (:implies (:and ...) consequent)
 ;; (:implies antecedent consequent)
 ;; (:implies antecedents consequent)
@@ -212,8 +240,8 @@
 
 
 (defun test-graal ()
-  (let ((kb (make-instance 'graal-kb)))
-    (set-facts kb '((p x) (q x)))
+  (let ((kb (make-instance 'graal-kb :with-equality t :with-inequality t)))
+    (set-facts kb '((p x) (q x) (s y)))
     (set-rules kb '((((p ?x) (q ?x)) (r ?x))))
     (assert (member '(r x) (get-all-facts kb) :test 'equalp) () "simple graal test (saturate) failed")
     (assert (member '(r x) (get-all-facts kb t) :test 'equalp) () "simple graal test (query) failed")

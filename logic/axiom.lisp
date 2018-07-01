@@ -82,16 +82,23 @@
 ;;      :any-value matches if the key is present, regardless of value 
 ;;   (:exclude <element>) - remove any of these found in the above.
 
-(defun get-axioms ( &rest key-values &key (errorp t) &allow-other-keys)
+(defun get-axioms ( &rest key-values &key (errorp t) (from *axioms*)  &allow-other-keys)
   (remf key-values :errorp)
+  (remf key-values :from)
   (let ((them nil))
-    (maphash (lambda(name axiom)
-	       (declare (ignore name))
-	       (when
-		   (loop for (k v) on key-values by #'cddr
-			     always (check-key-spec k v (axiom-plist axiom)));(find (list k v) (axiom-plist axiom) :test 'equalp))
-		 (push axiom them)))
-	     *axioms*)
+    (if (hash-table-p from)
+	(maphash (lambda(name axiom)
+		   (declare (ignore name))
+		   (when
+		       (loop for (k v) on key-values by #'cddr
+			     always (check-key-spec k v (axiom-plist axiom))) ;(find (list k v) (axiom-plist axiom) :test 'equalp))
+		     (push axiom them)))
+		 *axioms*)
+	(loop for axiom in from
+	      when
+	      (loop for (k v) on key-values by #'cddr
+		    always (check-key-spec k v (axiom-plist axiom)))
+	      do (push axiom them)))
     (if (and (not them) errorp)
 	(error "Couldn't find axiom with keys ~s" key-values))
     them))
@@ -385,5 +392,15 @@
 	  for (r inverse-r kind) = (does-formula-express-inverse formula)
 	  when (eq kind :binary) collect (list r inverse-r) into binaries
 	    when (eq kind :ternary) collect (list r inverse-r) into ternaries
-	      finally (return (list binaries ternaries)))))
+	      finally (return (values binaries ternaries)))))
 			 
+(defmethod is-ground ((a axiom))
+  (multiple-value-bind (predicates constants functions variables)
+      (formula-elements (axiom-sexp a))
+    (null variables)))
+
+(defmethod is-ground ((a list))
+  (or (eq (car (axiom-sexp a)) :fact)
+      (multiple-value-bind (predicates constants functions variables)
+	  (formula-elements a)
+	(null variables))))

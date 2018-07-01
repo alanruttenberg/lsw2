@@ -8,9 +8,9 @@
    (goal :accessor goal :initarg :goal)
    (options :accessor options :initarg :options)
    (expected-result :accessor expected-result  :initarg :expected-result)
-   (timeout :accessor timeout :initarg :timeout)
+   (timeout :accessor timeout :initarg :timeout :initform 10)
    (with :accessor with :initarg :with)
-   (name :accessor name :initarg :name)
+   (name :accessor name :initarg :name :initform "unnamed")
    (counterexample :accessor counterexample :initarg :counterexample :initform nil)
    (prover-input :accessor prover-input  :initform nil)
    (prover-output :accessor prover-output :initform nil)
@@ -156,7 +156,7 @@
 		 (:timeout :timeout)
 		 (:sat :not-entailed)
 		 (t result))))
-	`(,(with expected-proof)
+	 `(,(with expected-proof)
 	  ,(assumptions-form (assumptions expected-proof))
 	  ,@(if (goal expected-proof) (list `(quote ,(list (goal expected-proof)))) nil)
 	  :timeout ,(timeout expected-proof)
@@ -227,7 +227,6 @@
 					 (:proved "Trying proof in ")
 					 (:not-entailed "Trying to test non-entailment in "))
 			 name)
-
 		 (let ((*print-pretty* t))
 		   (when (or print-axiom-names print-formulas print-axiom-count)
 		     (format t "~&With:~%")
@@ -280,7 +279,8 @@
 				     (cl-user::prowl-notify (format nil "Proof run: ~a" headline) output :priority level))))
 			       :name (if (or (stringp name) (symbolp name)) name (name name)))
 	(doit))
-    (gethash name *expected-proofs*)))
+    (if (typep name 'expected-proof)  name
+    (gethash name *expected-proofs*))))
 					   
 
 ;; ****************************************************************

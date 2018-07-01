@@ -499,8 +499,10 @@
 	(collected (mapcar 'axiom-sexp (collect-axioms-from-spec spec))))
     (if (and already (or (equalp collected already) (alexandria::set-equal already collected :test 'equalp)))
 	(gethash already *collected-axioms->computed-rules-cache*)
-	(progn
-	  (setf (gethash spec *spec->collected-axioms-cache*) collected)
+	(prog1
 	  (or (gethash collected *collected-axioms->computed-rules-cache*)
 	      (setf (gethash collected *collected-axioms->computed-rules-cache*)
-		    (compute-rules spec)))))))
+		    (compute-rules spec)))
+	  ;; only set this *after* compute rules is successful, otherwise if there's an error the cache can be stale NOPE doesn't help
+	  (setf (gethash spec *spec->collected-axioms-cache*) collected)))))
+
