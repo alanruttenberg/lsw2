@@ -41,7 +41,8 @@
      (:file "formula-tester")
      (:file "cnf")
      (:file "expand-model")
-     (:file "graal"))
+     (:file "graal")
+     (:file "test-theory-with-model-seed"))
     :depends-on ("package" "main"
 			   "graal"
 			   )))
