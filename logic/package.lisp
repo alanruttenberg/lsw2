@@ -77,4 +77,10 @@
    #:get-all-facts
    #:dlgp-query
    #:kb-to-dglp
+   ;; tests
+   #:check-theory-with-model-seed
+   #:why-failed?
+   #:rules-for-spec
+   #:expand-seed
+   #:compute-rules
    ))
