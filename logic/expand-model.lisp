@@ -164,7 +164,32 @@
 ;; Takes in a list of n negated clauses and generates combinations of n single-form clauses with each combination.
 ;; e.g. (((not (f x)) (not (g y))) ((not (q r))))
 ;; ->   (((not (f x)) (not (q r)))  
-;;       ((not (g y)) (not (q r))) 
+;;       ((not (g y)) (not (q r)))
+;; THIS CAN BLOW UP, and did for this axiom, which tried to generate 3486784401 combinations and blew out memory
+    ;; (:forall (?t ?r)
+    ;;   (:implies  (:and (instance-of ?t temporal-instant ?t) 
+    ;; 		       (instance-of ?r temporal-interval ?r))
+    ;; 	  (:iff 
+
+    ;; 	      (:or
+    ;; 	      ;; either it's between first or last
+    ;; 	      (:exists (?f ?l)
+    ;; 		(:and 
+    ;; 		 (instance-of ?r temporal-interval ?r)
+    ;; 		 (first-time-instant ?r ?f)
+    ;; 		 (last-time-instant ?r ?l)
+    ;; 		 (precedes ?t ?l)
+    ;; 		 (precedes ?f ?t)))
+
+    ;; 	      ;; or it's the first time point and we've made it part of the interval
+    ;; 	      (:and (first-time-instant ?r ?t)
+    ;; 		    (temporal-part-of ?r ?t))
+
+    ;; 	      ;; or it's the last time point and we've made it part of the interval
+    ;; 	      (:and (last-time-instant ?r ?t)
+    ;; 		    (temporal-part-of ?r ?t)))
+
+    ;; 	      (temporal-part-of ?t ?r))))
 (defun all-clause-combinations (lists &optional head)
   (if (null lists) 
       (list head)
@@ -254,6 +279,8 @@
 	nil
 	dnf)))
 
+(defvar *maximum-generated-dnf-alternatives* 100000) ;; arbitrary. In a bad case this hit about 3.5 million, which blew out memory
+
 ;; filters is a list with either or both of :head-variables-bound, :no-skolem-head 
 ;; dnf is the disjunctive normal form
 ;; label is a symbol used to identifiy the resultant rule
@@ -271,12 +298,16 @@
 	    if (every (lambda(e) (eq (car e) 'not)) clause)
 	      do (push clause negatives)
 	  else do (push clause mixed))
+;    (print-db positives negatives (length (all-clause-combinations negatives)))
+;    (break)
     (progn(loop for clause in positives
 		do
 		   (loop for head in clause
 			 unless (and (member :no-skolem-head filters)
 				     (find-if 'skolem-var-p head))
 			   do
+			      (when (> (apply '* (mapcar 'length negatives)) *maximum-generated-dnf-alternatives*)
+				(cerror "There would be ~a clause combinations generated for ~a, which is probably more than you want. Continue at your own risk" (apply '* (mapcar 'length negatives)) label))
 			      (loop for clauses in (all-clause-combinations negatives)
 				    for sig = (cons (princ-to-string head) (sort (remove-duplicates
 						     (mapcar 'princ-to-string  clauses)
@@ -427,3 +458,49 @@
 	     (return (list (length base) good bad missing)))
     ))
 
+(defun expand-seed (seed rules)
+  (let ((props (forward-chain-rules rules seed)))
+    (load-prolog nil props)
+    props))
+
+
+(defun compute-rules (spec)
+  (multiple-value-bind (binaries ternaries) (inverses-from-spec spec)
+  (let ((theory  (rewrite-inverses  spec
+				    :binary-inverses binaries
+				    :ternary-inverses ternaries :copy-names? t)))
+    (generate-rules 
+     :theory theory :check theory
+     :check-with-reasoner t))))
+
+(defparameter *spec->collected-axioms-cache* (make-hash-table :weakness :key :test 'equalp))
+(defparameter *collected-axioms->computed-rules-cache* (make-hash-table :weakness :key :test 'equalp))
+
+;; caching: The models depend on the rules and the see. The rules depend on the axioms. Which axioms depend on the spec,
+;; but the axioms themselves can change.
+
+;; We'll re-use a set of rules if neither the spec, nor the set of collected axioms has changed.
+;; To do this we'll use 2 weak hash table
+
+;; 1. spec->collected axioms, equalp on spec, weak on key - When the spec changes the old spec can be gced and the collected axioms are no longer pointed to.
+;; 2. collected-axioms -> rules, eq on weak key collected axioms - the only place that holds on to the old collected axioms is the previous table.
+;; Each time we check, we first check if that spec has collected axioms.
+;;  If not, then it's a new spec list, possibly an update of something used previously (do we have to worry about that?)
+;;  Since it is new,
+;;   1. We collect axioms
+;;   2. Cache them in spec->collected axioms
+;;   3. Check if the collection is in axioms -> rules (typically won't but might)
+;;   4. If not there compute rules and cache in axioms -> rules
+;;  If yes, then collect axioms and compare to cached using set-equality. If same then don't need to recompute
+;;  If no, then update spec->axioms and  update axioms -> rules. The old rules should fall off on next GC.
+
+(defun rules-for-spec (spec)
+  (let ((already (gethash spec *spec->collected-axioms-cache*))
+	(collected (mapcar 'axiom-sexp (collect-axioms-from-spec spec))))
+    (if (and already (or (equalp collected already) (alexandria::set-equal already collected :test 'equalp)))
+	(gethash already *collected-axioms->computed-rules-cache*)
+	(progn
+	  (setf (gethash spec *spec->collected-axioms-cache*) collected)
+	  (or (gethash collected *collected-axioms->computed-rules-cache*)
+	      (setf (gethash collected *collected-axioms->computed-rules-cache*)
+		    (compute-rules spec)))))))
