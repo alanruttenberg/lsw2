@@ -15,6 +15,7 @@
     ((:file "package")))
    (:module "graal" :components
             ((:mvn "fr.lirmm.graphik/graal-io-dlgp/1.3.1")
+	     (:mvn "fr.lirmm.graphik/graal-io-sparql/1.3.1")
              (:mvn "fr.lirmm.graphik/graal-kb/1.3.1")
    	     ))
    (:module "main" :pathname ""
