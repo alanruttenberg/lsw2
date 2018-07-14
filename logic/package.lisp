@@ -24,7 +24,7 @@
   (:import-from :ginsberg-cnf-dnf ginsberg-cnf-dnf::<= ginsberg-cnf-dnf::=> ginsberg-cnf-dnf::<=>) 
   (:import-from :sys sys::run-program sys::process-output sys::process-input)
   (:import-from :asdf asdf::system-relative-pathname)
-  (:shadowing-import-from :cl-user cl-user::axiom cl-user::spec cl-user::name cl-user::result)
+  (:shadowing-import-from :cl-user cl-user::axiom cl-user::spec cl-user::name)
   (:export
    #:l-forall #:l-exists #:l-and #:l-or #:l-iff #:l-equal #:l-not #:l-=
    #:l-implies #:pred-property #:pred-class #:*use-holds*
@@ -56,7 +56,11 @@
    #:*last-z3-input* #:*last-z3-output*
    #:*last-vampire-input* #:*last-vampire-output*
    #:*last-clausetester-input*   #:*last-clausetester-output*
-   #:def-expect-satisfiable #:def-expect-unsatisfiable #:def-expect-provable #:def-expect-not-entailed  #:*expected-proofs* 
+   #:def-expect-satisfiable #:def-expect-unsatisfiable #:def-expect-provable #:def-expect-not-entailed  #:*expected-proofs*
+   #:expected-proof
+   #:prover-input
+   #:prover-output
+   #:prover-binary
    #:run-proof #:proof-form #:render-proof #:prove-with
    #:clif-logic-generator #:dol-logic-generator
    #:render-ontology
@@ -95,7 +99,7 @@
    #:expect-propositions
    #:unexpected-propositions
    #:expect-unsat
-   #:result
+   #:check-result
    #:run-check
    #:check-unsat
    #:theory-check-with-seed

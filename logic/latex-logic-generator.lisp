@@ -23,7 +23,7 @@
 (defmethod latex-expression ((g latex-logic-generator) expression)
   (if (null expression) (break))
   (if (consp expression)
-      (format nil "~a(~{~a~^,~})" (normalize-names g (car expression)) (normalize-names g (cdr expression)))
+      (format nil "~a(~{~a~^{,}~})" (normalize-names g (car expression)) (normalize-names g (cdr expression)))
       (normalize-names g expression))
   )
 
@@ -34,18 +34,18 @@
   (normalize-names g vars))
 
 (defmethod logical-relation ((g latex-logic-generator) head &rest args)
-  (format nil "\\text{~a}(~{~a~^,~})" (normalize-names g head )
+  (format nil "\\text{~a}(~{~a~^{,}~}\\,)" (normalize-names g head )
 	  (mapcar (lambda(e) (let ((sym (normalize-names g e)))
 			       (if (logic-var-p e) 
 				   (format nil "\\text{{\\it ~a}}" sym)
 				   (format nil "\\text{~a}" sym))))
 		  args)))
 (defmethod logical-forall ((g latex-logic-generator) vars expressions)
-  (format nil "\\forall ~{~a\\,~} ~{~a~}"  (latex-quantifier-vars g vars)
+  (format nil "\\forall\\, ~{~a~^{,}~}\\, ~{~a~}"  (latex-quantifier-vars g vars)
 	  (mapcar (lambda(e)(latex-expression g e)) expressions)))
 
 (defmethod logical-exists ((g latex-logic-generator) vars expressions)
-  (format nil "\\exists ~{~a\\~^,~} ~{~a~}"  (latex-quantifier-vars g vars)
+  (format nil "\\exists\\, ~{~a~^{,}~}\\, ~{~a~}"  (latex-quantifier-vars g vars)
 	  (mapcar (lambda(e)(latex-expression g e)) expressions)))
 
 (defmethod logical-implies ((g latex-logic-generator) antecedent consequent)
@@ -89,14 +89,14 @@
 (defmethod make-explicit-parentheses ((g latex-logic-generator) e &optional parent propagate-negation)
   (cond ((symbolp e) e)
 	((not (keywordp (car e))) e)
-	((and (member (car e) '(:forall :exists))
-	      (> (length (second e)) 1)
-	      (make-explicit-parentheses g `(,(car e) (,(car (second e)))
-					     ,(if propagate-negation
-						  `(:not (,(car e) ,(rest (second e)) ,@(cddr e)))
-						  `(,(car e) ,(rest (second e)) ,@(cddr e))))
-					 (car e) propagate-negation)
-					 ))
+	;; ((and (member (car e) '(:forall :exists))
+	;;       (> (length (second e)) 1)
+	;;       (make-explicit-parentheses g `(,(car e) (,(car (second e)))
+	;; 				     ,(if propagate-negation
+	;; 					  `(:not (,(car e) ,(rest (second e)) ,@(cddr e)))
+	;; 					  `(,(car e) ,(rest (second e)) ,@(cddr e))))
+	;; 				 (car e) propagate-negation)
+	;; 				 ))
 	((member (car e) '(:forall :exists))
 	 (if (and (keywordp (car (third e)))  (not (eq (car e) parent)))
 	     `(,(car e) ,(second e) (:parens ,(make-explicit-parentheses g  (third e) parent nil)))
@@ -119,6 +119,9 @@
      (position b '(:distinct :fact :forall :exists :not :and :or  :implies :iff :=))))
 
 
+(defun quote-for-latex (string)
+  (#"replaceAll" string "([&_])" "\\\\$1"))
+
 (defmethod render-axiom ((g latex-logic-generator) (a axiom))
   (let ((*logic-generator* g))
     (let ((name (string (axiom-name a))))
@@ -129,7 +132,7 @@
 	  (setq name (format nil ":~a" (string-downcase name))))
       (concatenate 'string
 		   (if (and (write-descriptions g) (stringp (axiom-description a)) (not (equal (axiom-description a) "")))
-		       (axiom-description a)
+		       (quote-for-latex (axiom-description a))
 		       "")
 
       (if (with-names g)

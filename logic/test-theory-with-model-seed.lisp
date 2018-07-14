@@ -104,7 +104,7 @@
      (when ,figure (print (cons ',name ,figure)))))
 		  
 (defmethod run-check ((c theory-check-with-seed))
-  (setf (result c)
+  (setf (check-result c)
 	(check-theory-with-model-seed (spec c) (seed c)
 				      :expect-failing-formulas (expect-failing-formulas c)
 				      :unexpected-propositions  (unexpected-propositions c)
