@@ -100,6 +100,6 @@
 (defmethod render-axioms ((generator prover9-logic-generator) axs)
   (if (stringp axs)
       axs
-      (apply 'concatenate 'string (call-next-method))))
+      (apply 'concatenate 'string (mapcar (lambda(e) (render-axiom generator e)) axs))))
 
 

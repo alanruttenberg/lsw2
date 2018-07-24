@@ -138,7 +138,7 @@
 		  (spec-error key value)))))))
 
 (defun collect-axioms-from-spec (specs &optional (error-if-not-found t))
-  "specs: either a single formuala or an axiom name or a list each element of which is either an axiom name, a list of key values, or a logic sexp. Output a list of axioms or unchanged logic sexps"
+  "specs: either a single formula or an axiom name or a list each element of which is either an axiom name, a list of key values logic sexp, or a macro to be expanded. Output a list of axioms or unchanged logic sexps"
   (if (null specs) nil)
   (let* ((nots (remove-if-not (lambda(e) (and (consp e) (eq (car e) :exclude))) specs))
 	 (specs (set-difference specs nots :test 'equalp)))
@@ -155,10 +155,15 @@
 			   collect (get-axiom spec error-if-not-found)
 		    else if (eq (car spec) :negate)
 			    collect (negate-axiom (get-axiom (second spec) error-if-not-found) )
-		    else append (apply 'get-axioms (append spec (list :errorp error-if-not-found))))))
-      (and nots (collect-axioms-from-spec (mapcar 'second nots) nil))
+		    else if (keywordp (car spec))
+			   append (apply 'get-axioms (append spec (list :errorp error-if-not-found)))
+		    else collect `(:expand ,spec ))))
+      (and nots (collect-axioms-from-spec (apply 'append (mapcar 'cdr nots)) nil))
       :test 'equalp)
      :test 'equalp)))
+
+(defun is-axiom-in-spec (axiom spec)
+  (find axiom (mapcar 'axiom-name (collect-axioms-from-spec spec)) :test 'string-equal))
 
 (defun rewrite-to-axiom-generation-form (form)
   (let ((keys '((:distinct l-distinct) (:implies l-implies) (:iff l-iff) (:and l-and) (:or l-or) (:forall l-forall) (:exists l-exists)
@@ -209,7 +214,7 @@
 			  a)))
   (when (tree-find :owl a)
     (setq a (tree-replace (lambda(e) (if (and (consp e) (eq (car e) :owl))
-					 (axiom-sexp (owl-sexp-to-fol (second e)))
+					 (owl-sexp-to-fol (second e))
 					 e)) a)))
   a)
 
@@ -257,7 +262,7 @@
 
 (defmethod axiom-name ((a list))
   (assert (formula-sexp-p a) (a) "Axioms should be objects of formula sexps: ~a" a)
-  (or (call-next-method)
+  (or (and (next-method-p) (call-next-method))
       (let ((name (substitute #\- #\space (format nil "formula-~r" (incf *axiom-counter*)))))
 	(setf (gethash (intern (string-upcase name) :keyword) *autonamed-axioms*) a)
 	(setf (slot-value a 'name)  name)
@@ -270,6 +275,8 @@
 	(setf (slot-value a 'name)  name)
 	name)))
 	
+(defun spec-elements (spec)
+  (formula-elements `(:and ,@(mapcar 'axiom-sexp (collect-axioms-from-spec spec)))))
 
 ;; return predicates, constants, function symbols in formula
 (defun formula-elements (sexp)

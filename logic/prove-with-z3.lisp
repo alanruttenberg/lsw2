@@ -63,6 +63,7 @@
 	 (mapcar (lambda(e) (format nil "~a" e)) post-commands)))
   
 (defun z3-prove (assumptions goals &key (timeout 30) (return-contradiction nil) expected-proof)
+  (if (and goals (atom goals)) (setq goals (list goals)))
   (z3-syntax-check assumptions goals)
   (let* ((input (z3-render assumptions goals nil '("(check-sat)")))
 	 (answer 

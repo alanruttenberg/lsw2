@@ -59,7 +59,7 @@
 	     (debugger-hook *debugger-hook*) 
 	     ;; if we're running in swank we have to make sure *buffer-readtable* and *buffer-package* are bound
 	     (maybe-swank-vars (if (find-package :swank)
-				   (list (intern "*BUFFER-PACKAGE*" :swank) (intern "*BUFFER-READTABLE**" :swank))))
+				   (list (intern "*BUFFER-PACKAGE*" :swank) (intern "*BUFFER-READTABLE*" :swank))))
 	     (maybe-swank-vals (if (find-package :swank)
 				   (list *package* *readtable*))))
 	 (setf (job-future ,job) 
@@ -95,7 +95,7 @@
       (loop for i below (length *jobs*)
 	    do (setf (aref *jobs* i) nil))))
 
-(defun % (number &optional show-command)
+(defun % (number &optional (show-command t))
   (let ((job (aref *jobs* (1- number))))
     (if (null job)
 	(format t "No job ~a~%" number)
@@ -109,6 +109,18 @@
     (if (null job)
 	(format t "No job ~a~%" number)
 	job)))
+
+(defun %& (&optional number)
+  (if number
+      (let ((job (aref *jobs* (1- number))))
+	(if (null job)
+	    (format t "No job ~a~%" number)
+	    (pprint (job-form job))))
+      (map nil (lambda(j)
+		 (when j
+		   (print j)
+		   (pprint (job-form j))))
+	   *jobs*)))
 
 ;; Sometimes the kernel gets screwed for reasons I don't understand
 ;; Call this if you think it should be doing nothing

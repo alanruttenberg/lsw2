@@ -324,9 +324,9 @@
 ;; alternatives-strategy, a valid list for generate-alternatives
 ;; dnf-strategy, a valid filter list for filter-dnf
 ;; quantifier-strategy, a valid stategy to remove-quantifiers
-;; check-with-reasoner if nil not check is made. If t then reaser is used with default timeout. If numeric timeout in seconds.
+;; check-with-reasoner if nil not check is made. If t then reasoner is used with default timeout. If numeric timeout in seconds.
 ;; theory is a theory spec, used for the proofs
-;; check is a spec of which formula you want to generate for, typically ised for testing.
+;; check is a spec of which formula you want to generate for, typically used for testing.
 ;;
 ;; Note: Rules that have an equality as head are ignored
 ;; 
@@ -354,12 +354,57 @@
 					(not (equal (car head) :=)) ;; don't include rules generating equality
 					(not (member  head body :test 'equalp))) ;; remove tautologies (head is one of clauses)
 				collect  (list label `(:forall ,vars ,candidate)))))
+;    (pprint candidates-fol)
+    (setq candidates-fol (remove-duplicates (mapcar 'canonicalize-rule candidates-fol) :test 'equalp :key 'second))
     (if (not check-with-reasoner)
 	(mapcar (lambda(e) (list (car e) (third (second e)))) candidates-fol)
 	(lparallel::pmapcan (lambda(rule)
 			      (if (eq :proved (z3-prove theory (second rule) :timeout (if (numberp check-with-reasoner) check-with-reasoner 2)))
 				  (list (list (first rule) (third (second rule))))))
 			    candidates-fol))))
+
+
+;; Rewrite a rule in such a way as that variables don't matter and they can be compared by equality.
+;; First sort the body by name of predicate
+;; When same sort by number of head variables used
+;; When same sort printstring
+;; Still ways too fool it, but reduces 272 generated rules to 236
+(defun canonicalize-rule (rule)
+  (destructuring-bind (name (forall vars (implies (and . clauses) head))) rule
+    (declare (ignore vars ))
+    (assert (and (eq and :and)
+		 (eq implies :implies)
+		 (eq :forall forall)) () "Malformed rule ~a" rule)
+    (let ((counts nil))
+      (tree-walk (cons head clauses)  
+		 (lambda(e) (when (logic-var-p e)
+			      (if (assoc e counts)
+				  (incf (second (assoc e counts) ))
+				  (push (list e 1) counts)))))
+      (let* ((to-reassign
+	       (loop for var in (mapcar 'car (setq counts (sort counts '< :key (lambda (e) (if (member (car e) head) 0 (second e))))))
+		     for count from 1
+		     collect (cons var (intern (format nil "?X~a" count) 'keyword))))
+	     (clauses-renamed
+	       (loop for (from . to) in to-reassign
+		     with new = (cons head (remove-duplicates (remove head clauses :test 'equalp) :test 'equalp))
+		     do (setq new (subst to from new))
+		     finally (setq head (car new)) (return (cdr new))))
+	     (head-vars (loop for v in head when (logic-var-p v) collect v))
+	     (sorted-clauses
+	       (sort clauses-renamed (lambda(a b)
+				       (or (string-lessp (string (car a)) (string (car b)))
+					   (when (eq (car a) (car b))
+					     (let ((a-i  (length (intersection (cdr a) head-vars)))
+						   (b-i (length (intersection (cdr b) head-vars))))
+					       (or (> a-i b-i)
+						   (when (= a-i b-i)
+						     (let ((a-s (format nil "~a" a))
+							   (b-s  (format nil "~a" b)))
+						       (string-lessp a-s b-s)))))))))))
+	`(,name (:forall ,(sort (mapcar 'keywordify (mapcar 'cdr to-reassign)) 'string-lessp
+					:key 'string)
+		  (:implies (:and ,@sorted-clauses) ,head)))))))
 
 ;; sometimes there are rules of this form (:implies (:and (p ?a) (:= ?a ?b) (q ?b)) (r ?a))
 ;; This is silly, since you can just write (:implies (:and (p ?a) (q ?a)) (r ?a))
@@ -438,18 +483,18 @@
 	(everything reference)
 	(good 0)
 	(bad 0)
+	(bad-ones nil)
 	)
     ;; Report props in kb but not reference, but skip the equality assertions we added
+    (format t "In expanded seed but not in reference model")
     (loop for prop in (remove '= props :key 'car)
 	  if (not (member prop everything :test 'equalp))
 	    do (incf bad)
-	    and collect prop into bad-ones
+	    and do (push prop bad-ones)
 	  else do (incf good)
 	  finally
     	     (map nil 'print (sort bad-ones 'string-lessp :key 'princ-to-string)))
-
-    (print "---")
-    
+    (format t "~%In reference model but not expanded seed model~%")
     (loop for prop in everything
 	  if (not (member prop props :test 'equalp))
 	    sum 1 into missing and collect prop into missing-ones
@@ -461,16 +506,29 @@
 (defun expand-seed (seed rules)
   (let ((props (forward-chain-rules rules seed)))
     (load-prolog nil props)
-    props))
+    (setq *last-checked-seed* seed)
+    (setq *last-expanded-model* props)))
 
 
 (defun compute-rules (spec)
   (multiple-value-bind (binaries ternaries) (inverses-from-spec spec)
-  (let ((theory  (rewrite-inverses  spec
+  (let ((theory  (rewrite-inverses  spec 
 				    :binary-inverses binaries
 				    :ternary-inverses ternaries :copy-names? t)))
     (generate-rules 
      :theory theory :check theory
+     :check-with-reasoner t))))
+
+(defun rules-for-axiom (axiom background-theory)
+  (multiple-value-bind (binaries ternaries) (inverses-from-spec background-theory)
+    (let ((check-against  (rewrite-inverses  background-theory 
+					   :binary-inverses binaries
+					   :ternary-inverses ternaries :copy-names? t)))
+    (generate-rules 
+     :theory check-against :check (rewrite-inverses (list axiom)
+					     :binary-inverses binaries
+					     :ternary-inverses ternaries
+					     :copy-names? t) 
      :check-with-reasoner t))))
 
 (defparameter *spec->collected-axioms-cache* (make-hash-table :weakness :key :test 'equalp))

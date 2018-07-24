@@ -1,10 +1,12 @@
-(in-package cl-user)
-
-(eval-when (:compile-toplevel :execute :load-toplevel)
-  (use-package :logic))
+(in-package :logic)
 
 (defvar *classinstancevar* )
 
+;; If :rdf-type o-class-expression expands to (rdf-type c *classinstancevar*)
+;; if :predicate expands to (c *classinstancevar*)
+
+(defvar *owl-fol-class-handling* :rdf-type) 
+  
 (defun o-pred-property (head &rest args)
   (setq head (reduce-objectinversof head))
   (when (and (consp head) (eq (car head) 'cl-user::o-objectinverseof))
@@ -13,13 +15,17 @@
     
 (defun o-class-expression (expression)
   (if (atom expression)
-      (pred-class expression *classinstancevar*)
+      (ecase *owl-fol-class-handling*
+	(:predicate (pred-class expression *classinstancevar*))
+	(:rdf-type (o-pred-property 'rdf-type expression *classinstancevar*))) 
       (macroexpand expression)))
 
 
 (defmacro o-subclassof (sub-expression super-expression)
   (with-logic-var *classinstancevar*
-    (l-forall (list *classinstancevar*) (l-implies (o-class-expression sub-expression) (o-class-expression super-expression)))))
+    (l-forall (list *classinstancevar*)
+	      (l-implies (o-class-expression sub-expression) 
+			 (o-class-expression super-expression)))))
 
 (defmacro o-equivalentclasses (class-expression-1 class-expression-2 &rest more-class-expressions)
   (let ((equivalence
@@ -287,21 +293,21 @@
 		    disjointdataproperties 
 		    equivalentdataproperties 
 		    functionaldataproperty )
-      for d-name = (intern(concatenate 'string "O-" (string head)))
-      for o-equivalent = (intern(concatenate 'string "O-" (#"replaceFirst" (string head) "DATA" "OBJECT" )))
+      for d-name = (intern (concatenate 'string "O-" (string head)) (load-time-value *package*))
+      for o-equivalent = (intern (concatenate 'string "O-" (#"replaceFirst" (string head) "DATA" "OBJECT" )) (load-time-value *package*))
       do (setf (macro-function d-name) (macro-function o-equivalent)))
 
 
 (defun owl-sexp-to-fol (expression)
   (labels ((o-rewrite (expression)
 	     (cond ((or (stringp expression) (symbolp expression))
-		    (if (gethash (intern (string expression) 'cl-user) *owl2-vocabulary-forms*) 
-			(intern (concatenate 'string "O-" (string expression)) 'cl-user)
+		    (if (gethash (intern (string expression) 'cl-user) cl-user::*owl2-vocabulary-forms*) 
+			(intern (concatenate 'string "O-" (string expression)) (load-time-value *package*))
 			expression))
 		   ((uri-p expression) expression)
 		   ((numberp expression) expression)
 		   (t (mapcar #'o-rewrite expression)))))
-    (macroexpand-1 (o-rewrite (mapcar 'rewrite-owl-canonical-functional expression)))))
+    (macroexpand-1 (o-rewrite (mapcar 'cl-user::rewrite-owl-canonical-functional expression)))))
 
 
 #|

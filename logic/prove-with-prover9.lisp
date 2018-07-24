@@ -218,7 +218,11 @@
 	  output)))
 
 (defun prover9-prove (assumptions goals  &rest keys &key (timeout 10) (show-translated-axioms nil) &allow-other-keys)
+  (when (and goals (atom goals)) (setq goals (list goals)))
   (apply 'mace-or-prover9  :prover9 assumptions goals :timeout timeout :show-translated-axioms show-translated-axioms keys))
+
+(defun prover9-prove* (&rest args)
+  (prog1 (apply 'prover9-prove args)))
 	
 (defun prover9-check-unsatisfiable (assumptions &rest keys  &key expected-proof &allow-other-keys)
   (let ((result (apply 'prover9-prove assumptions nil keys)))

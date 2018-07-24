@@ -58,9 +58,11 @@
 		    ))
 	      t)))))
 
-(defun why-failed? (axiom &optional (seed *last-checked-seed*) (spec *last-checked-spec*))
-  (pprint (evaluate-formula (axiom-sexp axiom)
-			    (expand-seed seed (rules-for-spec spec))
+(defun why-failed? (axiom &optional  (seed *last-checked-seed*) (spec *last-checked-spec*) (model nil model-supplied-p))
+  (pprint (evaluate-formula (axiom-sexp (car (rewrite-inverses (list axiom) :against-theory *last-checked-spec*)))
+			    (if model-supplied-p
+				model
+				(expand-seed seed (rules-for-spec spec)))
 			    :trace t :return-annotated t)))
 
 ;(def-logic-axiom my-test (:forall (?a) (:implies (x ?a) (y ?a))) "for testing" :kind :test-testing)
@@ -127,3 +129,44 @@
   (let ((axs (collect-axioms-from-spec spec))
 	(facts (mapcar (lambda(e) `(:fact ,e)) seed)))
     (eq :unsat (prover9-check-unsatisfiable  (append axs facts)))))
+
+(defun check-theorems-are (spec-including-theorems &key dry-run)
+  (let* ((theorems (intersection (collect-axioms-from-spec '((:status :theorem))) (collect-axioms-from-spec spec-including-theorems)))
+	 (the-rest (set-difference (collect-axioms-from-spec spec-including-theorems) theorems))
+	 (lparallel:*kernel* (lparallel:make-kernel 8)))
+    (when dry-run
+      (loop for e in theorems
+	    for with =  (second (assoc :check-theorem-with (axiom-plist e)))
+	    do
+	       (format t "Will check: ~a" (axiom-name e))
+	       (if with
+		   (progn (format t " with ~a~%" with)
+			  (setq with `(,@with (:exclude (:status :theorem)))))
+		   (terpri))
+	       (when (and with (remove e (set-difference (collect-axioms-from-spec with) the-rest)))
+		 (warn "Theorem ~a supposed to be proved with ~a, but it has ~a that isn't in full spec"
+		       (axiom-name e)
+		       with
+		       (mapcar 'axiom-name (set-difference (set-difference (collect-axioms-from-spec with) the-rest))))))
+      (return-from check-theorems-are nil))
+    (let ((done (lparallel::pmapcar 
+		 (lambda(e &aux res)
+		   (let ((with (second (assoc :check-theorem-with (axiom-plist e)))))
+		     (when with (setq with `(,@with (:exclude (:status :theorem)))))
+		     (when (and with (remove e (set-difference (collect-axioms-from-spec with) the-rest)))
+		       (warn "Theorem ~a supposed to be proved with ~a, but it has ~a that isn't in full spec"
+			     (axiom-name e)
+			     with
+			     (mapcar 'axiom-name (set-difference (collect-axioms-from-spec with) the-rest))))
+		     (setq res  (prover9-prove (or with the-rest) e :timeout 45))
+		     (if (eq res :proved) 
+			 res
+			  (z3-prove (or with the-rest) e :timeout 60))))
+		   theorems)))
+      (loop for ax in theorems
+	    for attempt in done
+	    do (format t "~a: ~a~%" (axiom-name ax) attempt)
+	    when (not (eq attempt :proved)) collect (keywordify (axiom-name ax))))))
+   
+
+

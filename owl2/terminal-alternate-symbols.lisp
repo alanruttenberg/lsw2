@@ -1,3 +1,5 @@
+(in-package :cl-user)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Manage alternative ways of writing OWL2 terms.
 ;;
@@ -15,7 +17,10 @@
 
 (defun rewrite-owl-canonical-functional (expression)
   (if (atom expression)
-      (or (car (gethash expression *owl2-vocabulary-forms*)) expression)
+      (or (car (gethash expression *owl2-vocabulary-forms*))
+	  (let ((here (and (symbolp expression) (find-symbol (string expression) (load-time-value *package*)))))
+	    (and here (car (gethash here *owl2-vocabulary-forms*))))
+	  expression)
       (mapcar 'rewrite-owl-canonical-functional expression)))
   
 	 

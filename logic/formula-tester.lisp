@@ -465,20 +465,22 @@
 ;; 		(when (and vars ant)
 ;; 		  (logic::implies-pattern-bindings vars `(:implies ,ant ,cons)))))
 
-(defun rewrite-inverses (spec &key copy-names? binary-inverses ternary-inverses)
+(defun rewrite-inverses (spec &key copy-names? binary-inverses ternary-inverses against-theory)
   "Rewrites the formulas in spec to rewrite inverse relationships to use only 1. Inverses are specified as pairs in arguments to :binary-inverses :ternary-inverses. With copy-names? t returns a list of axioms with the same names as the originals. Without just returns the sexps"
-  (let ((axioms (collect-axioms-from-spec spec)))
-    (loop for ax in axioms
-	  for rewritten-sexp in
-	      (mapcar (lambda(e) (if (keywordp (car e)) e `(:fact ,e)))
-		      (render-axioms (make-instance 'logic-generator 
-						    :binary-inverses binary-inverses
-						    :ternary-inverses ternary-inverses)
-				     (collect-axioms-from-spec spec)))
-	  collect
-	  (if copy-names?
-	      (make-instance 'axiom :sexp rewritten-sexp :name (axiom-name ax))
-	      rewritten-sexp))))
+  (multiple-value-bind (binaries ternaries) (inverses-from-spec (or against-theory spec))
+
+    (let ((axioms (collect-axioms-from-spec spec)))
+      (loop for ax in axioms
+	    for rewritten-sexp in
+			       (mapcar (lambda(e) (if (keywordp (car e)) e `(:fact ,e)))
+				       (render-axioms (make-instance 'logic-generator 
+								     :binary-inverses (Or binary-inverses binaries)
+								     :ternary-inverses (or ternary-inverses ternaries))
+						      (collect-axioms-from-spec spec)))
+	    collect
+	    (if copy-names?
+		(make-instance 'axiom :sexp rewritten-sexp :name (axiom-name ax))
+		rewritten-sexp)))))
 
 ;; Walk down a form in which bindings have been substituted, evaluating each subform
 ;; Facts are translated to either (:true <fact>) or (:false <fact>)
@@ -526,6 +528,7 @@
   "Take a logical formula and test against an interpretation given as the list of positive propositions. 
 Works by transforming the formula into a function, compiling it, and running it. The list macros are used 
 to avoid consing, which can land up be quite a lot"
+;  (format t "starting ~a~%" formula)
   (when (keywordp formula) (setq formula (axiom-sexp formula)))
   (let ((paiprolog::*trail*  (make-array 200 :fill-pointer 0 :adjustable t)))
     (when (and implies-optimize (or (not (numberp implies-optimize)) (>= (quantified-depth formula) implies-optimize)))
@@ -553,6 +556,7 @@ to avoid consing, which can land up be quite a lot"
 	      (let ((*print-right-margin* 200)) (pprint (ext:macroexpand-all fun)))
 	      (let* ((compiled (compile nil fun))
 		     (evaluation (funcall compiled universe kb trace-array)))
+;		(format t "ending ~a~%" formula)
 		(if (and trace (not evaluation))
 		    (let* ((trace-bindings (remove nil (map 'list 'cons tracevars trace-array) :key 'cdr))
 			   (annotated (annotate-lossage (if trace-bindings
@@ -576,6 +580,11 @@ to avoid consing, which can land up be quite a lot"
 (defvar *default-forall-implies-optimization-level* 4
   "Use it when quantifiers are nested at least this deep. nil to not use the optimization")
     
+(defvar *evaluate-timing* )
+
+(defvar *skip-evaluation-for-now* nil)
+
+(defvar *last-failed-formulas* nil)
 
 (defun evaluate-formulas (spec model &key binary-inverses ternary-inverses (debug nil debug-supplied-p) (implies-optimize *default-forall-implies-optimization-level*))
   "Take spec and interpreation as list of positive propositions, with optional pairs of inverse relations to rewrite, and 
@@ -585,22 +594,37 @@ second value is the list of formulas that failed"
 				     :binary-inverses binary-inverses
 				     :ternary-inverses ternary-inverses
 				     :copy-names? t)))
+    (setq *evaluate-timing* (make-hash-table :test 'equalp))
     (progv (if debug-supplied-p `(*debug-eval-formula*)) (if debug-supplied-p (list debug))
 	(let ((results 
 		(lparallel::pmapcan 
-		 (lambda(e) (let ((paiprolog::*trail* paiprolog::*trail* ))
-			      (if (evaluate-formula
-				   (car (rewrite-inverses (list (axiom-sexp e))
-							  :binary-inverses binary-inverses
-							  :ternary-inverses ternary-inverses))
-				   model
-				   :implies-optimize implies-optimize)
-				  nil
-				  (list (axiom-name e)))))
+		 (lambda(e)
+		   (if (and (typep e 'axiom) (member (axiom-name e) *skip-evaluation-for-now*  :test (lambda(a b) (equalp (string a) (string b)))))
+		       (format t "~&Skipping evaluation of ~a for now~%" (string-downcase (axiom-name e)))
+		       (progn
+		     
+			 (setf (gethash (if (typep e 'axiom) (axiom-name e) e) *evaluate-timing*)
+			       (list (#"currentTimeMillis" 'system) nil))
+			 (let ((paiprolog::*trail* paiprolog::*trail* ))
+			   (if (prog1 (evaluate-formula
+				       (car (rewrite-inverses (list (axiom-sexp e))
+							      :binary-inverses binary-inverses
+							      :ternary-inverses ternary-inverses))
+				       model
+				       :implies-optimize implies-optimize)
+				 (setf (cdr (gethash (if (typep e 'axiom) (axiom-name e) e) *evaluate-timing*)) (#"currentTimeMillis" 'system)))
+			       nil
+			       (list (print (axiom-name e))))))))
 		 (coerce rewritten 'vector))))
 	  (if results
-	      (values :failed results)
+	      (values :failed (setq *last-failed-formulas* results))
 	      :satisfying-model)))))
+
+(defun report-slowest-evaluated-formulas ()
+  (let ((table nil))
+       (maphash (lambda(f tim) (push (list f (/ (- (cdr tim) (car tim)) 1000.0)) table))
+	       logic::*evaluate-timing*)
+       (pprint (subseq (sort table '> :key 'second) 0 10))))
 
 
 (defun debug-formula (formula model)

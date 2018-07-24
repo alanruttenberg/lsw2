@@ -5,7 +5,9 @@
 (defclass logic-generator () 
   ((binary-inverses :accessor binary-inverses :initarg :binary-inverses :initform nil)
    (ternary-inverses :accessor ternary-inverses :initarg :ternary-inverses :initform nil)
-   (rewrite-inverses? :accessor rewrite-inverses? :initarg :rewrite-inverses? :initform t)))
+   (rewrite-inverses? :accessor rewrite-inverses? :initarg :rewrite-inverses? :initform t)
+   (with-names :initarg :with-names)
+   ))
 
 (defgeneric logical-forall ((g logic-generator) vars expressions))
 (defgeneric logical-exists ((g logic-generator) vars expressions))
@@ -219,30 +221,36 @@
 	    (:latex 'latex-logic-generator)
 	    (:clif 'clif-logic-generator)
 	    (:dol 'dol-logic-generator)
+	    (:lsw 'logic-generator)
 	    ))
 	(*print-case* :downcase))
     (flet ((doit ()
 	     (let ((axioms (append (if (stringp assumptions) assumptions
-					 (collect-axioms-from-spec assumptions))
-				     (if (stringp goals) goals
-					 (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals))))))
+				       (collect-axioms-from-spec assumptions))
+				   (if (stringp goals) goals
+				       (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals)))))
+		   generator)
 	       (when (eq sort :label)
 		   (setq axioms (sort axioms 'cl-user::number-aware-string-lessp :key (cl-user::compose 'string 'axiom-name))))
-	       (if (eq which :dol)
-		   (render-ontology
-		    (make-instance generator-class :with-names with-names)
-		    "Anonymous" axioms)
-		   (concatenate
-		    'string
-		    (or (and at-beginning (format nil "~a~%" at-beginning)) "")
-		    (if (eq which :vampire)
-			(let ((g (make-instance generator-class   :with-names with-names)))
-			  (render-axioms g axioms))
-			(if (eq which :z3)
-			    (let ((g (make-instance generator-class  :with-names with-names )))
-			      (render-axioms g axioms ))
-			    (render-axioms (make-instance generator-class  :with-names with-names ) axioms )))
-		    (or (and at-end (format nil "~a~%" at-end))  ""))))))
+	       (values
+		(if (eq which :dol)
+		    (render-ontology
+		     (setq generator (make-instance generator-class :with-names with-names))
+		     "Anonymous" axioms)
+		    (if (eq which :lsw)
+			(with-output-to-string (s) (pprint (render-axioms (make-instance generator-class) axioms) s))
+		    (concatenate
+		     'string
+		     (or (and at-beginning (format nil "~a~%" at-beginning)) "")
+		     (if (eq which :vampire)
+			 (let ((g (setq generator (make-instance generator-class   :with-names with-names))))
+			   (values (render-axioms g axioms) g))
+			 (if (eq which :z3)
+			     (let ((g (setq generator (make-instance generator-class  :with-names with-names ))))
+			       (render-axioms g axioms ))
+			     (render-axioms (setq generator (make-instance generator-class  :with-names with-names )) axioms )))
+		     (or (and at-end (format nil "~a~%" at-end))  ""))))
+		generator))))
       (if path
 	(with-open-file (f path :direction :output :if-does-not-exist :create :if-exists :supersede)
 	  (progn
