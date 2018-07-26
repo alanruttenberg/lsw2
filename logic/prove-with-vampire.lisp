@@ -24,7 +24,7 @@
   (values (call-next-method) g))
 
 (defun get-vampire-proof-support ()
-  (loop for (num) in (butlast (cl-user::all-matches *last-vampire-output* "(?m)(\\d+)\\.\\s+(\\S+).*\\[input\\]" 1 2))
+  (loop for (num) in (butlast (all-matches *last-vampire-output* "(?m)(\\d+)\\.\\s+(\\S+).*\\[input\\]" 1 2))
 	for ax = (svref *last-vampire-axiom-map* (1- (parse-integer num)))
 	if (typep ax 'axiom)
 	  collect (keywordify (axiom-name ax))
@@ -69,7 +69,7 @@
   (when force
     (setq *vampire-box-id* (get-vagrant-box-id *vampire-box-name*)))
   (or (if force nil *checked-vampire-box-running*)
-      (unless (equalp (get-vagrant-box-status *vampire-box-id*) "running")
+      (unless (is-vagrant-box-running *vampire-box-id*)
 	(vagrant-box-up  *vampire-box-id*)
 	(unless (equalp (get-vagrant-box-status *vampire-box-id*) "running")
 	  (error "Couldn't bring up vagrant box ~a" *vampire-box-id*)))

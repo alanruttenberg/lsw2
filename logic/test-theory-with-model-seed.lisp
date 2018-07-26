@@ -149,10 +149,10 @@
 		       with
 		       (mapcar 'axiom-name (set-difference (set-difference (collect-axioms-from-spec with) the-rest))))))
       (return-from check-theorems-are nil))
-    (let ((done (lparallel::pmapcar 
+    (let ((done (lparallel::pmapcar  
 		 (lambda(e &aux res)
 		   (let ((with (second (assoc :check-theorem-with (axiom-plist e)))))
-		     (when with (setq with `(,@with (:exclude (:status :theorem)))))
+		     (when with (setq with `(,@with (:exclude (:status :theorem)) (:exclude (:kind :meta)))))
 		     (when (and with (remove e (set-difference (collect-axioms-from-spec with) the-rest)))
 		       (warn "Theorem ~a supposed to be proved with ~a, but it has ~a that isn't in full spec"
 			     (axiom-name e)

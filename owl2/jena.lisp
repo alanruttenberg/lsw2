@@ -1,3 +1,5 @@
+(in-package :cl-user)
+
 (defun create-empty-jena-model ()
   (let ((model (#"createDefaultModel" 'modelfactory)))
     (#"setNsPrefix" model "owl" (uri-full !owl:))
@@ -27,8 +29,9 @@
 
 (defun write-jena-model (model to)
   (let ((jfile (new 'java.io.file (namestring (translate-logical-pathname to)))))
-    (when (not (#"exists" jfile))
-      (#"createNewFile" jfile))
+    (if (#"exists" jfile)
+	(delete-file to))
+    (#"createNewFile" jfile)
     (let ((stream (new 'java.io.fileoutputstream jfile)))
       (#"write" stream (#"getBytes" (format nil "<?xml version=\"1.0\" encoding=\"UTF-8\"?>~%")))
       (#"write" model stream "RDF/XML-ABBREV"))))

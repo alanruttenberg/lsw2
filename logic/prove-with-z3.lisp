@@ -57,10 +57,10 @@
 	t)))
   
 (defun z3-render (assumptions &optional goals pre-commands post-commands)
-  (apply 'concatenate 'string
+  (concatenate 'string
 	 (format nil "~{~a~}~^" pre-commands)
 	 (if (stringp assumptions) assumptions (render :z3 assumptions goals))
-	 (mapcar (lambda(e) (format nil "~a" e)) post-commands)))
+	 (format nil "~{~a~}~^" post-commands)))
   
 (defun z3-prove (assumptions goals &key (timeout 30) (return-contradiction nil) expected-proof)
   (if (and goals (atom goals)) (setq goals (list goals)))

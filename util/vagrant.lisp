@@ -1,3 +1,5 @@
+(in-package :cl-user)
+
 (defun get-vagrant-box-id (name)
   (let ((answer (run-program-string->string "vagrant" '("global-status") "")))
     (let ((found (caar (all-matches answer (format nil "(?si)([a-f0-9]*)\\s (~a)" name) 1 ))))
@@ -21,12 +23,14 @@
   (let ((info (get-vagrant-box-info)))
     (getf (find-if (lambda(e) (or (equalp (getf e :id) id-or-name) (equalp (getf e :name) id-or-name))) info) :status)))
 
+;; blasted global status isn't accurate - vm is up but it shows poweroff. Use this instead.
+(defun is-vagrant-box-running (id-or-name)
+  (search "The VM is running." (run-program-string->string "vagrant" (list "status" id-or-name) "")))
+  
 (defun vagrant-box-up (id)
   (run-program-string->string  "vagrant" `("up" ,id) "" :wd (get-vagrant-box-wd id))
-  (assert (equalp (get-vagrant-box-status id) "running") (id) "Failed to bring up vagrant box ~a" id))
-  
-  
-  
+  (assert (search "The VM is running." (run-program-string->string "vagrant" (list "status" id))) (id) "Failed to bring up vagrant box ~a" id))
+
 (defun vagrant-tip ()
   (format t "Install or upgrade virtualbox: brew cask [re]install virtualbox~%")
   (format t "Download from https://www.vagrantup.com/downloads.html~%")

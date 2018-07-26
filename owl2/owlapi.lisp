@@ -1,3 +1,4 @@
+(in-package :cl-user)
 ;; http://owlapi.svn.sourceforge.net/viewvc/owlapi/v3/trunk/examples/src/main/java/org/coode/owlapi/examples/Example8.java?view=markup
 
 (defstruct (v3kb (:print-function print-v3kb-struct))
@@ -241,8 +242,11 @@
 	   (declare (special *default-kb*))
 ;	   (declare (ignorable *default-kb* ))
 	   (flet ((write-ontology (&optional (pathname (make-pathname  :name (string-downcase (string (v3kb-name *default-kb*))) :type "owl" :directory (pathname-directory "~/Desktop/"))))
-		    (jena-serialize-to-file *last-jena-model* "RDF/XML-ABBREV" pathname)))
-	     (values-list (append (multiple-value-list (progn ,@body)) (and ,also-return-axioms (list ,axioms-var))))))))))
+		    (write-jena-model *last-jena-model* pathname)))
+	     (declare (ignore-if-unused write-ontology))
+	     (values-list (append
+			   (multiple-value-list (progn ,@body))
+			   (and ,also-return-axioms (list ,axioms-var))))))))))
 
 (defun include-out-of-line-axioms (name as-fn))
 

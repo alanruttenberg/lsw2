@@ -7,7 +7,7 @@
 
 (defvar *running-processes* nil)
   
-(defun run-program-string->string (executable args input &key wd)
+(defun run-program-string->string (executable args &optional input &key wd)
   (let ((process (sys::run-program executable args :directory wd :input (if input :stream))))
     (push process *running-processes*)
     (unwind-protect 

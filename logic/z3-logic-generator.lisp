@@ -78,8 +78,8 @@
   (member pred '(declare-datatypes + - < > * = <= >= ^)))
   
 (defmethod generate-declarations ((g z3-logic-generator) (a list) &key (include-constants t) (include-predicates t))
-  (let ((constants (remove-duplicates (mapcan (lambda(e) (constants g (axiom-sexp e))) a)))
-	(predicates (remove-duplicates (mapcan (lambda(e) (predicates g (axiom-sexp e))) a) :test 'equalp)))
+  (let ((constants (remove-duplicates (apply 'append (mapcar (lambda(e) (constants g (axiom-sexp e))) a))))
+	(predicates (remove-duplicates (apply 'append (mapcar (lambda(e) (predicates g (axiom-sexp e))) a)) :test 'equalp)))
     (apply 'concatenate 'string
 	   (append
 	    (and include-constants

@@ -614,7 +614,7 @@ second value is the list of formulas that failed"
 				       :implies-optimize implies-optimize)
 				 (setf (cdr (gethash (if (typep e 'axiom) (axiom-name e) e) *evaluate-timing*)) (#"currentTimeMillis" 'system)))
 			       nil
-			       (list (print (axiom-name e))))))))
+			       (list  (axiom-name e)))))))
 		 (coerce rewritten 'vector))))
 	  (if results
 	      (values :failed (setq *last-failed-formulas* results))

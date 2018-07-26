@@ -47,7 +47,7 @@
     :depends-on ("package" "main"
 			   "graal"
 			   )))
-  :depends-on (:cl-ansi-text :yacc :winston-forward-chain :paiprolog)
+  :depends-on (:cl-ansi-text :yacc :paiprolog :util)
   )
 
 

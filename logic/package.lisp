@@ -14,13 +14,13 @@
 		cl-user::uri-full cl-user::uri-p cl-user::uri-label cl-user::*default-kb* cl-user::*default-uri-base*
 		cl-user::camelcase cl-user::replace-all cl-user::make-uri  
 		cl-user::get-vagrant-box-id cl-user::get-vagrant-box-status
-		cl-user::get-vagrant-box-wd cl-user::vagrant-box-up
+		cl-user::get-vagrant-box-wd cl-user::vagrant-box-up cl-user::is-vagrant-box-running
 		cl-user::*vampire-shared-directory-remote* cl-user::*vampire-shared-directory-local*
 		cl-user::*running-in-vagrant* cl-user::*vampire-box-name* cl-user::*vampire-executable* cl-user::print-db
 		cl-user::tree-replace cl-user::tree-find cl-user::tree-walk cl-user::tree-remove-if cl-user::?
 		cl-user::all-matches
 		)
-  (:import-from :winston-ai  #:remember-assertion #:remember-rule #:forward-chain #:make-empty-stream #:*rules* #:*assertions*)
+;  (:import-from :winston-ai  #:remember-assertion #:remember-rule #:forward-chain #:make-empty-stream #:*rules* #:*assertions*)
   (:import-from :ginsberg-cnf-dnf ginsberg-cnf-dnf::<= ginsberg-cnf-dnf::=> ginsberg-cnf-dnf::<=>) 
   (:import-from :sys sys::run-program sys::process-output sys::process-input)
   (:import-from :asdf asdf::system-relative-pathname)
