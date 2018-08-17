@@ -159,7 +159,7 @@
 	      (setq it (replace-all it "(?m)^\\s*(.*?\\(.*?\\)) = (\\d+).$"
 				    (lambda(form value)
 				      (format nil "~a ~a" (if (equal value "0") "-" " ") form))
-			 1 2))	    
+				    1 2))
 	    ;; get rid of the skolem functions and negatives (things that don't hold)
 	    (let ((matched (reverse (all-matches it "\\n([A-Za-z0-9_]+) = (\\d+)\\." 1 2)))
 		  (domain-size (caar (all-matches it "% Interpretation of size (\\d+)" 1))))
@@ -176,16 +176,16 @@
 		       (unaccounted-for-numbers 
 			 (sort (set-difference mentioned-numbers (mapcar 'parse-integer (mapcar 'second matched))) '<))
 		       (already (count-if (lambda(e) (#"matches" (car e) "^c\\d+")) matched)))
-		  ;; augment matched list with the new assignments
-		  (setq matched (append (loop for number in unaccounted-for-numbers
+		  ;; augment matched list with skolems
+		  (setq matched (append (loop for number in unaccounted-for-numbers 
 					      for count from (1+ already)
-					      for name = (format nil "c~a" count)
+					      for name = (format nil "s~a" count)
 					      collect (list name (prin1-to-string number)))
 					matched ))
 		  )
 		;; replace the numbers for universals and constants with their name
 		(format nil ";; domain size ~a~%~a" domain-size
-			(replace-all reduced "(?s)(\\d+)" (lambda(num) (car (find num matched :test 'equalp :key 'second))) 1))
+				    (#"replaceAll" (replace-all reduced "(?s)(\\d+)" (lambda(num) (car (find num matched :test 'equalp :key 'second))) 1)  "(?m)^\\s*$" ""))
 		)))
 	    it))
       (reformat-interpretation output format)))
