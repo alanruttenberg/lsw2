@@ -194,8 +194,6 @@
 (defmethod dlgp-query ((kb graal-kb) query)
   (let ((q (#"parseQuery" 'dlgpparser query)))
     (let ((results (#"query" (kb kb) q)))
-      (setq @ results)
-      (break)
       (loop while (#"hasNext" results)
 	    for res = (#"next" results)
 	    for values = (mapcar (lambda(e) (dlgp-unmangle-identifier kb e))
