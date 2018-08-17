@@ -12,7 +12,7 @@
 	       (replace-all (string name) "(\\d+)" (lambda(e) (camelCase (format nil "~r" (read-from-string e)))) 1)))
 	(cond ((and (symbolp e) (char= (char (string e) 0) #\?))
 	       (normalize-names g (intern (subseq (string e) 1))))
-	      ((keywordp e) e)
+;	      ((keywordp e) e)
 	      ((and (symbolp e) (find #\- (string e)))
 	       (intern (camelCase (replace-numbers e))))
 	      ((uri-p e) (intern 
