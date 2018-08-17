@@ -1,7 +1,7 @@
 (eval-when (:load-toplevel :execute :compile-toplevel)
   (loop for early in '("OWL-SEXP-TO-FOL" "URI-LABEL" "URI-FULL" "*RUNNING-IN-VAGRANT*" "*VAMPIRE-BOX-NAME*" "*VAMPIRE-EXECUTABLE*"
 		       "*VAMPIRE-SHARED-DIRECTORY-REMOTE*" "*VAMPIRE-SHARED-DIRECTORY-LOCAL*" "CAMELCASE" "*DEFAULT-URI-BASE*"
-		       "GET-VAGRANT-BOX-ID" "GET-VAGRANT-BOX-WD" "GET-VAGRANT-BOX-STATUS" "VAGRANT-BOX-UP" "AXIOM") 
+		       "GET-VAGRANT-BOX-ID" "GET-VAGRANT-BOX-WD" "GET-VAGRANT-BOX-STATUS" "VAGRANT-BOX-UP" "AXIOM" "?") 
 		      do (intern early :cl-user)))
 (defpackage :ginsberg-cnf-dnf
   (:use cl)
@@ -118,6 +118,13 @@
    #:*skip-evaluation-for-now*
    #:check-theorems-are
    #:*owl-fol-class-handling*
- ))
+   #:spec-difference
+   #:collect-axiom-names-from-spec
+   #:prover9-to-lsw
+   #:parenthesize-with-prover9
+   #:verify-formula-well-formed
+   #:get-z3-proof-support
+   ))
+
 
 
