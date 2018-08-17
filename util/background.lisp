@@ -78,8 +78,9 @@
   (loop for el across *jobs*
 	for count from 0
 	if (null el)
-	   do (return-from next-open-job-slot count))
-  (vector-push-extend nil *jobs*))
+	  do (return-from next-open-job-slot count))
+  (adjust-array *jobs* (list (+ (length *jobs*) 10)) :initial-element nil)
+  (next-open-job-slot))
 
 			      
 (defun jobs ()
@@ -93,7 +94,9 @@
       (loop for i in which
 	    do (setf (aref *jobs* i) nil))
       (loop for i below (length *jobs*)
-	    do (setf (aref *jobs* i) nil))))
+	    do (when (and  (aref *jobs* i)
+			   (job-ended (aref *jobs* i)))
+		 (setf (aref *jobs* i) nil)))))
 
 (defun % (number &optional (show-command t))
   (let ((job (aref *jobs* (1- number))))
