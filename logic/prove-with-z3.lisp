@@ -105,10 +105,20 @@
 	(pprint-z3-model model)
 	model)))
 
+(defun find-counterexample (assumptions goal &rest rest &key (with 'z3) &allow-other-keys)
+  (apply (if (eq with 'z3) 'z3-find-model 'mace4-find-model)
+	 (list* `(:not ,(axiom-sexp goal)) assumptions)
+	 (progn (remf rest :with) rest)))
+  
+
 (defun z3-get-unsat-core (assumptions &key (timeout 10) expected-proof &allow-other-keys)
   (z3-syntax-check assumptions nil)
-  (let* ((input  (concatenate 'string "(set-option :produce-unsat-cores true)" (z3-render assumptions nil nil (list "(check-sat)""(get-unsat-core)"))))
+  (let* ((input  (if (stringp assumptions) assumptions (concatenate 'string "(set-option :produce-unsat-cores true)" (z3-render assumptions nil nil (list "(check-sat)""(get-unsat-core)")))))
 	 (answer (run-z3 input timeout)))
+    (when (not (search "(check-unsat)" input))
+	(setq input (concatenate 'string input "(check-unsat)")))
+    (when  (not (search "(get-unsat-core)" input))
+	(setq input (concatenate 'string input "(get-unsat-core)")))
     (when expected-proof
       (setf (prover-unsat-explanation expected-proof) answer)
       (setf (prover-input expected-proof) answer)
@@ -129,6 +139,9 @@
 			       "\\.lt\\." "<")))) 
 		  names))
 	answer)))
+
+(defun get-z3-proof-support ()
+  (z3-get-unsat-core *last-z3-input*))
 
 (defun z3-check-satisfiability (assumptions &key (timeout 10) expected-proof &allow-other-keys)
   (let* ((input (concatenate 'string (z3-render assumptions) "(check-sat)" (string #\newline))))
