@@ -18,9 +18,10 @@
 (defmacro def-logic-axiom (name sexp &optional description &rest key-values)
 
     (when (keywordp description) (push description key-values) (setq description nil))
-    `(progn
-       (sys::record-source-information-for-type  ',name 'def-logic-axiom)
-       (let* ((sexp-1 ',sexp)
+  `(progn
+     (sys::record-source-information-for-type  ',name 'def-logic-axiom)
+     (validate-formula-well-formed ',sexp ',name)
+     (let* ((sexp-1 ',sexp)
 	      (sexp (if  (and (consp sexp-1) (keywordp (car sexp-1)))
 			 sexp-1
 			 (list :fact sexp-1))))
@@ -149,10 +150,12 @@
 	  (if (keywordp specs)
 	      (list (get-axiom specs error-if-not-found))
 	      (loop for spec in specs
-		    if (formula-sexp-p spec)
+		    unless (null spec)
+		      if (formula-sexp-p spec)
 		      collect spec
 		    else if (atom spec)
-			   collect (get-axiom spec error-if-not-found)
+			   append (let ((res (get-axiom spec error-if-not-found)))
+				     (if res (list res)))
 		    else if (eq (car spec) :negate)
 			    collect (negate-axiom (get-axiom (second spec) error-if-not-found) )
 		    else if (keywordp (car spec))
@@ -162,8 +165,26 @@
       :test 'equalp)
      :test 'equalp)))
 
+(defun collect-axiom-names-from-spec (specs &optional (error-if-not-found t))
+  (loop for a in (collect-axioms-from-spec specs error-if-not-found)
+	if (typep a 'axiom) collect (axiom-name a) else collect a))
+
+(defun subjects-of (spec &optional (error-if-not-found t))
+  (remove-duplicates (loop for ax in (collect-axioms-from-spec spec error-if-not-found)
+	for subject = (and (typep ax 'axiom) (second (assoc :subject (axiom-plist ax))))
+			   when subject collect subject)))
+
+(defun plist-keyword-of (keyword spec)
+  (remove-duplicates (loop for ax in (collect-axioms-from-spec spec)
+	for value = (and (typep ax 'axiom) (second (assoc keyword (axiom-plist ax))))
+			   when value collect value)))
+
 (defun is-axiom-in-spec (axiom spec)
   (find axiom (mapcar 'axiom-name (collect-axioms-from-spec spec)) :test 'string-equal))
+
+(defun spec-difference (spec1 spec2)
+  (loop for el in  (set-difference (collect-axioms-from-spec spec1 ) (collect-axioms-from-spec spec2 ))
+	if (typep el 'axiom) collect (axiom-name el) else collect el))
 
 (defun rewrite-to-axiom-generation-form (form)
   (let ((keys '((:distinct l-distinct) (:implies l-implies) (:iff l-iff) (:and l-and) (:or l-or) (:forall l-forall) (:exists l-exists)
@@ -223,6 +244,8 @@
 
 (defmethod negate-axiom ((a list)) `(:not ,a))
 
+(defmethod negate-axiom ((a symbol)) `(:not ,(get-axiom a)))
+
 (defmethod negate-axiom ((a axiom))
   (make-instance 'axiom 
 		 :sexp `(:not ,(axiom-sexp a))
@@ -234,10 +257,11 @@
 		 :description (concatenate 'string "(negated) " (axiom-description a))
 		 :from a))
 
-(defmethod pprint-spec-axiom-names (spec &key  &allow-other-keys)
-  (pprint-spec-axioms spec :only-name t))
+(defmethod pprint-spec-axiom-names (spec &rest args &key  &allow-other-keys)
+  (apply 'pprint-spec-axioms spec 
+	 :only-name t args))
 
-(defmethod pprint-spec-axioms (spec &key only-name (plist nil) with-colons &allow-other-keys)
+(defun pprint-spec-axioms (spec &key only-name (plist nil) with-colons (allow-missing t) &allow-other-keys)
   (let ((*print-case* :downcase))
     (map nil (lambda(e)
 	       (if (formula-sexp-p e)
@@ -254,7 +278,8 @@
 		 (format t "~%~s" (axiom-sexp e))
 		 (format t "~%~a" (axiom-sexp e))))
 	       (terpri)))
-	 (logic::collect-axioms-from-spec (if (symbolp spec) (list spec) spec))
+	 (sort (logic::collect-axioms-from-spec (if (symbolp spec) (list spec) spec) (not allow-missing))
+	       'string-lessp :key 'prin1-to-string)
 	 )))
 
 (defparameter *autonamed-axioms* (make-hash-table :test 'equalp :weakness :key))
@@ -315,13 +340,15 @@
 			      (t (walk-function el)))))
 	     (walk (form)
 	       (cond ((atom form)
-		      (break "shouldn't be here")
+		      (break "shouldn't be here: ~a" form)
 		      (if (and (symbolp form) (char= (char (string form) 0 ) #\?))
 			  nil
 			  (uses-constant form)))
 		     (t (case (car form)
-			  ((:forall :exists) (walk (third form)))
-			  ((:implies :iff :and :or :not  :fact) (map nil #'walk (rest form)))
+			  ((:forall :exists) (map nil #'walk (cddr form)))
+			  ((:axiom) (walk (axiom-sexp (get-axiom (second form)))))
+			  ((:implies :iff :and :or :not  :fact) 
+			   (map nil #'walk (rest form)))
 			  ((:distinct :=) (walk-terms (rest form)))
 			  (otherwise
 			   (uses-predicate (car form) (Rest form))
@@ -401,13 +428,75 @@
 	    when (eq kind :ternary) collect (list r inverse-r) into ternaries
 	      finally (return (values binaries ternaries)))))
 			 
-(defmethod is-ground ((a axiom))
-  (multiple-value-bind (predicates constants functions variables)
-      (formula-elements (axiom-sexp a))
-    (null variables)))
-
 (defmethod is-ground ((a list))
   (or (eq (car (axiom-sexp a)) :fact)
       (multiple-value-bind (predicates constants functions variables)
 	  (formula-elements a)
 	(null variables))))
+
+(defun free-variables (formula)
+  (let ((bound nil)
+	(free nil))
+    (declare (special bound))
+    (labels ((free-variables (formula)
+	       (let ((bound (if (boundp 'bound) bound nil)))
+		 (declare (special bound))
+		 (cond ((and (consp formula) (member (car formula) '(:forall :exists)))
+			(setq bound (append (second formula) bound))
+			(apply 'append (mapcar #'free-variables (cddr formula))))
+		       ((logic-var-p formula)
+			(unless (member formula bound)
+			  (pushnew formula free)))
+		       ((atom formula) nil)
+		       (t (apply 'append (mapcar #'free-variables  formula)))))
+    
+	       ))
+      (remove-duplicates (free-variables formula)))))
+
+(defun check-builtins-keyword (formula &optional label)
+  (tree-walk formula (lambda(e)
+		       (when (and (atom e) (not (keywordp e)) (symbolp e))
+			 (assert (not (member (string e)
+					      '(and or implies forall exists not distinct)
+					      :test 'equalp :key 'string)) ()
+				 "Used ~s vs ~s in ~s (reserved keyword)"
+				 e (intern e 'keyword) (or label formula))))))
+
+(defun validate-formula-well-formed (formula &optional label)
+  (when (symbolp formula) 
+      (setq formula (axiom-sexp (get-axiom formula))))
+  (when (typep formula 'axiom)
+      (setq formula (axiom-sexp formula)))
+  (let ((free (free-variables formula)))
+    (assert (null free) (formula) "~{~a~^, ~} ~a free in ~a" free (if (> (length free) 1) "are" "is") (or label formula))
+    (let ((predicates (formula-elements formula)))
+      (loop for (p) in predicates
+	    if (> (count p predicates :key 'car) 1)
+	      do (error "~a is used with different arities in ~a" p (or label formula))))
+    (check-builtins-keyword formula label)
+    (check-builtins-args formula label)
+    ))
+
+(defun check-builtins-args (formula &optional label &aux explain)
+  (tree-walk formula (lambda(e)
+		       (when (consp e)
+			 (assert 
+			  (case (car e)
+			    ((:and :or :distinct)
+			     (setq explain ":and, :or, or :distinct empty")
+			     (not (null (cdr e))))
+			    ((:forall :exists)
+			     (setq explain "quanitified variables need to start with '?'")
+			     (and (consp (second e)) (every 'logic-var-p (second e))))
+			    ((:implies :=) 
+			     (setq explain ":if, :iff, and := should have 2 arguments")
+			     (= (length (cdr e)) 2)
+			     )
+			    (:not 
+				(setq explain ":not takes 1 argument")
+			      (= (length (cdr e)) 1)
+			      )
+			    (otherwise t))
+			  ()
+			  "~a ~anot well formed: ~a"
+			  e (if label (format nil "in ~a " label) "") explain)))))
