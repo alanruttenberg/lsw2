@@ -428,10 +428,13 @@
 	    when (eq kind :ternary) collect (list r inverse-r) into ternaries
 	      finally (return (values binaries ternaries)))))
 			 
+(defmethod is-ground ((a axiom))
+  (is-ground (axiom-sexp a)))
+
 (defmethod is-ground ((a list))
-  (or (eq (car (axiom-sexp a)) :fact)
+  (or (eq (car a) :fact)
       (multiple-value-bind (predicates constants functions variables)
-	  (formula-elements a)
+	  (formula-elements (axiom-sexp a))
 	(null variables))))
 
 (defun free-variables (formula)

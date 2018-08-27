@@ -103,12 +103,13 @@
 	(setf (prover-output expected-proof) model)))
     (if pprint
 	(pprint-z3-model model)
-	model)))
+	(cdr (z3-model-form model)))))
 
 (defun find-counterexample (assumptions goal &rest rest &key (with 'z3) &allow-other-keys)
-  (apply (if (eq with 'z3) 'z3-find-model 'mace4-find-model)
+  (setq *last-checked-spec* (list* `(:not ,(axiom-sexp goal)) assumptions))
+  (setq *last-expanded-model* (apply (if (eq with 'z3) 'z3-find-model 'mace4-find-model)
 	 (list* `(:not ,(axiom-sexp goal)) assumptions)
-	 (progn (remf rest :with) rest)))
+	 (progn (remf rest :with) rest)))) 
   
 
 (defun z3-get-unsat-core (assumptions &key (timeout 10) expected-proof &allow-other-keys)
@@ -226,7 +227,7 @@
 		      do (push (intern (format nil "C~a" (incf count)) :keyword) (gethash el named)))
 		(values relations named forms)))))))
 
-(defun z3-model-form (model &key (compile? t))
+(defun z3-model-form (model &key (compile? nil))
   (multiple-value-bind (relations named forms)
       (transform-z3-model model)
     (if (stringp relations)

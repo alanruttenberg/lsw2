@@ -586,18 +586,18 @@ to avoid consing, which can land up be quite a lot"
 
 (defvar *last-failed-formulas* nil)
 
-(defun evaluate-formulas (spec model &key binary-inverses ternary-inverses (debug nil debug-supplied-p) (implies-optimize *default-forall-implies-optimization-level*))
+(defun evaluate-formulas (spec model &key binary-inverses ternary-inverses (debug nil debug-supplied-p) (rewrite t) (implies-optimize *default-forall-implies-optimization-level*) (parallel t))
   "Take spec and interpreation as list of positive propositions, with optional pairs of inverse relations to rewrite, and 
 check each of them, as would ladr's clausetester. Return either :satisfying-model or :failed. In the latter case the 
 second value is the list of formulas that failed"
-  (let ((rewritten (rewrite-inverses spec
+  (let ((rewritten (if rewrite (rewrite-inverses spec
 				     :binary-inverses binary-inverses
 				     :ternary-inverses ternary-inverses
-				     :copy-names? t)))
+				     :copy-names? t) (collect-axioms-from-spec spec))))
     (setq *evaluate-timing* (make-hash-table :test 'equalp))
     (progv (if debug-supplied-p `(*debug-eval-formula*)) (if debug-supplied-p (list debug))
 	(let ((results 
-		(lparallel::pmapcan 
+		(funcall (if parallel 'lparallel::pmapcan  'mapcan)
 		 (lambda(e)
 		   (if (and (typep e 'axiom) (member (axiom-name e) *skip-evaluation-for-now*  :test (lambda(a b) (equalp (string a) (string b)))))
 		       (format t "~&Skipping evaluation of ~a for now~%" (string-downcase (axiom-name e)))
@@ -607,15 +607,15 @@ second value is the list of formulas that failed"
 			       (list (#"currentTimeMillis" 'system) nil))
 			 (let ((paiprolog::*trail* paiprolog::*trail* ))
 			   (if (prog1 (evaluate-formula
-				       (car (rewrite-inverses (list (axiom-sexp e))
+				       (car (if rewrite (rewrite-inverses (list (axiom-sexp e))
 							      :binary-inverses binary-inverses
-							      :ternary-inverses ternary-inverses))
+							      :ternary-inverses ternary-inverses) (list (axiom-sexp e))))
 				       model
 				       :implies-optimize implies-optimize)
 				 (setf (cdr (gethash (if (typep e 'axiom) (axiom-name e) e) *evaluate-timing*)) (#"currentTimeMillis" 'system)))
 			       nil
 			       (list  (axiom-name e)))))))
-		 (coerce rewritten 'vector))))
+		 (coerce rewritten (if parallel 'vector 'list)))))
 	  (if results
 	      (values :failed (setq *last-failed-formulas* results))
 	      :satisfying-model)))))

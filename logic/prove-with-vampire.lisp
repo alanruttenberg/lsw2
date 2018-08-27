@@ -1,9 +1,10 @@
 (in-package :logic)
 
-;; expects vampire o
-(defvar *running-in-vagrant* t)
+(defvar *running-in-vagrant* nil)
 (defvar *vampire-box-name* "vampirebox")
-(defvar *vampire-executable* "/vagrant/linux/vampire")
+
+;; On OSX use vampire.brew in this directory: brew install --HEAD vampire.brew
+(defvar *vampire-executable* "vampire_rel")
 
 (defvar *vampire-shared-directory-remote* (namestring "/vagrant/"))
 (defvar *checked-vampire-box-present* nil)
@@ -96,6 +97,7 @@
 		     (not (jss::all-matches answer "Termination reason: Refutation not" 0)))
 		:proved
 		(if (or (jss::all-matches answer "Termination reason: Time limit" 0)
+			(jss::all-matches answer "Termination reason: Refutation not found" 0)
 			(and (jss::all-matches answer "Proof not found in time" 0)
 			     (jss::all-matches answer "SZS status GaveUp" 0)))
 		    :timeout

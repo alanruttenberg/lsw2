@@ -1,0 +1,28 @@
+# brew install --HEAD vampire.brew
+class Vampire < Formula
+  desc "Vampire reasoner compiled from head"
+  homepage "https://github.com/vprover/vampire"
+  head "https://github.com/vprover/vampire.git"
+# https://github.com/vprover/vampire/archive/smtcomp2018.tar.gz
+
+  def install
+    inreplace "Makefile" do |s|
+      # don't build static
+      s.gsub! "-static ", ""
+      # remove funky directory for build product
+      s.gsub! '_$(BRANCH)_$(COM_CNT)', ""
+      # too many warnings
+      s.gsub! "-Wall", "-w"
+    end
+
+    system("make clean")
+    system("make vampire_z3_rel")
+    bin.install("vampire_z3_rel")
+    system("make vampire_rel")
+    bin.install("vampire_rel")
+  end
+
+  def caveats
+    "This version of vampire is not portable to other Macs."
+  end
+end
