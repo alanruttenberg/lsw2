@@ -44,7 +44,7 @@
 (defun mace-or-prover9 (which assumptions goals &key (timeout 10) (interpformat :baked) (show-translated-axioms nil)
 						  max-memory domain-min-size domain-max-size max-time-per-domain-size  hints
 						  expected-proof term-ordering max-weight cac-redundancy skolems-last
-						  return-proof return-proof-support no-output self-label-ground
+						  return-proof return-proof-support no-output self-label-ground (pprint t)
 			&aux settings)
 
   (assert (numberp timeout) (timeout) "Timeout should be a number of seconds") 
@@ -66,7 +66,7 @@
     (when cac-redundancy (push (format nil "~a(cac_redundancy)~%" (string-downcase (string cac-redundancy))) settings))
     (when term-ordering (push (format nil "assign(order, ~a)" term-ordering) settings)))
   (let* ((input (prepare-prover9-input assumptions goals :settings settings :show-translated-axioms show-translated-axioms :hints hints
-				       :generator (make-instance 'prover9-logic-generator :self-label-ground self-label-ground)))
+							 :generator (make-instance 'prover9-logic-generator :self-label-ground self-label-ground)))
 	 (output
 	   (run-program-string->string
 	    (ecase which (:mace4 (prover-binary "mace4")) (:prover9 (prover-binary "prover9")))
@@ -83,7 +83,7 @@
 	  ;; FIXME. This is a problem with inspect being called from a thread. Should be fixed in inspect
 	  ;; (let #+swank ((swank::*buffer-package* *package*) (swank::*buffer-readtable* *readtable*)) #-swank nil
 	  ;;   (inspect (cons input output)))
-	   (error "~a error: ~a in: ~a" (string-downcase (string which)) error what))))
+	  (error "~a error: ~a in: ~a" (string-downcase (string which)) error what))))
     (let ((reason (caar (all-matches output "(?s)Process \\d+ exit \\((.*?)\\)" 1))))
       (flet ((maybe-exceeded-resource-limit ()
 	       (if  (or (equal reason "max_sec_no") (equal reason "max_seconds"))
@@ -91,65 +91,56 @@
 		    (if  (or (equal reason "max_megs") (equal reason "max_megs_no"))
 			 :out-of-memory
 			 (intern (string-upcase (string reason)) 'keyword)))))
-	(values (ecase which
-		  (:mace4 (if (search "interpretation" output)
-			      :sat
-			      (maybe-exceeded-resource-limit)))
-		  (:prover9 (if  (search "THEOREM PROVED" output)
-				 :proved
-				 (if (search "SEARCH FAILED" output)
-				     :failed
-				     (maybe-exceeded-resource-limit)))))
-		(if return-proof
-		    (prover9-output-proof-section output)
-		    (if return-proof-support
-			(get-proof-support output)
-			(unless no-output
-			  (let ((output
-				  (multiple-value-list
-				   (ecase which
-				     (:mace4
-				      (cook-mace4-output output interpformat))
-				     (:prover9 output)))))
+	(let ((status (ecase which
+			(:mace4 (if (search "interpretation" output)
+				    :sat
+				    (maybe-exceeded-resource-limit)))
+			(:prover9 (if  (search "THEOREM PROVED" output)
+				       :proved
+				       (if (search "SEARCH FAILED" output)
+					   :failed
+					   (maybe-exceeded-resource-limit)))))))
+	  (values status
+		  (if return-proof
+		      (prover9-output-proof-section output)
+		      (if return-proof-support
+			  (get-proof-support output)
+			  (unless no-output
+			    (let ((output
+				    (ecase which
+				      (:mace4
+				       (let ((model (make-instance 'mace4-model :raw-form output)))
+					 (if (search "interpretation" output)
+					     (cook-mace4-output output interpformat pprint model)
+					     (values))))
+				      (:prover9 output))))
 			    (when *debug* (princ (car output)))
-			    output))))
-		)))))
+			    output)))))
+	  )))))
 
 (defun proof-to-hints (assumptions goals &optional (timeout 10))
   (let ((proof (run-program-string->string (prover-binary "prover9") `("-t" ,(princ-to-string timeout))
 					   (prepare-prover9-input assumptions goals))))
     (run-program-string->string (prover-binary "prooftrans") '("hints") proof)))
 
-;; (defun cook-mace4-output (output format)
-;;   (if (or (eq format :cooked) (eq format :baked))
-;;       (let ((it (reformat-interpretation output :cooked)))
-;; 	(if (eq format :baked)
-;; 	    ;; get rid of the skolem functions and negatives (things that don't hold)
-;; 	    (let ((reduced (#"replaceAll"  (#"replaceAll" it "\\s(-|f\\d+|c\\d+).*" "") "\\n{2,}" (string #\newline))))
-;; 	      ;; suck up the names of the universals and other constants
-;; 	      (let ((matched (reverse (all-matches reduced "\\n([A-Za-z0-9]+) = (\\d+)\\." 1 2))))
-;; 		(print matched)
-;; 		(setq reduced (#"replaceAll" reduced "\\n([A-Za-z]+) = (\\d+)\\." ""))
-;; 		;; replace the numbers for universals and constants with their name
-;; 		(loop for (name number) in matched
-;; 		      do (setq reduced (#"replaceAll" reduced (concatenate 'string "([^0-9])(" number ")([^0-9])") 
-;; 						      (concatenate 'string "$1" name "$3"))))
-;; 		reduced))
-;; 	    it))
-;;       (reformat-interpretation output format)))
+(defvar *model-equality-display* :=)
 
-
-(defun handle-equated-names (matched)
+(defun handle-equated-names (matched model)
   (let ((table (make-hash-table :test 'equalp)))
-    (map nil (lambda(el) (push (first el) (gethash (second el) table))) matched)
+    (map nil (lambda(el) (push (intern (string-upcase  (first el)) 'keyword) (gethash (second el) table))) matched)
+    (setf (equivalences model) (alexandria::hash-table-values table))
     (loop for constant being the hash-keys of table
 	    using (hash-value names)
-	  collect (list (format nil "~{~a~^=~}" names) constant))))
+	  collect (list (ecase *model-equality-display*
+			  (:= (format nil "~{~a~^=~}" names))
+			  (:single (format nil  "~a" (car names))))
+			constant))))
     
 
-(defun cook-mace4-output (output format)
+(defun cook-mace4-output (output format pprint model)
   (if (or (eq format :cooked) (eq format :baked))
       (let ((it (reformat-interpretation output :cooked)))
+	(setf (cooked-output model) it)
 	(if (eq format :baked)
 	    (progn 
 	      ;; for reasons that escape me, sometimes true/false is indicated by a prefix of "-" for false, and an absence of it for true.
@@ -160,35 +151,50 @@
 				    (lambda(form value)
 				      (format nil "~a ~a" (if (equal value "0") "-" " ") form))
 				    1 2))
-	    ;; get rid of the skolem functions and negatives (things that don't hold)
-	    (let ((matched (reverse (all-matches it "\\n([A-Za-z0-9_]+) = (\\d+)\\." 1 2)))
-		  (domain-size (caar (all-matches it "% Interpretation of size (\\d+)" 1))))
-	      (setq matched (handle-equated-names matched))
-	      (let ((reduced (#"replaceAll"  (#"replaceAll" it "\\s(-|f\\d+|c\\d+).*" "") "\\n{2,}" (string #\newline))))
-		;; suck up the names of the universals and other constants
-		(setq reduced (#"replaceAll" (#"replaceAll" reduced "\\n([_A-Za-z0-9]+) = (\\d+)\\." "")  "(?m)^%.*\\n" "" ))
-		;; There may be other instances - skolems. Let's find and rename them
-		(let* ((mentioned-numbers 
-			 (remove-duplicates 
-			  (mapcar 'parse-integer 
-				  (mapcar 'car (all-matches reduced "[^A-Za-z](\\d+)" 1)))))
+	      ;; get rid of the skolem functions and negatives (things that don't hold)
+	      (let ((matched (reverse (all-matches it "\\n([A-Za-z0-9_]+) = (\\d+)\\." 1 2)))
+		    (domain-size (caar (all-matches it "% Interpretation of size (\\d+)" 1))))
+		(setq matched (handle-equated-names matched model))
+		(let ((reduced (#"replaceAll"  (#"replaceAll" it "\\s(-|f\\d+|c\\d+).*" "") "\\n{2,}" (string #\newline))))
+		  ;; suck up the names of the universals and other constants
+		  (setq reduced (#"replaceAll" (#"replaceAll" reduced "\\n([_A-Za-z0-9]+) = (\\d+)\\." "")  "(?m)^%.*\\n" "" ))
+		  ;; There may be other instances - skolems. Let's find and rename them
+		  (let* ((mentioned-numbers 
+			   (remove-duplicates 
+			    (mapcar 'parse-integer 
+				    (mapcar 'car (all-matches reduced "[^A-Za-z](\\d+)" 1)))))
 		       
-		       (unaccounted-for-numbers 
-			 (sort (set-difference mentioned-numbers (mapcar 'parse-integer (mapcar 'second matched))) '<))
-		       (already (count-if (lambda(e) (#"matches" (car e) "^c\\d+")) matched)))
-		  ;; augment matched list with skolems
-		  (setq matched (append (loop for number in unaccounted-for-numbers 
-					      for count from (1+ already)
-					      for name = (format nil "s~a" count)
-					      collect (list name (prin1-to-string number)))
-					matched ))
-		  )
-		;; replace the numbers for universals and constants with their name
-		(format nil ";; domain size ~a~%~a" domain-size
-				    (#"replaceAll" (replace-all reduced "(?s)(\\d+)" (lambda(num) (car (find num matched :test 'equalp :key 'second))) 1)  "(?m)^\\s*$" ""))
-		)))
-	    it))
+			 (unaccounted-for-numbers 
+			   (sort (set-difference mentioned-numbers (mapcar 'parse-integer (mapcar 'second matched))) '<))
+			 (already (count-if (lambda(e) (#"matches" (car e) "^c\\d+")) matched)))
+		    ;; augment matched list with skolems
+		    (setq matched (append (loop for number in unaccounted-for-numbers 
+						for count from (1+ already)
+						for name = (format nil "s~a" count)
+						collect (list name (prin1-to-string number)))
+					  matched ))
+		    )
+		  ;; replace the numbers for universals and constants with their name
+		  (let* ((final (#"replaceAll" (replace-all reduced "(?s)(\\d+)" (lambda(num) (car (find num matched :test 'equalp :key 'second))) 1)  "(?m)^\\s*$" ""))
+			 (sexp (baked-to-sexp final)))
+		    (setf (tuples model) sexp)
+		    (when pprint  
+		      (pprint-mace4-model sexp))
+		    )
+		  model
+		  )))))
       (reformat-interpretation output format)))
+
+(defun baked-to-sexp (macebaked &aux out)
+  (setq out (#"replaceAll" macebaked "(?s)[,.]" " "))
+  (setq out (replace-all out "([a-z])([A-Z])" (lambda(before after) (format nil "~a-~a" before after)) 1 2))
+  (tree-replace (lambda(e)
+		  (if (symbolp e) (intern (string e) 'keyword) e))
+		(read-from-string (concatenate 'string "("  (#"replaceAll" out "^*(\\S+?)\\(" "($1 ") ")"))))
+
+(defun pprint-mace4-model (model)
+  (loop for form in model
+	do (let ((*print-case* :downcase)) (format t "~a~%" form))))
 
 (defun maybe-remind-to-install ()
   (when (or (not (probe-file (prover-binary "prover9")))
@@ -234,15 +240,16 @@
 	(setf (result expected-proof) new-result))
       new-result)))
 
+(defun mace4-model-p (e)
+  (or (consp e) (typep e 'mace4-model)))
+
 (defun mace4-check-satisfiability (assumptions &rest keys &key expected-proof &allow-other-keys)
   "General version seeing whether mace can find a model"
-  (let ((result (apply 'mace4-find-model assumptions keys)))
-    (let ((new-result (case result
-			(:sat :sat)
-			(otherwise result))))
-      (when expected-proof
-	(setf (result expected-proof) new-result))
-      new-result)))
+  (let ((result (apply 'mace4-find-model assumptions :pprint nil keys)))
+    (when expected-proof
+      (setf (result expected-proof) (if (mace4-model-p result) :sat result)))
+    (if (mace4-model-p result) :sat result)))
+
 
 (defun prover9-check-true (axiom &rest keys)
   (let ((result (apply 'prover9-check-unsatisfiable (negate-axiom axiom) keys)))
@@ -255,33 +262,35 @@
 (defun mace4-check-satisfiability-alt (assumptions &rest keys &key expected-proof &allow-other-keys)
   "Version that starts with a minimum domain size (12) and only allows 1 second per domain. This tends to work for a bunch of cases"
   (multiple-value-bind (result model)
-      (apply 'mace4-find-model assumptions :max-time-per-domain-size 1  keys)
-    (let ((new-result (case result
-			(:sat :sat)
-			(otherwise result))))
-      (when expected-proof
-	(setf (result expected-proof) new-result))
-      (values
-       new-result
-       (if (eq result :sat)
-	   model)
-       ))))
+      (apply 'mace4-find-model assumptions :pprint nil :max-time-per-domain-size 1  keys)
+    (when expected-proof
+      (setf (result expected-proof) (if (mace4-model-p result) :sat result)))
+    (if (mace4-model-p result) :sat result)))
 
-(defun mace4-find-model (assumptions &rest keys &key (timeout 10) (format :baked) expected-proof &allow-other-keys)
-  (multiple-value-bind(result model)
+(defun mace4-find-model (assumptions &rest keys &key (timeout 10) (format :baked) expected-proof (pprint t) &allow-other-keys)
+  (multiple-value-bind (result model)
       (apply 'mace-or-prover9 :mace4 assumptions nil :timeout timeout :interpformat format keys)
     (when expected-proof
       (setf (prover-model expected-proof) model))
-    (values result (setq *last-mace4-model* model))))
+    (if pprint
+	(values result model)
+	(if (eq result :sat)
+	    (setq *last-mace4-model* model)
+	    result))))
 
+(defun mace4-find-model (assumptions &rest keys &key (timeout 10) (format :baked) expected-proof (pprint t) &allow-other-keys)
+  (multiple-value-bind (result model)
+      (apply 'mace-or-prover9 :mace4 assumptions nil :timeout timeout :interpformat format keys)
+    (when expected-proof
+      (setf (prover-model expected-proof) model))
+    (if pprint
+	(values result model)
+	(if (eq result :sat)
+	    (setq *last-mace4-model* model)
+	    result))))
 
-(defun mace4-lispify-model (string)
-  (let ((lines (cdr (cl-user::split-at-char string #\newline))))
-    (loop for line in lines
-	  for split = (funcall 'cl-user::split-at-regex  (#"replaceAll" line "\\s+" "") "[(),]")
-	  unless (#"matches" line "^\\s*$")
-	    collect (mapcar 'intern (mapcar 'logic::de-camel-case (butlast split))))))
-
+(defun mace4-find-model-no-pprint (assumptions &rest keys )
+  (apply 'mace4-find-model assumptions :pprint nil keys))
 
 (defun prover9-output-proof-section (&optional (output *last-prover9-output*))
   (and (search "THEOREM PROVED" output)
