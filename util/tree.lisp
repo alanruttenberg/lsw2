@@ -5,6 +5,12 @@
   (when (consp tree)
     (map nil (lambda(el) (tree-walk el fn)) tree)))
 
+;; Call function on tree. If function returns t recurse, otherwise stop.
+(defun tree-walk-conditional (tree fn)
+  (if (funcall fn tree)
+      (when (consp tree)
+	(map nil (lambda(el) (tree-walk-conditional el fn)) tree))))
+
 (defun tree-find (sym tree &key (test #'eq))
   (cond ((atom tree)
 	 (if (funcall test sym tree) tree))
@@ -27,6 +33,7 @@
 			    (mapcar #'tr-internal tree)
 			    replacement))))))
     (tr-internal tree)))
+
 
 (defun tree-remove-if (test tree)
   "create new tree without any expressions that match test"
