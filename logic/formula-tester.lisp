@@ -530,6 +530,7 @@ Works by transforming the formula into a function, compiling it, and running it.
 to avoid consing, which can land up be quite a lot"
 ;  (format t "starting ~a~%" formula)
   (when (keywordp formula) (setq formula (axiom-sexp formula)))
+  (setq formula (render-axiom (make-instance 'logic-generator)  formula)) ;; expand whatever needs to be expanded. wrap multi-term body in (:and ...)
   (let ((paiprolog::*trail*  (make-array 200 :fill-pointer 0 :adjustable t)))
     (when (and implies-optimize (or (not (numberp implies-optimize)) (>= (quantified-depth formula) implies-optimize)))
       (multiple-value-bind (vars ant cons) 
