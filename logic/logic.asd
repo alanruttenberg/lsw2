@@ -41,9 +41,11 @@
      (:file "prolog")
      (:file "formula-tester")
      (:file "cnf")
+     (:file "model")
      (:file "expand-model")
      (:file "graal")
-     (:file "test-theory-with-model-seed"))
+     (:file "test-theory-with-model-seed")
+     (:file "paper-support"))
     :depends-on ("package" "main"
 			   "graal"
 			   )))
