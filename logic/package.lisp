@@ -124,6 +124,16 @@
    #:parenthesize-with-prover9
    #:verify-formula-well-formed
    #:get-z3-proof-support
+   #:find-counterexample
+
+   #:def-logic-axiom+
+   #:pprint-model
+   #:relabel-simple
+   #:relabel-by-position
+   #:relabel-by-positions
+   #:relabel-by-predicate-and-positions
+   #:relabel-multiple
+   #:tuples
    ))
 
 
