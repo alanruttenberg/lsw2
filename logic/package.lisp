@@ -17,7 +17,7 @@
 		cl-user::get-vagrant-box-wd cl-user::vagrant-box-up cl-user::is-vagrant-box-running
 		cl-user::*vampire-shared-directory-remote* cl-user::*vampire-shared-directory-local*
 		cl-user::*running-in-vagrant* cl-user::*vampire-box-name* cl-user::*vampire-executable* cl-user::print-db
-		cl-user::tree-replace cl-user::tree-find cl-user::tree-walk cl-user::tree-remove-if cl-user::?
+		cl-user::tree-replace cl-user::tree-find cl-user::tree-walk cl-user::tree-remove-if cl-user::tree-walk-conditional  cl-user::?
 		cl-user::all-matches
 		)
 ;  (:import-from :winston-ai  #:remember-assertion #:remember-rule #:forward-chain #:make-empty-stream #:*rules* #:*assertions*)
@@ -134,6 +134,9 @@
    #:relabel-by-predicate-and-positions
    #:relabel-multiple
    #:tuples
+   #:skolem-normal-form
+   #:disjunctive-normal-form
+   #:conjunctive-normal-form
    ))
 
 

@@ -121,11 +121,11 @@
 			   (let ((replacement (replacement (car (second form)))))
 			     (push replacement used)
 			     `(,(car form) (,replacement) 
-			       ,(doit (third form) (cons (list (car (second form)) replacement) bound) )))
+			       ,@(mapcar (lambda(e) (doit e  (cons (list (car (second form)) replacement) bound))) (cddr form))))
 			   (progn
 			     (push (car (second form)) used)
 			     `(,(car form) ,(second form)
-			       ,(doit (third form) (cons (list (car (second form)) (car (second form))) bound) )))))
+			       ,@(mapcar (lambda(e) (doit e   (cons (list (car (second form)) (car (second form))) bound))) (cddr form))))))
 		     ((logic-var-p form)
 		      (or (second (assoc form bound)) form))
 		     ((atom form) form)
