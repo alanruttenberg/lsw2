@@ -5,16 +5,14 @@
 
 ;; org mode source for a proof looks like this:
 
-;; First line is an include. The directory name defaults to proof-org/
-;; but can be changed in define-paper-proof The name should match the
-;; name given in define-paper-proof.
+;; First line is an optional name. With name the results block can be put anywhere.
 ;; Immediately after we expect a lisp form that describes the proofs inside a source block
 ;; :exports none makes the form not show up in the paper, which is what we want.
 
-;;;; #+INCLUDE: "i/consistent-base.org" 
-;;;; #+BEGIN_SRC lisp :exports none
-;;;; (define-paper-proof consistent-base
-;;;;   :from :ropaper
+;;;; #+NAME: proof-consistent-base
+;;;; #+BEGIN_SRC lisp 
+;;;; (add-proof-here consistent-base
+;;;;   :formula-key :ropaper
 ;;;;   :kind :sat
 ;;;;   :with :z3
 ;;;;   :assumptions (:o1 :o2 :o3 :o4 :TDR :tt :ta :be1 :be2 :BT :BIW :BIB :BW :BIW)
@@ -23,24 +21,47 @@
 ;;;; )     
 ;;;; #_END_SRC
 
-;; Other forms are recognized as well: define-logic-axioms, define-model, paper-defaults
+;; When you execute the block, a results block is added
+;;;; #+RESULTS: proof-consistent-base
+;;;; #+BEGIN_LaTeX
+;;;; \input{i/consistent-base}
+;;;; #+END_LaTeX
 
-;; (paper-defaults &rest key-values) lets you default one or more of the initialization arguments in define-paper-proof
-;; For instance, (paper-defaults :from :ropaper) lets you skip that in the define-paper-proof form.
+;; How implemented:
+;; Org mode is set to not evaluate blocks on export, but to export results, and for results to be
+;; interpreted as latex.
+;; You add the results manually with C-c C-c in the source block, or do the whole buffer with M-x org-babel-execute-buffer
+;; The function that is called generates some latex and returns it as a string, which is put in the result
+
+;; For add-proof here and add-formulas-here one or more auxilliary file are generated and put in the "i/"
+;; directory relative to the org source file. These are only generated when explicitly evaluating the source
+;; block, so that the text of the paper can be edited without having lisp running.
+
+;; Other forms are recognized as well: add-formulas-here, define-model, paper-defaults
+
+;; (paper-defaults &rest key-values) lets you default one or more of the initialization arguments in add-proof-here
+;; You need at least something like (paper-defaults :formula-key :ropaper). 
 
 ;; (define-model name &body tuples) sets the variable name to the list of tuples.
 
 ;; Note that the local variables section needs:
-;; # eval: (setq org-babel-default-header-args:lisp '((:package . "LOGIC") (:exports . "none") (:results . "silent")))
+
+;; # eval: (setq org-babel-default-header-args:lisp '((:package . "LOGIC") (:exports . "results") (:results . "replace value latex")))
+;; # eval: (setq org-export-babel-evaluate nil)
+
 ;; which defaults that no code is run during export of the org file,
 ;; that the package evaluated in is 'logic, and that results of
-;; interactive evaluation don't put results into document
+;; interactive evaluation are put into the document as latex
 
 ;; TODO: Write a function that creates a templated paper.org 
 
-;; In the theorem text for $assumptions is substituted the names of the
-;; formula, as references. References are assumed to be named "f:" then the
-;; formula name.
+;; Formulas: The formula-key is used to look up what the formula should be labeled in the paper.
+;; Make sure that add-formula-here has a key/value like :ropaper :ot 
+;; References to formulas are assumed to be named "f:" then the formula name.
+
+;; Proofs: Assumptions and goals are a list of the formula-keys (e.g. (:ot) above)
+;; In the theorem text for $assumptions is substituted the formula-keys of the
+;; formula, as references. Proof associated files are cached in "./proof-cache"
 
 ;; (do-paper-proofs org-file)
 
@@ -49,7 +70,6 @@
 ;; Writes the supplemental files
 ;; Writes the text that will be incorporated for the #INCLUDE:
 ;; You can do the same interactively within the source block using C-c C-c
-
 
 (defvar *paper-proofs* (make-hash-table))
 (defvar *proofs-noninteractive* nil)
@@ -62,15 +82,15 @@
 	  when (#"matches" line "#\\+BEGIN_SRC lisp.*")
 	    do (let ((*package* (find-package 'logic))
 		     (*proofs-noninteractive* t))
-		 (let ((form (read f)))
-		   (when (and (consp form) (member (car form) '(define-paper-proof def-logic-axiom define-model paper-defaults)))
-		     (eval form)))))))
-
-
+		 (loop while (not (char= (peek-char t f) #\#))
+		       do 
+			  (let ((form (read f)))
+			    (when (and (consp form) (member (car form) '(add-proof-here def-logic-axiom define-model paper-defaults)))
+			      (eval form))))))))
 
 (defclass paper-proof ()
   ((name :accessor name :initform nil :initarg :name)
-   (from :accessor from :initform nil :initarg :from)
+   (formula-key :accessor formula-key :initform nil :initarg :formula-key)
    (kind :accessor kind :initform nil :initarg :kind)
    (assumptions :accessor assumptions :initform nil :initarg :assumptions)
    (goal :accessor goal :initarg :goal :initform nil)
@@ -78,23 +98,23 @@
    (reasoner :accessor reasoner :initform nil :initarg :reasoner)
    (theorem-text :accessor theorem-text :initform nil :initarg :theorem-text)
    (proof-text :accessor proof-text :initform nil :initarg :proof-text)
-   (org-include-directory :initarg :org-include-directory :accessor org-include-directory :initform nil)
+   (generated-tex-directory :initarg :generated-tex-directory :accessor generated-tex-directory :initform nil)
    (org-proof-directory :initarg :org-proof-directory :accessor org-proof-directory :initform nil)
-   (org-include-name :accessor org-include-name :initarg :org-include-name :initform nil)
+   (tex-include-name :accessor tex-include-name :initarg :tex-include-name :initform nil)
    (cache-directory :accessor cache-directory :initform nil :initarg :cache-directory)
    (succeeded :accessor succeeded :initarg :succeeded :initform nil)
    (invocation :accessor invocation :initarg :invocation :initform nil)
    ))
 
 (defmethod initialize-instance ((p paper-proof) &rest initargs)
-  (apply #'call-next-method p (print-db (append initargs *org-paper-defaults*)))
+  (apply #'call-next-method p  (append initargs *org-paper-defaults*))
   ;; Default name of file to be included, directory where those are kept, and directory for proof supplemental files
-  (unless (org-include-name p)
-    (setf (org-include-name p) (string-downcase (string (name p)))))
-  (unless (org-include-directory p)
-    (setf (org-include-directory p) (asdf/system:system-relative-pathname (from p)  "i/")))
+  (unless (tex-include-name p)
+    (setf (tex-include-name p) (concatenate 'string "proof-" (string-downcase (string (name p))))))
+  (unless (generated-tex-directory p)
+    (setf (generated-tex-directory p) (paper-directory-relative "i/")))
   (unless (org-proof-directory p)
-    (setf (org-proof-directory p) (asdf/system:system-relative-pathname (from p) "proofs-supplemental/")))
+    (setf (org-proof-directory p) (paper-directory-relative "proofs-supplemental/")))
   ;; default the reasoner if not supplied
   (unless (reasoner p)
     (setf (reasoner p) 
@@ -104,22 +124,41 @@
 	    (:check-model :clausetester)
 	    (:prove :prover9)))))
 
+(defun paper-directory-relative (path)
+  (merge-pathnames path *default-pathname-defaults*))
+
 (defvar *org-paper-defaults* nil)
 
 (defmacro paper-defaults (&body body)
   `(setq *org-paper-defaults* ',body))
 
-(defmacro define-paper-proof (name &rest initargs) ; from kind assumptions theorem-text proof-text goal reasoner model)
+(defmacro add-proof-here (name &rest initargs) ; from kind assumptions theorem-text proof-text goal reasoner model)
   `(progn
      (let ((proof
 	     (setf (gethash ,(keywordify name) *paper-proofs*)
-		   (apply 'make-instance 'paper-proof ',initargs))))
+		   (apply 'make-instance 'paper-proof :name ',name ',initargs))))
        (unless *proofs-noninteractive*
 	 (maybe-cache-proof-for-paper proof)
 	 (write-paper-files proof))
-       proof)
-     ))
+       (format nil "\\input{i/~a}~%" (tex-include-name proof))
+     )))
 
+(defmacro add-formulas-here (&rest formula-descs)
+  (let ((names (gensym)))
+    (assert (getf *org-paper-defaults* :formula-key) () "Need to default :formula-key so we know where to get the label formula-key")
+    `(progn (let ((,names nil))
+	      ,@(loop for formula-desc in formula-descs
+		    collect
+		    `(def-logic-axiom ,@formula-desc)
+		    collect `(push (list ',(car formula-desc) ',(getf (cddr formula-desc) (getf *org-paper-defaults* :formula-key))) ,names))
+	      ;;	      \insertFormulaPathTagged{./binary/example-mem-t}{MEMT}
+	      (with-output-to-string (s)
+		(loop for (name short) in (reverse ,names)
+		      for skip = "\\vspace*{-\\baselineskip}\\vspace*{-\\baselineskip}"  
+		      do (format s "\\insertFormulaPathTagged{./i/formula-~a.tex}{~a}~a~%" name (string-upcase (string short)) skip)
+		      (write-formula-tex (list (keywordify name)) (make-pathname :directory '(:relative "i") :type "tex"))))
+	      ))))
+       
 (defmethod formula-name-to-reference ((p paper-proof) name)
   (format nil "\\\\ref*{f:~a}" (string-upcase (string name))))
     
@@ -129,20 +168,20 @@
 								  (assumptions p)))))
   (#"replaceAll" text "[$]goal" (formula-name-to-reference p (goal p)))) 
 
-(defmethod org-to-include-path ((p paper-proof))
-  (merge-pathnames (make-pathname :name (org-include-name p) :type "org") (org-include-directory p)))
+(defmethod tex-to-include-path ((p paper-proof))
+  (merge-pathnames (make-pathname :name (tex-include-name p) :type "tex") (generated-tex-directory p)))
 
-(defmethod write-org-file ((proof paper-proof))
-  (ensure-directories-exist (org-to-include-path proof))
-  (with-open-file (f (org-to-include-path proof) :direction :output :if-does-not-exist :create :if-exists :supersede)
-    (proof-org-mode-text proof f)
+(defmethod write-tex-file ((proof paper-proof))
+  (ensure-directories-exist (tex-to-include-path proof))
+  (with-open-file (f (tex-to-include-path proof) :direction :output :if-does-not-exist :create :if-exists :supersede)
+    (write-proof-tex proof f)
     ))
 
-(defmethod proof-org-mode-text ((proof paper-proof) stream)
+(defmethod write-proof-tex ((proof paper-proof) stream)
   (let ((raw 
 	  (with-output-to-string (s)
-	    (format s "#+begin_theorem~%~a~%#+end_theorem~%" (do-proof-substitutions proof (theorem-text proof)))
-	    (format s "#+begin_proof~%~a (proof by ~a; supplemental files ~a.* ~a) ~%#+end_proof"
+	    (format s "\\begin{theorem}~%~a~%\\end{theorem}~%" (do-proof-substitutions proof (theorem-text proof)))
+	    (format s "\\begin{proof}~%~a (proof by ~a; supplemental files ~a.* ~a) ~%\\end{proof}"
 		    (do-proof-substitutions proof (proof-text proof))
 		    (string-downcase (string (reasoner proof)))
 		    (name proof)
@@ -151,14 +190,14 @@
 	    )))
     (if (succeeded proof)
 	(write-string raw stream)
-	(format stream "#+BEGIN_LaTeX~%{\\color{red}~%#+END_LaTeX~%~a~&#+BEGIN_LaTeX~%}~%#+END_LaTeX~%" raw))))
+	(format stream "{\\color{red}~%~a~&}~%" raw))))
 
 (defun md5 (string)
   (format nil "~(~{~2,'0X~}~)"
 	(map 'list #'identity (md5::md5sum-string string))))
 
 (defmethod get-formulas ((p paper-proof) formulas)
-  (mapcar 'axiom-sexp (collect-axioms-from-spec `((,(from p) (:or ,@formulas))) nil)))
+  (mapcar 'axiom-sexp (collect-axioms-from-spec `((,(formula-key p) (:or ,@formulas))) nil)))
 
 (defmethod get-formula ((p paper-proof) formula)
   (axiom-sexp (car (get-formulas p (list formula)))))
@@ -170,7 +209,7 @@
 ;;   "lisp" for invocation
 ;;   "txt" for result of the invocation
 
-(defmethod write-results ((p paper-proof) &key input output model interpretation result form)
+(defmethod write-proof-results ((p paper-proof) &key input output model interpretation result form)
   (ensure-directories-exist (cache-directory p))
   (labels ((the-path (name reasoner)
 	     (format nil "~a~a.~a" (cache-directory p) name (string-downcase (string reasoner ))))
@@ -211,7 +250,7 @@
 			(loop for (nil what) in elements
 			      do (princ what s))
 			))))
-	(setf (cache-directory p) (format nil "~a/~a/" (asdf/system::system-relative-pathname (from p) "proofcache") md5 ))
+	(setf (cache-directory p) (format nil "~a/~a/" "proofcache" md5 ))
 	(and (probe-file (cache-directory p))
 	     (probe-file (merge-pathnames "passfail.lisp"  (cache-directory p)))
 	     (with-open-file (f (merge-pathnames "passfail.lisp"  (cache-directory p)))
@@ -228,7 +267,7 @@
 
 (defmethod maybe-cache-proof-for-paper ((p paper-proof))
   (flet ((keyed (names)
-	   `((,(from p) (:or ,@names))))
+	   `((,(formula-key p) (:or ,@names))))
 	 (expect (result what)
 	   (if (if (functionp what)
 		   (not (funcall what result))
@@ -245,7 +284,7 @@
 	     (let* ((form `(z3-find-model ',(keyed (assumptions p))))
 		    (result (eval form)))
 	       (expect result (lambda(e) (typep e 'z3-model)))
-	       (write-results p :input *last-z3-input* :output *last-z3-output* :result result :form form
+	       (write-proof-results p :input *last-z3-input* :output *last-z3-output* :result result :form form
 			      :model (tuples result))
 	       ))
 	    (:check-unsat 
@@ -257,9 +296,9 @@
 		    (result (eval form)))
 	       (expect  result :unsat)
 	       (ecase (reasoner p)
-		 (:z3 (write-results p :input *last-z3-input* :output *last-z3-output* :result result :form form))
-		 (:prover9 (write-results p :input *last-prover9-input* :output *last-prover9-output* :result result :form form))
-		 (:vampire (write-results p :input *last-vampire-input* :output *last-vampire-output* :result result :form form)))
+		 (:z3 (write-proof-results p :input *last-z3-input* :output *last-z3-output* :result result :form form))
+		 (:prover9 (write-proof-results p :input *last-prover9-input* :output *last-prover9-output* :result result :form form))
+		 (:vampire (write-proof-results p :input *last-vampire-input* :output *last-vampire-output* :result result :form form)))
 	       ))
 	    (:prove
 	     (must-be-reasoner p :prove :z3 :prover9 :vampire)
@@ -270,25 +309,25 @@
 		    (result (eval form)))
 	       (expect result :proved)
 	       (ecase (reasoner p)
-		 (:z3 (write-results p :input *last-z3-input* :output *last-z3-output* :result result  :form form))
-		 (:prover9 (write-results p :input *last-prover9-input* :output *last-prover9-output* :result result :form form))
-		 (:vampire (write-results p :input *last-vampire-input* :output *last-vampire-output* :result result :form form)))
+		 (:z3 (write-proof-results p :input *last-z3-input* :output *last-z3-output* :result result  :form form))
+		 (:prover9 (write-proof-results p :input *last-prover9-input* :output *last-prover9-output* :result result :form form))
+		 (:vampire (write-proof-results p :input *last-vampire-input* :output *last-vampire-output* :result result :form form)))
 	       ))
 	    (:check-model
 	     (must-be-reasoner p :check-model :clausetester)
-	     (let* ((form `(clausetester-check-model ',(model p) ',(keyed (assumptions p))))
+	     (let* ((form `(clausetester-check-model ,(model p) ',(keyed (assumptions p))))
 		    (result (eval form)))
 	       (expect result :satisfying-model)
-	       (write-results p :interpretation (first *last-clausetester-input*)
+	       (write-proof-results p :interpretation (first *last-clausetester-input*)
 				:input (second *last-clausetester-input*)
 				:output *last-clausetester-output*
-				:model (model p)
+				:model (symbol-value (model p))
 				:form form))
 	     )
 	    )))))
 
 (defmethod write-paper-files ((p paper-proof))
-  (write-org-file p)
+  (write-tex-file p)
   (flet ((cache-file-named (name)
 	   (car (directory (merge-pathnames (make-pathname :name name :type :wild) (cache-directory p)))))) 
     (flet ((copy-one (which &key type (suffix ""))
@@ -318,13 +357,30 @@
 	     (write-paper-files v))
 	   *paper-proofs*))
 
-(defun flush-proof-cache (sys)
-  (map nil (lambda(e) (uiop/filesystem:delete-directory-tree e :validate t))
-       (directory (merge-pathnames "*" (asdf/system::system-relative-pathname sys "proofcache/")))))
+;; No global for the paper.
+;; (defun flush-proof-cache (sys)
+;;   '(map nil (lambda(e) (uiop/filesystem:delete-directory-tree e :validate t))
+;;        (directory (merge-pathnames "*" (paper-directory-relative "proofcache/")))))
+
+(defun write-formula-tex (spec dest-dir)
+  (let ((g (make-instance 'logic::latex-logic-generator
+			  :formula-format "~a"
+			  :insert-line-breaks t
+			  :with-names nil
+			  :prettify-names nil
+			  :numbered nil 
+			  :write-descriptions nil)))
+      (let ((formulas (collect-axioms-from-spec spec)))
+	(loop for formula in formulas
+	      for path = (merge-pathnames (format nil "formula-~a.tex" (string-downcase (string (axiom-name formula)))) dest-dir)
+	      for tex-string = (render-axiom g formula)
+	      do
+		 (with-open-file (f path :direction :output :if-exists :supersede)
+		   (format f "~a~%" tex-string))))))
   
 #|
-(setq cb (define-paper-proof consistent-base
-	   :from :ropaper
+(setq cb (add-proof-here consistent-base
+	   :formula-key :ropaper
 	   :kind :check-sat
 	   :assumptions (:o1 :o2 :o3 :o4 :TDR :tt :ta :be1 :be2 :BT :BIW :BIB :BW )
 	   :theorem-text "The theory comprising $assumptions is consistent"
@@ -347,7 +403,7 @@
 ;; Fields in the object, and whether they are part of identifing information:
 
 ;; name - not essential
-;; from - not essential - used to look up formulas
+;; formula-key - not essential - used to look up formulas
 ;; kind - essential sat, unsat, checkmodel, prove 
 ;; assumptions - essential
 ;; goal - essential
@@ -355,9 +411,9 @@
 ;; theorem-text - not essential. It's cheap to regenerate
 ;; proof-text - not essential. It's cheap to regenerate
 ;; ;; directories don't need to be cached.
-;; org-include-directory 
+;; generated-tex-directory 
 ;; org-proof-directory
-;; org-include-name
+;; tex-include-name
 
 
 ;; Algorithm:
