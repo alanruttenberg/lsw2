@@ -555,12 +555,18 @@
 (defun rules-for-spec (spec)
   (let ((already (gethash spec *spec->collected-axioms-cache*))
 	(collected (mapcar 'axiom-sexp (collect-axioms-from-spec spec))))
-    (if (and already (or (equalp collected already) (alexandria::set-equal already collected :test 'equalp)))
-	(gethash already *collected-axioms->computed-rules-cache*)
+    (if (and already
+	     (or (equalp collected already)
+		 (alexandria::set-equal already collected :test 'equalp))
+	     (and (gethash already *collected-axioms->computed-rules-cache*)
+		  (not (eq (gethash already *collected-axioms->computed-rules-cache*) :none))
+	     ))
+	(let ((res (gethash already *collected-axioms->computed-rules-cache*)))
+	  (if (eq res :none ) nil res))
 	(prog1
 	  (or (gethash collected *collected-axioms->computed-rules-cache*)
 	      (setf (gethash collected *collected-axioms->computed-rules-cache*)
-		    (compute-rules spec)))
+		    (or (compute-rules spec) :none)))
 	  ;; only set this *after* compute rules is successful, otherwise if there's an error the cache can be stale NOPE doesn't help
 	  (setf (gethash spec *spec->collected-axioms-cache*) collected)))))
 

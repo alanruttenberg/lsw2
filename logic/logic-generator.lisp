@@ -184,10 +184,13 @@
 
 (defmethod render-axiom ((g logic-generator) (a axiom))
   (let ((*logic-generator* g))
-    (multiple-value-bind (predicates constants functions variables) (formula-elements (axiom-sexp a))
-      (let ((overloaded (intersection constants variables :test (lambda(a b) (string-equal a (subseq (string b) 1))))))
-	(when overloaded
-	  (error "A variable and constant are named the same: ~a" overloaded))))
+    ;; (print-db (axiom-sexp a))
+    ;; (multiple-value-bind (predicates constants functions variables) (formula-elements (axiom-sexp a))
+    ;;   (print-db predicates constants functions variables)
+    ;;   (let ((overloaded (intersection constants variables :test (lambda(a b) (string-equal a (subseq (string b) 1))))))
+    ;; 	(print-db overloaded)
+    ;; 	(when overloaded
+    ;; 	  (error "A variable and constant are named the same: ~a" overloaded))))
     (eval (axiom-generation-form a))))
 
 (defmethod render-axiom ((g logic-generator) (a list))

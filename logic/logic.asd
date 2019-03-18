@@ -49,7 +49,7 @@
     :depends-on ("package" "main"
 			   "graal"
 			   )))
-  :depends-on (:cl-ansi-text :yacc :paiprolog :util)
+  :depends-on (:cl-ansi-text :yacc :paiprolog :util :md5)
   )
 
 

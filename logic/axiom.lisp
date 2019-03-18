@@ -15,9 +15,15 @@
 
 (defun keywordify (x) (intern (string x) :keyword))
 
-(defmacro def-logic-axiom (name sexp &optional description &rest key-values)
+(defmethod initialize-instance ((a axiom) &rest keys &key &allow-other-keys)
+  (call-next-method)
+  (setf (axiom-sexp a) (expand-axiom-sexp (slot-value a 'sexp)))
+  (unless (getf keys :dont-validate)
+    (validate-formula-well-formed (axiom-sexp a) (axiom-name a)))
+  a)
 
-    (when (keywordp description) (push description key-values) (setq description nil))
+(defmacro def-logic-axiom (name sexp &optional description &rest key-values)
+  (when (keywordp description) (push description key-values) (setq description nil))
   `(progn
      (sys::record-source-information-for-type  ',name 'def-logic-axiom)
      (validate-formula-well-formed ',sexp ',name)
@@ -37,6 +43,11 @@
 						     collect (list k (if (symbolp v)
 									 (keywordify v)
 									 v))))))))))
+
+;; Version that evaluates sexp 
+(defmacro def-logic-axiom+ (name sexp &rest args)
+  `(def-logic-axiom ,name ,(eval sexp) ,@args))
+  
 
 (defmethod print-object ((a axiom) stream)
   (let ((*print-case* :downcase))
@@ -213,10 +224,10 @@
 	(setf (slot-value a 'generation-form)
 	      (rewrite-to-axiom-generation-form form)))))
 
-(defmethod axiom-sexp :around ((a axiom))
-  (axiom-sexp (axiom-sexp (slot-value a 'sexp))))
+;(defmethod axiom-sexp :around ((a axiom))
+;  (axiom-sexp (axiom-sexp (slot-value a 'sexp))))
 
-(defmethod axiom-sexp ((a list))
+(defun expand-axiom-sexp (a)
   (when (tree-find :expand a)
     (setq a (tree-replace
 	     (lambda(e) (if (and (consp e) (eq (car e) :expand))
@@ -238,6 +249,9 @@
 					 (owl-sexp-to-fol (second e))
 					 e)) a)))
   a)
+
+(defmethod axiom-sexp ((a list))
+  (expand-axiom-sexp a))
 
 (defmethod axiom-sexp ((s symbol))
   (axiom-sexp (get-axiom s)))
@@ -472,10 +486,15 @@
       (setq formula (axiom-sexp formula)))
   (let ((free (free-variables formula)))
     (assert (null free) (formula) "~{~a~^, ~} ~a free in ~a" free (if (> (length free) 1) "are" "is") (or label formula))
-    (let ((predicates (formula-elements formula)))
+    (multiple-value-bind (predicates constants functions variables) (formula-elements formula)
       (loop for (p) in predicates
 	    if (> (count p predicates :key 'car) 1)
-	      do (error "~a is used with different arities in ~a" p (or label formula))))
+	      do (error "~a is used with different arities in ~a" p (or label formula)))
+      (let* ((names (append (mapcar 'car predicates) constants functions variables))
+	     (duplicates (remove-duplicates (remove-if  (lambda(e) (eql (count e names) 1)) names))))
+      (assert (null duplicates) ()
+	      "Can't use the same name for more than one of predicates, constant, function, or variable: ~a in ~a"
+	      duplicates formula)))
     (check-builtins-keyword formula label)
     (check-builtins-args formula label)
     ))

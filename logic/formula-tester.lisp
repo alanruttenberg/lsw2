@@ -581,7 +581,7 @@ to avoid consing, which can land up be quite a lot"
 (defvar *default-forall-implies-optimization-level* 4
   "Use it when quantifiers are nested at least this deep. nil to not use the optimization")
     
-(defvar *evaluate-timing* )
+(defvar *evaluate-timing*)
 
 (defvar *skip-evaluation-for-now* nil)
 
@@ -592,40 +592,42 @@ to avoid consing, which can land up be quite a lot"
 check each of them, as would ladr's clausetester. Return either :satisfying-model or :failed. In the latter case the 
 second value is the list of formulas that failed"
   (let ((rewritten (if rewrite (rewrite-inverses spec
-				     :binary-inverses binary-inverses
-				     :ternary-inverses ternary-inverses
-				     :copy-names? t) (collect-axioms-from-spec spec))))
+						 :binary-inverses binary-inverses
+						 :ternary-inverses ternary-inverses
+						 :copy-names? t) (collect-axioms-from-spec spec))))
     (setq *evaluate-timing* (make-hash-table :test 'equalp))
+    (declare (special *evaluate-timing*))
     (progv (if debug-supplied-p `(*debug-eval-formula*)) (if debug-supplied-p (list debug))
-	(let ((results 
-		(funcall (if parallel 'lparallel::pmapcan  'mapcan)
-		 (lambda(e)
-		   (if (and (typep e 'axiom) (member (axiom-name e) *skip-evaluation-for-now*  :test (lambda(a b) (equalp (string a) (string b)))))
-		       (format t "~&Skipping evaluation of ~a for now~%" (string-downcase (axiom-name e)))
-		       (progn
+      (let ((results 
+	      (funcall (if parallel 'lparallel::pmapcan  'mapcan)
+		       (lambda(e)
+			 (if (and (typep e 'axiom) (member (axiom-name e) *skip-evaluation-for-now*  :test (lambda(a b) (equalp (string a) (string b)))))
+			     (format t "~&Skipping evaluation of ~a for now~%" (string-downcase (axiom-name e)))
+			     (progn
 		     
-			 (setf (gethash (if (typep e 'axiom) (axiom-name e) e) *evaluate-timing*)
-			       (list (#"currentTimeMillis" 'system) nil))
-			 (let ((paiprolog::*trail* paiprolog::*trail* ))
-			   (if (prog1 (evaluate-formula
-				       (car (if rewrite (rewrite-inverses (list (axiom-sexp e))
-							      :binary-inverses binary-inverses
-							      :ternary-inverses ternary-inverses) (list (axiom-sexp e))))
-				       model
-				       :implies-optimize implies-optimize)
-				 (setf (cdr (gethash (if (typep e 'axiom) (axiom-name e) e) *evaluate-timing*)) (#"currentTimeMillis" 'system)))
-			       nil
-			       (list  (axiom-name e)))))))
-		 (coerce rewritten (if parallel 'vector 'list)))))
-	  (if results
-	      (values :failed (setq *last-failed-formulas* results))
-	      :satisfying-model)))))
+			       (setf (gethash (if (typep e 'axiom) (axiom-name e) e) *evaluate-timing*)
+				     (list (#"currentTimeMillis" 'system) nil))
+			       (let ((paiprolog::*trail* paiprolog::*trail* ))
+				 (if (prog1 (evaluate-formula
+					     (car (if rewrite (rewrite-inverses (list (axiom-sexp e))
+										:binary-inverses binary-inverses
+										:ternary-inverses ternary-inverses) (list (axiom-sexp e))))
+					     model
+					     :implies-optimize implies-optimize)
+				       (setf (cdr (gethash (if (typep e 'axiom) (axiom-name e) e) *evaluate-timing*)) (#"currentTimeMillis" 'system)))
+				     nil
+				     (list  (axiom-name e)))))))
+		       (coerce rewritten (if parallel 'vector 'list)))))
+	(if results
+	    (values :failed (setq *last-failed-formulas* results))
+	    :satisfying-model)))))
 
 (defun report-slowest-evaluated-formulas ()
   (let ((table nil))
-       (maphash (lambda(f tim) (push (list f (/ (- (cdr tim) (car tim)) 1000.0)) table))
-	       logic::*evaluate-timing*)
-       (pprint (subseq (sort table '> :key 'second) 0 10))))
+    (when (boundp '*evaluate-timing*)
+	(maphash (lambda(f tim) (push (list f (/ (- (cdr tim) (car tim)) 1000.0)) table))
+		 logic::*evaluate-timing*)
+	(pprint (subseq (sort table '> :key 'second) 0 10)))))
 
 
 (defun debug-formula (formula model)

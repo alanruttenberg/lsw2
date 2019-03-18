@@ -107,8 +107,11 @@ which defaults to the model tuples.
 (defmethod tuples-without-arity ((m tuple-model) arity &optional (tuples (tuples m)))
   (remove (1+ arity) tuples :key 'length :test '=))
 
+(defmethod model-domain ((m tuple-model))
+ (remove-duplicates (apply 'append (mapcar 'cdr (tuples m)))))
+
 (defmethod model-domain-size ((m tuple-model))
-  (length (remove-duplicates (apply 'append (mapcar 'cdr (tuples m))))))
+  (length (model-domain m)))
 
 (defmethod model-predicates ((m tuple-model))
   (remove-duplicates (mapcar 'car (tuples m))))
@@ -121,25 +124,30 @@ which defaults to the model tuples.
 	    (length (tuples m)))))
 
 (defun find-model (with spec &rest keys)
-  (let ((tuples 
+  (let ((model
 	  (ecase with
-	    (:mace4 (apply 'mace4-find-model spec :pprint nil keys))
-	    (:z3 (apply 'z3-find-model spec  :pprint nil keys)))))
-    (if (listp tuples)
-	(make-instance (ecase with
-			 (:z3 'z3-model)
-			 (:mace4 'mace4-model))
-		       :model-theory spec
-		       :tuples tuples
-		       :invocation 
-		       (ecase with
-			 (:z3 `(z3-find-model ',spec ,@keys))
-			 (mace4 `(mace4-find-model ',spec ,@keys))))
-	tuples)))
-
-
+	    (:mace4 (apply 'mace4-find-model spec  keys))
+	    (:z3 (apply 'z3-find-model spec  keys)))))
+    (when (typep model 'tuple-model)
+      (setf (model-theory model)  spec)
+      (setf (invocation model)
+	    (ecase with
+	      (:z3 `(z3-find-model ',spec ,@keys))
+	      (mace4 `(mace4-find-model ',spec ,@keys)))))
+    model))
 
 ;; Relabeling functions
+
+(defmethod relabel-simple ((m tuple-model) &optional (tuples (tuples m)))
+  (let* ((to-be-replaced (remove-duplicates (mapcan #'(lambda(e) (copy-list (cdr e))) tuples )))
+	 (replacements 
+	   (loop for name in to-be-replaced
+		 for i from 1 
+		 collect (list name (intern (format nil "~a" (code-char (+ -1 i (char-code #\A))) 'keyword))))))
+    (tree-replace (lambda(e)
+		    (or (second (assoc e replacements))
+			e))
+		  tuples)))
 
 (defmethod relabel-by-position ((m tuple-model) position prefix &optional (tuples (tuples m)))
   (relabel-by-positions m (list position) prefix tuples))

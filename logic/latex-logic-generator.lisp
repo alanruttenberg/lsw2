@@ -58,7 +58,7 @@
     (format nil format-string  (mapcar (lambda(e) (latex-expression g e)) expressions))))
 
 (defmethod logical-distinct ((g latex-logic-generator) &rest names)
-  (let ((expanded (make-instance 'axiom :sexp (call-next-method))))
+  (let ((expanded (make-instance 'axiom :sexp (call-next-method) :dont-validate t)))
     (eval `(let ((*logic-generator* ,g))
 	     (eval (axiom-generation-form ,expanded))))))
 

@@ -22,6 +22,7 @@
 (defvar *extra-z3-switches* nil)
 
 (defun run-z3 (input timeout)
+  (setq *last-z3-command* (format nil "~a ~{~a~^ ~}" *z3-executable* (list*  "-in" (format nil "-T:~a" timeout) *extra-z3-switches*)))
   (multiple-value-bind (result error)
        (run-program-string->string
    *z3-executable* 
@@ -92,18 +93,24 @@
 	      result)))))
 
 
-(defun z3-find-model (assumptions &key (timeout 10) expected-proof (pprint t) (pre) &allow-other-keys)
+(defun z3-find-model (assumptions &key (timeout 10) expected-proof (pprint nil) pre &allow-other-keys)
   (z3-syntax-check assumptions nil)
   (let* ((input	(z3-render assumptions nil pre  (list "(check-sat)" "(get-model)")))
-	 (model (run-z3 input timeout)))
+	 (output (run-z3 input timeout)))
     (when expected-proof
-      (setf (prover-model expected-proof) model)
+      (setf (prover-model expected-proof) output)
       (setf (prover-input expected-proof) input)
       (unless (prover-output expected-proof)
-	(setf (prover-output expected-proof) model)))
-    (if pprint
-	(pprint-z3-model model)
-	(cdr (z3-model-form model)))))
+	(setf (prover-output expected-proof) output)))
+    (if (#"matches" output "(?s)^unsat.*")
+	:unsat
+	(if  (#"matches" output "(?s).*timeout.*")
+	    :timeout
+	    (if (not (#"matches" output "(?s).*sat.*"))
+		output
+		(let ((model (make-instance 'z3-model :raw-form output :tuples (cdr (z3-model-form output)))))
+		  (when pprint (pprint-model model))
+		  model))))))
 
 (defun find-counterexample (assumptions goal &rest rest &key (with 'z3) &allow-other-keys)
   (setq *last-checked-spec* (list* `(:not ,(axiom-sexp goal)) assumptions))
@@ -227,7 +234,7 @@
 		      do (push (intern (format nil "C~a" (incf count)) :keyword) (gethash el named)))
 		(values relations named forms)))))))
 
-(defun z3-model-form (model &key (compile? nil))
+(defun z3-model-form (model &key (compile? t))
   (multiple-value-bind (relations named forms)
       (transform-z3-model model)
     (if (stringp relations)
@@ -272,7 +279,7 @@
 							 collect `(,pred ,name1 ,name2 ,name3))))))))))))
 
 (defun pprint-z3-model (model)
-  (let ((model (z3-model-form model)))
+  (let ((model (z3-model-form model :compile? t)))
     (if (stringp model)
 	model
 	(loop for form in model

@@ -62,7 +62,7 @@
   (pprint (evaluate-formula (axiom-sexp (car (rewrite-inverses (list axiom) :against-theory *last-checked-spec*)))
 			    (if model-supplied-p
 				model
-				(expand-seed seed (rules-for-spec spec)))
+				(setq *last-expanded-model* (expand-seed seed (rules-for-spec spec))))
 			    :trace t :return-annotated t)))
 
 ;(def-logic-axiom my-test (:forall (?a) (:implies (x ?a) (y ?a))) "for testing" :kind :test-testing)
@@ -105,6 +105,9 @@
      (setf (gethash ',name *theory-checks*) it)
      (when ,figure (print (cons ',name ,figure)))))
 		  
+(defmethod run-check ((c symbol))
+  (run-check (gethash c *theory-checks*)))
+
 (defmethod run-check ((c theory-check-with-seed))
   (setf (check-result c)
 	(check-theory-with-model-seed (spec c) (seed c)
@@ -118,8 +121,8 @@
 (defun explain-inference (prop &optional (spec *last-checked-spec*) (seed *last-checked-seed*))
   (let ((axs (collect-axioms-from-spec spec))
 	(facts (mapcar (lambda(e) `(:fact ,e)) seed)))
-    (and (prover9-prove (append axs facts) `(:fact ,prop) :timeout 120)
-	 (let ((support (get-proof-support)))
+    (and (vampire-prove (append axs facts) `(:fact ,prop) :timeout 120)
+	 (let ((support (get-vampire-proof-support)))
 	   (loop for sup in support
 		 for formula = (axiom-sexp sup)
 		 if (eq (car formula) :fact) collect (second formula)
@@ -128,7 +131,7 @@
 (defun check-unsat (&optional (spec *last-checked-spec*) (seed *last-checked-seed*))
   (let ((axs (collect-axioms-from-spec spec))
 	(facts (mapcar (lambda(e) `(:fact ,e)) seed)))
-    (eq :unsat (prover9-check-unsatisfiable  (append axs facts)))))
+    (eq :unsat (vampire-check-unsatisfiable  (append axs facts)))))
 
 (defun check-theorems-are (spec-including-theorems &key dry-run)
   (let* ((theorems (intersection (collect-axioms-from-spec '((:status :theorem))) (collect-axioms-from-spec spec-including-theorems)))

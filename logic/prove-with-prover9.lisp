@@ -44,7 +44,7 @@
 (defun mace-or-prover9 (which assumptions goals &key (timeout 10) (interpformat :baked) (show-translated-axioms nil)
 						  max-memory domain-min-size domain-max-size max-time-per-domain-size  hints
 						  expected-proof term-ordering max-weight cac-redundancy skolems-last
-						  return-proof return-proof-support no-output self-label-ground (pprint t)
+						  return-proof return-proof-support no-output self-label-ground 
 			&aux settings)
 
   (assert (numberp timeout) (timeout) "Timeout should be a number of seconds") 
@@ -111,7 +111,7 @@
 				      (:mace4
 				       (let ((model (make-instance 'mace4-model :raw-form output)))
 					 (if (search "interpretation" output)
-					     (cook-mace4-output output interpformat pprint model)
+					     (cook-mace4-output output interpformat model)
 					     (values))))
 				      (:prover9 output))))
 			    (when *debug* (princ (car output)))
@@ -137,7 +137,7 @@
 			constant))))
     
 
-(defun cook-mace4-output (output format pprint model)
+(defun cook-mace4-output (output format model)
   (if (or (eq format :cooked) (eq format :baked))
       (let ((it (reformat-interpretation output :cooked)))
 	(setf (cooked-output model) it)
@@ -177,10 +177,7 @@
 		  ;; replace the numbers for universals and constants with their name
 		  (let* ((final (#"replaceAll" (replace-all reduced "(?s)(\\d+)" (lambda(num) (car (find num matched :test 'equalp :key 'second))) 1)  "(?m)^\\s*$" ""))
 			 (sexp (baked-to-sexp final)))
-		    (setf (tuples model) sexp)
-		    (when pprint  
-		      (pprint-mace4-model sexp))
-		    )
+		    (setf (tuples model) sexp))
 		  model
 		  )))))
       (reformat-interpretation output format)))
@@ -191,10 +188,6 @@
   (tree-replace (lambda(e)
 		  (if (symbolp e) (intern (string e) 'keyword) e))
 		(read-from-string (concatenate 'string "("  (#"replaceAll" out "^*(\\S+?)\\(" "($1 ") ")"))))
-
-(defun pprint-mace4-model (model)
-  (loop for form in model
-	do (let ((*print-case* :downcase)) (format t "~a~%" form))))
 
 (defun maybe-remind-to-install ()
   (when (or (not (probe-file (prover-binary "prover9")))
@@ -245,11 +238,10 @@
 
 (defun mace4-check-satisfiability (assumptions &rest keys &key expected-proof &allow-other-keys)
   "General version seeing whether mace can find a model"
-  (let ((result (apply 'mace4-find-model assumptions :pprint nil keys)))
+  (let ((result (apply 'mace4-find-model assumptions  keys)))
     (when expected-proof
       (setf (result expected-proof) (if (mace4-model-p result) :sat result)))
     (if (mace4-model-p result) :sat result)))
-
 
 (defun prover9-check-true (axiom &rest keys)
   (let ((result (apply 'prover9-check-unsatisfiable (negate-axiom axiom) keys)))
@@ -262,35 +254,22 @@
 (defun mace4-check-satisfiability-alt (assumptions &rest keys &key expected-proof &allow-other-keys)
   "Version that starts with a minimum domain size (12) and only allows 1 second per domain. This tends to work for a bunch of cases"
   (multiple-value-bind (result model)
-      (apply 'mace4-find-model assumptions :pprint nil :max-time-per-domain-size 1  keys)
+      (apply 'mace4-find-model assumptions  :max-time-per-domain-size 1  keys)
     (when expected-proof
       (setf (result expected-proof) (if (mace4-model-p result) :sat result)))
     (if (mace4-model-p result) :sat result)))
 
-(defun mace4-find-model (assumptions &rest keys &key (timeout 10) (format :baked) expected-proof (pprint t) &allow-other-keys)
+(defun mace4-find-model (assumptions &rest keys &key (timeout 10) (format :baked) expected-proof (pprint nil) &allow-other-keys)
+  (remf keys :pprint)
   (multiple-value-bind (result model)
       (apply 'mace-or-prover9 :mace4 assumptions nil :timeout timeout :interpformat format keys)
     (when expected-proof
       (setf (prover-model expected-proof) model))
-    (if pprint
-	(values result model)
-	(if (eq result :sat)
-	    (setq *last-mace4-model* model)
-	    result))))
-
-(defun mace4-find-model (assumptions &rest keys &key (timeout 10) (format :baked) expected-proof (pprint t) &allow-other-keys)
-  (multiple-value-bind (result model)
-      (apply 'mace-or-prover9 :mace4 assumptions nil :timeout timeout :interpformat format keys)
-    (when expected-proof
-      (setf (prover-model expected-proof) model))
-    (if pprint
-	(values result model)
-	(if (eq result :sat)
-	    (setq *last-mace4-model* model)
-	    result))))
-
-(defun mace4-find-model-no-pprint (assumptions &rest keys )
-  (apply 'mace4-find-model assumptions :pprint nil keys))
+    (if (eq result :sat)
+	(progn
+	  (when pprint (pprint-model model))
+	  (setq *last-mace4-model* model))
+	result)))
 
 (defun prover9-output-proof-section (&optional (output *last-prover9-output*))
   (and (search "THEOREM PROVED" output)

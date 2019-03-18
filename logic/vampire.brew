@@ -16,8 +16,8 @@ class Vampire < Formula
     end
 
     system("make clean")
-    system("make vampire_z3_rel")
-    bin.install("vampire_z3_rel")
+#    system("make vampire_z3_rel")
+#    bin.install("vampire_z3_rel")
     system("make vampire_rel")
     bin.install("vampire_rel")
   end

@@ -137,6 +137,7 @@
    #:skolem-normal-form
    #:disjunctive-normal-form
    #:conjunctive-normal-form
+   #:subjects-of
    ))
 
 

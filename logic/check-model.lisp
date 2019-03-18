@@ -36,6 +36,16 @@
 		    (list (positive-ground-model-closure-axiom model)))
 	    theory keys))
 
+(defpackage p&c)
+(defun standardize-package (form)
+  (cond ((atom form)
+	 (if (keywordp form)
+	     form
+	     (intern (string form) 'p&c)))
+	((consp form)
+	 (mapcar 'standardize-package form))
+	(t (error "bug in standardize-package"))))
+  
 ;; Write out a model as an intepretation that the LADR tools will use.
 ;; Lookes like clausetester and clausefilter are what I want for model checking.
 
@@ -54,6 +64,7 @@
   (when (eq stream 'string)
     (setq stream (make-string-output-stream))
     (setq writing-to-string t))
+  (setq model (standardize-package model))
   (let ((c2num (make-hash-table :test 'equalp))
 	(num2c (make-hash-table :test 'eql))
 	(pred2tuple (make-hash-table))
@@ -63,7 +74,7 @@
     (multiple-value-bind (predicates constants)  (formula-elements `(:and ,@model))
       (multiple-value-bind (predicates-m constants-m) (and theory 
 							   (formula-elements 
-							    `(:and ,@(mapcar 'axiom-sexp (remove-duplicates (collect-axioms-from-spec theory))))))
+							    (standardize-package `(:and ,@(mapcar 'axiom-sexp (remove-duplicates (collect-axioms-from-spec theory)))))))
 	(setq predicates (union predicates predicates-m :test 'equalp) constants (union constants constants-m)))
       (let ((domain-size (length constants)))
 ;	(write-string *ladr-header* stream)

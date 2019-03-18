@@ -101,7 +101,7 @@
 			(and (jss::all-matches answer "Proof not found in time" 0)
 			     (jss::all-matches answer "SZS status GaveUp" 0)))
 		    :timeout
-		    nil))))
+		    :failed))))
       (when expected-proof
 	(setf (prover-input expected-proof) input)
 	(setf (prover-output expected-proof) answer)
