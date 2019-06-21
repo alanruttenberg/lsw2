@@ -134,12 +134,14 @@
 		   (if (and (write-descriptions g) (stringp (axiom-description a)) (not (equal (axiom-description a) "")))
 		       (quote-for-latex (axiom-description a))
 		       "")
-
-      (if (with-names g)
-	  (format nil (formula-format g) name
-	      (eval (rewrite-to-axiom-generation-form (make-explicit-parentheses g (axiom-sexp a)))))
-	  (format nil (formula-format g) 
-	      (eval (rewrite-to-axiom-generation-form (make-explicit-parentheses g (axiom-sexp a))))))))))
+		   (if (eq (with-names g) :description)
+		       (format nil (formula-format g) (axiom-description a)
+			       (eval (rewrite-to-axiom-generation-form (make-explicit-parentheses g (axiom-sexp a)))))
+		       (if (with-names g)
+			   (format nil (formula-format g) name
+				   (eval (rewrite-to-axiom-generation-form (make-explicit-parentheses g (axiom-sexp a)))))
+			   (format nil (formula-format g) 
+				   (eval (rewrite-to-axiom-generation-form (make-explicit-parentheses g (axiom-sexp a)))))))))))
 
 (defmethod render-axioms ((generator latex-logic-generator) axs)
   (let ((count 0))
