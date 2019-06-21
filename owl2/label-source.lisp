@@ -287,7 +287,7 @@
     them))
 
 (defun to-labels (uris &optional (kb *default-kb*))
-  (loop for uri in uris do (princ (car (rdfs-label uri kb))) (terpri)))
+  (loop for label in (replace-with-labels uris kb) do (princ label) (terpri)))
 
 (defun replace-with-labels (sexp &optional (kb *default-kb*))
   (labels ((one (exp)
