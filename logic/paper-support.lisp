@@ -363,6 +363,7 @@
 ;;        (directory (merge-pathnames "*" (paper-directory-relative "proofcache/")))))
 
 (defun write-formula-tex (spec dest-dir)
+  (ensure-directories-exist dest-dir)
   (let ((g (make-instance 'logic::latex-logic-generator
 			  :formula-format "~a"
 			  :insert-line-breaks t

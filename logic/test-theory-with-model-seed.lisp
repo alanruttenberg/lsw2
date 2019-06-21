@@ -59,6 +59,8 @@
 	      t)))))
 
 (defun why-failed? (axiom &optional  (seed *last-checked-seed*) (spec *last-checked-spec*) (model nil model-supplied-p))
+  (if (null seed) (setq seed *last-checked-seed*))
+  (if (null spec) (setq spec *last-checked-spec*))
   (pprint (evaluate-formula (axiom-sexp (car (rewrite-inverses (list axiom) :against-theory *last-checked-spec*)))
 			    (if model-supplied-p
 				model
