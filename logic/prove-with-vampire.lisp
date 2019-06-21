@@ -92,16 +92,13 @@
 	   (setq *last-vampire-output* 
 		 (run-vampire (setq *last-vampire-input* input)  timeout mode switches))
 	   ))
-    (let ((result 
-	    (if (and (jss::all-matches answer "Termination reason: Refutation")
-		     (not (jss::all-matches answer "Termination reason: Refutation not" 0)))
-		:proved
-		(if (or (jss::all-matches answer "Termination reason: Time limit" 0)
-			(jss::all-matches answer "Termination reason: Refutation not found" 0)
-			(and (jss::all-matches answer "Proof not found in time" 0)
-			     (jss::all-matches answer "SZS status GaveUp" 0)))
-		    :timeout
-		    :failed))))
+    (let ((result
+	    (cond ((or (search "Termination reason: Time limit" answer)
+		       (search "Proof not found in time" answer))
+		   :timeout)
+		  ((search "Refutation found." answer)
+		   :proved)
+		  (t :failed))))
       (when expected-proof
 	(setf (prover-input expected-proof) input)
 	(setf (prover-output expected-proof) answer)
