@@ -272,3 +272,53 @@
      (when (char-lessp (char s1 start1) (char s2 start2)) (return lt))
      (when (char-greaterp (char s1 start1) (char s2 start2)) (return gt))
      (incf start1) (incf start2))))
+      
+;; Handle one key/clause and recurse for the rest
+;; The clause is tree-searched for numeric keywords :1, :2, :3...
+;; From those we determine which groups to ask all-matches for
+;; Those groups are bound and the :1, :2... are replaces with the variable bound to.
+;; I only look for single digit group numbers
+
+(defun re-match-case-internal (string cases &key case-insensitive)
+  (let ((matches (make-symbol "MATCHES")))
+    (if (member (caar cases) '(t :otherwise))
+	`(progn ,@(cdar cases))
+	(let ((groups nil)
+	      (body (cdar cases))
+	      (re (caar cases)))
+	  (when body
+	    (tree-walk body (lambda(e) (when (and (symbolp e) (digit-char-p (char (string e) 0))) (pushnew e groups))))
+	    (loop for g in (sort groups '< :key (lambda(e) (read-from-string (string e))))
+		  for index from 0
+		  for sym = (make-symbol (format nil "GROUP-~a" g))
+		  do (setq body (subst sym g body))
+		  collect `(,sym (nth ,index ,matches)) into bindings
+		  collect (read-from-string (string g)) into indices
+		  finally (return
+			    ;; If no groups are specified then ask for the whole match (group 0)
+			    `(let* ((,matches (car (all-matches ,string ,(if case-insensitive (concat "(?i)" re) re) ,@(or indices '(0))))))
+			       (if ,matches
+				   (let ,bindings
+				     ,@body)
+				   ,(re-match-case-internal string (cdr cases)))))))))))
+
+;; A case like form, except the keys are regular expressions.
+;; Clauses may use capture groups, calling them :1, :2 etc. Those keywords get replaced by the matched bit.
+;; Can fall through to t or :otherwise if none
+;; The keyplace is an atom in which case evaluated, or a list atom followed by key-value options
+;; Current acceptable keys: :case-insensitive
+
+;; Following the case documentation style: http://clhs.lisp.se/Body/m_case_.htm
+
+;; re-case keyplace {clause}* => result*
+;; keyplace::= atomic-keyplace| keyplace-with-options
+;; atomic-keyplace::= string | symbol
+;; keyplace-with-options::= (atomic-keyplace (key value)*)
+;; clause::= normal-clause | otherwise-clause
+;; normal-clause::= (regex form*) 
+;; otherwise-clause::= ({otherwise | t} form*)
+
+(defmacro re-match-case (string  &body cases)
+  (if (consp string)
+      (apply 're-match-case-internal (car string) cases (cdr string))
+      (re-match-case-internal string cases nil)))
