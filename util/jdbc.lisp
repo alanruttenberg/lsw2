@@ -158,9 +158,10 @@
 	       collect
 	       (loop 
 		 for field in field-names
+		 for index from 1
 		 if with-headers
-		   collect (cons field (#"getString" results field)) into columns 
-		 else collect (#"getString" results field) into columns
+		   collect (cons field (#"getString" results index)) into columns 
+		 else collect (#"getString" results index) into columns
 						
 		 finally (progn
 			   (when print
