@@ -1,3 +1,7 @@
+;; TODO
+;; Syntax for "as" for columns - defining headers. Maybe don't need?
+;; Syntax for "as" for tables then using the aliases. Needed for self-join where table needs to be referenced twice
+;; handling expressions 
 
 ;; :column-initial-cap
 ;; :column-case-sensitive
@@ -139,6 +143,9 @@
 (defun parse-column-spec (options spec)
   ;; procedur 
   ;; (procedur "PRocedur") ...
+  (assert (or (not (consp spec))
+	      (and (consp spec) (cdr spec)))
+	  () "Improper column spec: ~a" spec)
   (list (if (consp spec) (car spec) spec)
 	(maybe-casify-name
 	 (if (consp spec) (second spec) spec)
@@ -224,6 +231,7 @@
       (write-string ")" s))
   ))
 
+;; TODO make a proper environment (typed as column or table)
 (defun env-tables (env)
   (loop for (nil string from) in env
 	unless from
@@ -236,17 +244,17 @@
 	finally (return (reverse them))))
 
 (defun env-column-string (env sym)
-  (let ((string (second (assoc sym env))))
+  (let ((string (second (find-if (lambda(e) (and (eq (car e) sym) (= (length e) 3))) env))))
     (assert string (string) "~a used as column but not defined" sym)
     string))
 
 (defun env-table-string (env sym)
-  (let ((string (second (assoc sym env))))
+  (let ((string (second (find-if (lambda(e) (and (eq (car e) sym) (= (length e) 2))) env))))
     (assert string (string) "~a used as table but not defined" sym)
     string))
 
 (defun env-column-table (env sym)
-  (let ((table (third (assoc sym env))))
+  (let ((table (third (find-if (lambda(e) (and (eq (car e) sym) (= (length e) 3))) env))));(third (assoc sym env))))
     (assert table (table) "~a used as column but no table found" sym)
     table))
 
@@ -257,18 +265,23 @@
 		(render-sql-condition options condition env)))
   (loop for join in joins
 	for (column1 column2 type) = join
-	when (or (null type) (eq type :inner))
-	  do (format stream "~%and ~a=~a"
+	when (null type)
+	  do 
+	     (format stream "~%and ~a=~a"
 		     (env-column-string env column1)
 		     (env-column-string env column2))))
 
+;; no expressions yet
+
 (defun render-sql-condition (options condition env)
   (ecase (car condition)
-    (:= (format nil "~a = ~a"
+    ((:= :<> :> :< :>= :<= :!< :!>)
+     (format nil "~a ~a ~a"
 		(if (symbolp (second condition))
 		    (progn (column-mention (second condition) 'conditions)
 			   (env-column-string env (second condition)))
 		    (render-sql-literal options (second condition)))
+		(car condition)
 		(if (symbolp (third condition))
 		    (progn
 		      (column-mention (third condition) 'conditions)
@@ -293,7 +306,20 @@
     (:starts-with 
      (format-starts-with options condition env))
     (:like 
-     (format-like options condition env))))
+     (format-like options condition env))
+    (:like-insensitive 
+     (format-like-insensitive options condition env))))
+
+(defun ensure-ansi-date-format (string)
+  (if (#"matches" string "\\d{4}-\\d{2}-\\d{2}")
+      (destructuring-bind (month date)
+	  (mapcar 'read-from-string (car (all-matches string "\\d{4}-(\\d{2})-(\\d{2})" 1 2)))
+	(assert (and (<= 1 month 12)
+		     (<= 1 date 31))
+		(string month date)
+		"~a isn't an ANSI date" string)
+	string)
+      (error "~a isn't an ANSI date" string)))
 
 (defun format-in (options condition env)
   (column-mention (second condition) 'conditions)
@@ -307,28 +333,39 @@
 
 (defun format-like (options condition env)
   (format nil "(~{~a like '~a'~^ or ~})"
-	  (loop with var = (env-column-string env (second condition))
+	  (loop with var = (env-column-string env (print-db (second condition)))
 		for match in (cddr condition)
 		collect var 
 		collect match)))
+
+(defun format-like-insensitive (options condition env)
+  (format nil "(~{UPPER(~a) like '~a'~^ or ~})"
+	  (loop with var = (env-column-string env (second condition))
+		for match in (cddr condition)
+		collect var 
+		collect (string-upcase match))))
 
 (defun format-starts-with (options condition env)
   (format-like options (list* (car condition) (second condition)
 			     (mapcar (lambda(e) (concatenate 'string e "%")) (cddr condition)))
 	       env))
 (defun render-sql-literal (options lit)
-  (format nil "'~a'" lit))
+  (if (consp lit)
+	     (ecase (car lit)
+	       (:date   (format nil "date '~a'" (second lit))))
+      (format nil "'~a'" lit)))
 
+;; Need syntax for "as"
 (defun render-sql-column-form (options form env &optional (with-alias t))
   (cond ((and (consp form) (not (keywordp (car form))))
 	 (column-mention (second form) 'column-form)
 	 (if with-alias
-	     (format nil "~a as ~a" (render-sql-column-form options (second form) env with-alias) (string-downcase (string (car form))))
+	     (format nil "~a" (render-sql-column-form options (second form) env with-alias) (string-downcase (string (car form))))
 	     (render-sql-column-form options (second form) env with-alias)))
 	((symbolp form)
 	 (column-mention form 'column-form)
 	 (if with-alias
-	     (format nil "~a as ~a" (or (second (assoc form env)) (string-downcase (string form))) (string-downcase (string form)))
+	     (format nil "~a" (or (second (assoc form env)) (string-downcase (string form))) (string-downcase (string form)))
 	     (env-column-string env form)))
 	;; disallow because we can't determine table
 	;;((stringp form)
@@ -361,7 +398,7 @@
 	  (loop for join in joins
 		for (column1 column2 type) = join
 		for column1-table-string = (third (assoc column1 env))
-		unless (or (null type) (eq type :inner))
+		unless (null type)
 		  do (column-mention column2) and
 		  collect (format nil "~a JOIN ~a on ~a=~a"
 				  (string-upcase (string type))
