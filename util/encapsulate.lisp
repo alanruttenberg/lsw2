@@ -960,7 +960,7 @@ functions are called."
   (assert (not (encapsulate::get-encapsulation newdef)))
   (let ((old-def (get-encapsulated-by-name name)) cap)
     (when (and old-def (setq cap (encapsulate::get-encapsulation old-def)))
-      (cond ((or (and *load-truename* *loading-removes-encapsulation*)
+      (cond ((or (and *load-truename* encapsulate::*loading-removes-encapsulation*)
                  ;; redefining a gf as a fn.
                  (typep *load-truename* 'standard-generic-function))
              (encapsulate::forget-encapsulations old-def)
@@ -982,7 +982,7 @@ functions are called."
 (defun move-funcallable-instance-encapsulations-maybe (instance new-fn &aux cap)
   (let ((old-fn (mop::funcallable-instance-function instance)))
     (unless (eq old-fn new-fn)
-    (cond ((and *loading-removes-encapsulation* *load-truename*)
+    (cond ((and encapsulate::*loading-removes-encapsulation* *load-truename*)
            (when (encapsulate::%traced-p old-fn)
              (warn "~%... Untracing ~s" (encapsulate::%untrace-1 old-fn)))
            (when (encapsulate::%advised-p old-fn)
@@ -1021,7 +1021,7 @@ functions are called."
 ;; Called from clos when oldmethod is being replaced by newmethod in a gf.
 (defun sys::%move-method-encapsulations-maybe (oldmethod newmethod &aux cap)
   (unless (eq oldmethod newmethod)
-    (cond ((and *loading-removes-encapsulation* *loading-files*)
+    (cond ((and encapsulate::*loading-removes-encapsulation* *loading-files*)
            (when (%traced-p oldmethod)
              (warn "~%... Untracing ~s" (%untrace-1 oldmethod)))
            (when (%advised-p oldmethod)
