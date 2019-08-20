@@ -50,6 +50,9 @@
 
 (defmacro & (form)
   (let ((job (make-symbol "JOB")))
+    (let ((form `(let ((*package* ,(if (find-package :swank)
+				       (eval (intern "*BUFFER-PACKAGE*" :swank))
+				       *package*))) ,form)))
     `(let* ((,job (make-instance 
 		   'job 
 		   :started (#"currentTimeMillis" 'system) 
@@ -78,7 +81,7 @@
 					 (unless done (setf (aref *jobs* (job-slot ,job)) nil)))
 				     (values-list result)))))))
 
-       ,job)))
+       ,job))))
 
 (defun next-open-job-slot ()
   (loop for el across *jobs*
