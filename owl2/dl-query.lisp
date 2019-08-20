@@ -8,7 +8,7 @@
   (class-query class kb (lambda(ce reasoner) (#"getSubClasses" reasoner ce nil))))
 
 (defun property-descendants (property &optional (kb *default-kb*))
-  (property-query property kb (lambda(pe reasoner)  (#"getSubObjectProperties" reasoner pe t))))
+  (property-query property kb (lambda(pe reasoner) (#"getSubObjectProperties" reasoner pe nil))))
 
 (defun parents (class &optional (kb *default-kb*))
   (class-query class kb (lambda(ce reasoner) (#"getSuperClasses" reasoner ce t))))

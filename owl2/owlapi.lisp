@@ -493,7 +493,6 @@
 		unless (or (null iri) (and (eq uri !owl:Nothing) (not include-nothing))) collect (make-uri string)))))))
 
 
-
 (defun property-query (property kb fn &optional (flatten t) include-top filter )
   (instantiate-reasoner kb (or (v3kb-default-reasoner kb) *default-reasoner*) nil)
   (let* ((data-expression (get-entity property :data-property kb))
@@ -508,11 +507,15 @@
 					 (remove-if-not (lambda(ce) (funcall filter ce reasoner)) them)
 					 them)))
 			       res))
-		for string = (and iri (#"toString" (#"getIRI" iri)))
-		for uri = (and iri (make-uri string))
+		for uri = (and iri (get-property-iri-maybe-inverse iri))
 		unless (or (null iri) (and (not include-top) (eq uri (if data-expression !owl:topDataProperty !owl:topObjectProperty))))
 		  collect uri))))))
 
+(defun get-property-iri-maybe-inverse (ob)
+  (let ((type (#"getName" (jobject-class ob))))
+    (if (equal type  "uk.ac.manchester.cs.owl.owlapi.OWLObjectInverseOfImpl")
+	`(object-inverse-of ,(make-uri (#"toString" (#"getIRI" (#"getInverseProperty" ob)))))
+	(make-uri (#"toString" (#"getIRI" ob))))))
 
 (defun annotation-properties (kb)
   (mapcar 'make-uri (mapcar #"toString" (mapcar #"getIRI"  (set-to-list (#"getAnnotationPropertiesInSignature" (v3kb-ont o)))))))

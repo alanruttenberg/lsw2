@@ -164,12 +164,12 @@
 (defmethod do-release  ((r foundry-release))
   (create-merged-ontology r)
   (copy-files-to-release-directory r)
-  (note-phase :release-directory-filled)
+  (note-phase-done r :release-directory-filled)
   (log-progress r "Creating catalog-v0001.xml for protege")
   (write-catalog.xml r)
   (log-progress r "Creating purl.yaml with lines to be pasted into the PURL config")
   (write-purl-yaml r)
-  (note-phase :done))
+  (note-phase-done r :done))
 
 ;; (make-release "iao" "~/repos/information-artifact-ontology/src/ontology/iao.owl" when
 ;;    :additional-products '("ontology-metadata.owl"))
@@ -342,10 +342,10 @@
     (loop for disp in dispositions
 	  for ont = (getf disp :ontology)
 	  do (each-axiom ont (lambda(ax) (add-axiom ax destont)) nil))
-    (note-phase r :merged)
+    (note-phase-done r :merged)
     (log-progress r "Adding inferences")
     (add-inferred-axioms source :to-ont destont :types (inferred-axiom-types r))
-    (note-phase r :inferred)
+    (note-phase-done r :inferred)
     (when (collect-inferred-axioms? r)
       (loop for type in (inferred-axiom-types r)
 	    for inferred = (add-inferred-axioms source :types (list type))
@@ -355,7 +355,7 @@
     (dolist (a license-annotations) (add-ontology-annotation a destont))
     (let ((dest (merged-ontology-pathname r)))
       (to-owl-syntax destont :rdfxml dest))
-    (note-phase :written)
+    (note-phase-done r :written)
     (multiple-value-bind (res errorp) (ignore-errors (check-ontology destont))
       (assert (not errorp) (destont) "Hey! The merged ontology (~a) has an error during the consistency test but the original didn't!~%~a" (merged-ontology-pathname r) errorp)
       (unless errorp
@@ -369,7 +369,7 @@
 	  (format t "There was a java error ~a when running the profile checker (KNOWN TO BE BROKEN AT THE MOMENT)" errorp)
 	  (assert (null profile-violations) (profile-violations)
 		  "Ontology falls outside OWL-DL: ~% ~{- ~a~^~%~}"  profile-violations)))
-    (note-phase :verified)
+    (note-phase-done r :verified)
     ))
 
 (defmethod display-inferences ((r foundry-release) &optional type)
@@ -522,6 +522,7 @@
 	       ;; I would use copy-file but it doesn't know about redirects
 	       ;; (uiop/stream:copy-file copy dest)
 	       (sys::run-program "curl" (list "-L" "--create-dirs" (uri-full (make-uri (namestring copy))) "-o" (namestring dest)))
+	       (sleep 1)
 	       (add-version-iris-license-and-rewrite-imports r dest (getf disp :add-license))))
   (let ((to-be-deleted (directory (merge-pathnames (make-pathname :directory `(:relative :wild) :name :wild :type "bak") (ensure-release-dir r)))))
     (loop for file in to-be-deleted
