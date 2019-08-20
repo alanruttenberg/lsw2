@@ -116,5 +116,5 @@
 (defun sample-of-rows (table connection dbdesc &optional howmany)
   (let ((primary-key (dbdesc-table-primary-key dbdesc table)))
     (sql-query (list "select  * from ~a where ~a in (select top ~a ~a from ~a order by newid())" 
-		     table primary-key (or howmany 5) primary-key table) connection :print t)))
+		     table primary-key (or howmany 5) primary-key table) :connection connection :print t)))
 
