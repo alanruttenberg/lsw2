@@ -348,8 +348,8 @@
 		     do
 			(cond ((and (symbolp el) 
 				    (if (char= (char (string el) 0 ) #\?)
-					(uses-variable el)
-					(uses-constant el))))
+					 (uses-variable el)
+					 (uses-constant el))))
 			      ((atom el))
 			      (t (walk-function el)))))
 	     (walk (form)
@@ -359,7 +359,9 @@
 			  nil
 			  (uses-constant form)))
 		     (t (case (car form)
-			  ((:forall :exists) (map nil #'walk (cddr form)))
+			  ((:forall :exists) 
+			   (map nil #'walk (cddr form))
+			   (mapcar #'uses-variable (second form)))
 			  ((:axiom) (walk (axiom-sexp (get-axiom (second form)))))
 			  ((:implies :iff :and :or :not  :fact) 
 			   (map nil #'walk (rest form)))
@@ -490,7 +492,9 @@
       (loop for (p) in predicates
 	    if (> (count p predicates :key 'car) 1)
 	      do (error "~a is used with different arities in ~a" p (or label formula)))
-      (let* ((names (append (mapcar 'car predicates) constants functions variables))
+      (let* ((names (append (mapcar 'car predicates) constants functions 
+			    (mapcar (lambda(e) (intern (string (subseq (string e) 1)) (symbol-package e)))
+				    variables)))
 	     (duplicates (remove-duplicates (remove-if  (lambda(e) (eql (count e names) 1)) names))))
       (assert (null duplicates) ()
 	      "Can't use the same name for more than one of predicates, constant, function, or variable: ~a in ~a"
