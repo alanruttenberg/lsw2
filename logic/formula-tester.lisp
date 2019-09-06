@@ -533,6 +533,7 @@ to avoid consing, which can land up be quite a lot"
   (setq formula (render-axiom (make-instance 'logic-generator)  formula)) ;; expand whatever needs to be expanded. wrap multi-term body in (:and ...)
   (let ((paiprolog::*trail*  (make-array 200 :fill-pointer 0 :adjustable t)))
     (when (and implies-optimize (or (not (numberp implies-optimize)) (>= (quantified-depth formula) implies-optimize)))
+      (load-prolog nil interpretation)
       (multiple-value-bind (vars ant cons) 
 	  (logic::implies-pattern-conservative  formula)
 	(when (and vars ant)

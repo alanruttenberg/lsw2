@@ -12,9 +12,14 @@
 ;; 2) For every predicate that is used in some registered formula (*axioms* table) but which is not used in the set of
 ;;    facts, we compile a predicate with no clauses, in case the predicate is used in some query.
 
-
+(defvar *last-prolog-loaded-facts* nil)
+(defvar *last-prolog-loaded-rules* nil)
+    
 ;; initialize prolog state with a set of rules and facts.
 (defun load-prolog (rules facts)
+  (when (and (eq *last-prolog-loaded-rules* rules)
+	     (eq *last-prolog-loaded-facts* facts))
+    (return-from load-prolog t))
   (clear-prolog-db)
   (loop for prop in facts
 	do (prolog-tell prop))
@@ -24,6 +29,7 @@
   (loop for (nil (nil (nil . clauses) head)) in rules ; (label (:implies (:and <clauses>) head))
 	do (prolog-tell head clauses))
   (compile-prolog-predicates-for-unused-relations facts)
+  (setq *last-prolog-loaded-rules* rules *last-prolog-loaded-facts* facts)
   )
 
 ;; Paiprolog compiles predicates that have been used by facts or rules it's been told. However sometimes we query using
