@@ -12,14 +12,14 @@
 
 (push (make-pathname :directory (butlast (pathname-directory *load-pathname*))) asdf/find-system:*central-registry*)
 
-(unless (quicklisp-client:where-is-system "winston-forward-chain")
-  (restart-case
-      (error "LSW needs winston-ai code: cd ~a; git clone https://github.com/alanruttenberg/winston-ai.git" 
-	     (car quicklisp-client:*local-project-directories*))
-    (error ()
-      :report "Try to clone winston-ai into quicklisp local project directory."
-      (sys::run-program "git" '("clone" "https://github.com/alanruttenberg/winston-ai.git") :directory (car quicklisp-client:*local-project-directories*))
-      (progn (sleep 5)))))
+;; (unless (quicklisp-client:where-is-system "winston-forward-chain")
+;;   (restart-case
+;;       (error "LSW needs winston-ai code: cd ~a; git clone https://github.com/alanruttenberg/winston-ai.git" 
+;; 	     (car quicklisp-client:*local-project-directories*))
+;;     (error ()
+;;       :report "Try to clone winston-ai into quicklisp local project directory."
+;;       (sys::run-program "git" '("clone" "https://github.com/alanruttenberg/winston-ai.git") :directory (car quicklisp-client:*local-project-directories*))
+;;       (progn (sleep 5)))))
   
 (flet ((load ()
 	 (ql:quickload 'owl2 :verbose nil)
