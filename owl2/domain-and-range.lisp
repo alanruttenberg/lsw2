@@ -39,9 +39,6 @@
       	  (and (satisfiable? `(object-intersection-of ,domain (object-intersection-of ,@domains)))
 	       (satisfiable? `(object-intersection-of ,range (object-intersection-of ,@ranges))))))))
 
-
-))))
-
 #|
 e.g.
 (let ((*default-kb* (load-ontology "~/repos/obo-relations/ro.owl" :reasoner :hermit)))
