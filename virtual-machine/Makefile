@@ -2,7 +2,15 @@ docker-reasoners:
 	cd docker-reasoners ; docker build -t lsw2/reasoners
 
 docker-lsw: docker-reasoners 
-	docker build --squash  -t "lsw2/lisp:$(shell git rev-parse --abbrev-ref HEAD)-$(shell git rev-parse HEAD)" .
+	docker build  -t "lsw2/lisp:$(shell git rev-parse --abbrev-ref HEAD)-$(shell git rev-parse HEAD)" .
+	docker tag  "lsw2/lisp:$(shell git rev-parse --abbrev-ref HEAD)-$(shell git rev-parse HEAD)" lsw2/lisp:latest
+
+docker-squashed-lsw: docker-reasoners 
+	docker build --squash  -t "lsw2/lisp:$(shell git rev-parse --abbrev-ref HEAD)-$(shell git rev-parse HEAD)-s" .
+	docker tag  "lsw2/lisp:$(shell git rev-parse --abbrev-ref HEAD)-$(shell git rev-parse HEAD)" lsw2/lisp:latest
+
+docker-clean-containers:
+	docker container rm `docker ps -a | cut -f 1 -d " " | tail`
 
 vagrant-lsw:
 	vagrant up

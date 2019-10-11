@@ -1,6 +1,6 @@
 (eval-when (:load-toplevel :execute :compile-toplevel)
   (loop for early in '("OWL-SEXP-TO-FOL" "URI-LABEL" "URI-FULL" "*RUNNING-IN-VAGRANT*" "*VAMPIRE-BOX-NAME*" "*VAMPIRE-EXECUTABLE*"
-		       "*VAMPIRE-SHARED-DIRECTORY-REMOTE*" "*VAMPIRE-SHARED-DIRECTORY-LOCAL*" "CAMELCASE" "*DEFAULT-URI-BASE*"
+		       "*VAMPIRE-SHARED-DIRECTORY-REMOTE*" "*VAMPIRE-SHARED-DIRECTORY-LOCAL*" "CAMELCASE" "*DEFAULT-URI-BASE*" "*Z3-EXECUTABLE*"
 		       "GET-VAGRANT-BOX-ID" "GET-VAGRANT-BOX-WD" "GET-VAGRANT-BOX-STATUS" "VAGRANT-BOX-UP" "AXIOM" "?") 
 		      do (intern early :cl-user)))
 (defpackage :ginsberg-cnf-dnf
@@ -16,7 +16,7 @@
 		cl-user::get-vagrant-box-id cl-user::get-vagrant-box-status
 		cl-user::get-vagrant-box-wd cl-user::vagrant-box-up cl-user::is-vagrant-box-running
 		cl-user::*vampire-shared-directory-remote* cl-user::*vampire-shared-directory-local*
-		cl-user::*running-in-vagrant* cl-user::*vampire-box-name* cl-user::*vampire-executable* cl-user::print-db
+		cl-user::*running-in-vagrant* cl-user::*vampire-box-name* cl-user::*vampire-executable* cl-user::*z3-executable* cl-user::*ladr-binaries* cl-user::print-db
 		cl-user::tree-replace cl-user::tree-find cl-user::tree-walk cl-user::tree-remove-if cl-user::tree-walk-conditional  cl-user::?
 		cl-user::all-matches
 		)

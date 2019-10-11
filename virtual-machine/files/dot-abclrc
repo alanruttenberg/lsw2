@@ -40,3 +40,5 @@
 
 (defvar *running-in-vagrant* nil)
 (defvar *vampire-executable* "/usr/local/bin/vampire")
+(defvar *z3-executable* "/usr/bin/z3")
+(defvar *ladr-binaries* "/usr/bin/")

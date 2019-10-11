@@ -4,13 +4,15 @@
 # a list of version numbers.
 FROM ubuntu:16.04
 COPY files/keyboard /etc/default/keyboard
-RUN apt-get update && apt-get install --no-install-recommends -y prover9 z3 openjdk-8-jdk-headless openjdk-8-jre-headless git maven ant openssh-server && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+RUN apt-get update && apt-get install --no-install-recommends -y prover9 ladr4-apps z3 openjdk-8-jdk-headless openjdk-8-jre-headless git maven ant openssh-server && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 RUN useradd -ms /bin/bash lsw
 COPY docker-reasoners/vampire /usr/local/bin/
 RUN chmod a+x /usr/local/bin/vampire
 USER lsw
 WORKDIR /home/lsw
 RUN mkdir /home/lsw/repos/
+# https://stackoverflow.com/questions/36996046/how-to-prevent-dockerfile-caching-git-clone
+ADD https://api.github.com/repos/alanruttenberg/abcl/git/refs/heads/stage abcl-version.json
 RUN cd repos && git clone --branch stage --depth 1 https://github.com/alanruttenberg/abcl.git 
 COPY files/dot-emacs  /home/lsw/.emacs
 COPY files/dot-abclrc  /home/lsw/.abclrc
@@ -18,7 +20,9 @@ COPY files/dot-Xresources /home/lsw/.Xresources
 COPY files/slime-init.el /home/lsw/emacs/slime-init.el
 COPY files/font-indent.el /home/lsw/emacs/font-indent.el
 RUN cd /home/lsw/repos/abcl && ant abcl-aio.jar
+ADD https://api.github.com/repos/alanruttenberg/lsw2/git/refs/heads/owlapiv4 lsw2-version.json
 RUN cd repos && git clone --branch owlapiv4 --depth 1 https://github.com/alanruttenberg/lsw2.git 
+ADD https://api.github.com/repos/alanruttenberg/slime/git/refs/heads/beta slime-version.json
 RUN cd repos && git clone --branch beta --depth 1 https://github.com/alanruttenberg/slime.git
 USER lsw
 RUN /home/lsw/repos/lsw2/bin/lsw
@@ -38,7 +42,12 @@ RUN rm -rf /home/lsw/repos/lsw2/protege
 RUN rm -rf /home/lsw/repos/lsw2/virtual-machine
 RUN rm -rf /home/lsw/repos/*/.git
 ENV PATH="/home/lsw/repos/lsw2/bin:${PATH}"
+# compile on first run
+RUN lsw --eval '(cl-user::quit)'
+# compile swank
 RUN abcl -- --load /home/lsw/repos/slime/swank-loader.lisp --eval '(swank-loader::load-swank)'
+WORKDIR /home/lsw/repos/lsw2/owl2/bin
+ENTRYPOINT lsw --load /home/lsw/repos/slime/swank-loader.lisp --eval '(swank-loader::load-swank)'
 # FROM openjdk:7u131-jdk-alpine
 # RUN apk update
 # RUN apk add bash
