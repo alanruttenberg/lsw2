@@ -1,5 +1,21 @@
-New: You can build a virtual machine with everything LSW needs using docker. See
-https://github.com/alanruttenberg/lsw2/tree/owlapiv4/virtual-machine
+New: You can build a virtual machine with everything LSW needs using docker. 
+Short version:
+
+Clone the repository and make the image.
+
+```
+git clone https://github.com/alanruttenberg/lsw2-virtual-machine.git
+cd lsw2-virtual-machine
+make docker-lsw
+```
+
+Run LSW2
+
+```
+docker run -it lsw/lisp
+```
+
+More documentation at https://github.com/alanruttenberg/lsw2-virtual-machine
 
 ----
 
