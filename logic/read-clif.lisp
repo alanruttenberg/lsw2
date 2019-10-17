@@ -26,7 +26,7 @@ names don't consist of standard characters. TBD
 	       string)))
     (if (and (= (length form) 2) ;; <letter><number> is his style for variables. If they aren't bound make them variables anyways
 	     (alpha-char-p (char form 0))
-	     (digit-char-p (char form 1)))
+	     (or (digit-char-p (char form 1)) (char-equal #\n (char form 1))))
 	(intern (concatenate 'string "?" (string-upcase form)))
 	(if (#"matches" form "[A-Za-z0-9]*") ;; if it is camelcase, decode
 	    (intern (fix-uparrow (de-camel-case form)))
@@ -298,7 +298,7 @@ names don't consist of standard characters. TBD
 	      (loop for start = (file-position f)
 		    with separator = (concatenate 'string "****************************************************************" (string #\newline))
 		    for (clif clif-errorp abort) = (multiple-value-list (ignore-errors (read-clif-form f nil :eof nil)))
-		    for (lsw lsw-errorp) = (and (not clif-errorp) (multiple-value-list (ignore-errors (clif-form-to-lsw clif 'dl-demangle-style))))
+		    for (lsw lsw-errorp) = (and (not clif-errorp) (multiple-value-list (ignore-errors (validate-formula-well-formed (clif-form-to-lsw clif 'dl-demangle-style)))))
 		    for end = (file-position f)
 		    with count = 0
 		    until (or abort (eq clif :eof))
@@ -306,9 +306,9 @@ names don't consist of standard characters. TBD
 		      do
 			 (write-string separator)
 			 (format t "Error in parsing form between file position ~a and ~a: ~%~a~%"
-				 start end clif-errorp)
-			 (unless clif-errorp (let ((*print-pretty* t)) (format t "~&~a~%" clif)))
-			 (when lsw-errorp
+				 start end (or clif-errorp lsw-errorp))
+			 (when (or clif-errorp lsw-errorp) (let ((*print-pretty* t)) (format t "~&~a~%" clif)))
+			 (when (and lsw-errorp lsw)
 			   (let ((*print-pretty* t)) (format t "~&~a~%" lsw)))
 			 (write-string separator)
 		    else
