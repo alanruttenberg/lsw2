@@ -58,13 +58,19 @@
 		    ))
 	      t)))))
 
-(defun why-failed? (axiom &optional  (seed *last-checked-seed*) (spec *last-checked-spec*) (model nil model-supplied-p))
+(defun why-failed? (axiom &key  (seed *last-checked-seed*) (spec *last-checked-spec*) (model nil model-supplied-p))
   (if (null seed) (setq seed *last-checked-seed*))
   (if (null spec) (setq spec *last-checked-spec*))
   (Let ((*print-case* :downcase))
+    (when (keywordp axiom)
+      (when (axiom-description (get-axiom axiom))
+	(princ (axiom-description (get-axiom axiom)))
+	(terpri)))
+    (pprint (axiom-sexp axiom))
+    (terpri)
     (pprint (evaluate-formula (axiom-sexp (car (rewrite-inverses (list axiom) :against-theory *last-checked-spec*)))
 			      (if model-supplied-p
-				  model
+				  (setq *last-expanded-model* model)
 				  (setq *last-expanded-model* (expand-seed seed (rules-for-spec spec))))
 			      :trace t :return-annotated t))))
 
@@ -99,8 +105,8 @@
 (defmacro def-check-theory-with-model-seed (name spec seed &key expect-failing-formulas expect-propositions unexpected-propositions expect-unsat figure &allow-other-keys)
   `(let ((it (make-instance 'theory-check-with-seed
 		  :name ',name
-		  :spec ,spec
-		  :seed ,seed
+		  :spec ',spec
+		  :seed ',seed
 		  :expect-failing-formulas ,expect-failing-formulas
 		  :expect-propositions ,expect-propositions
 		  :unexpected-propositions ,unexpected-propositions
@@ -113,7 +119,7 @@
 
 (defmethod run-check ((c theory-check-with-seed))
   (setf (check-result c)
-	(check-theory-with-model-seed (spec c) (seed c)
+	(check-theory-with-model-seed (eval (spec c)) (eval (seed c))
 				      :expect-failing-formulas (expect-failing-formulas c)
 				      :unexpected-propositions  (unexpected-propositions c)
 				      :expect-propositions (expect-propositions c)
@@ -121,10 +127,10 @@
 
 ;; given a proposition, a spec, and a seed, use the theory to prove the proposition, and if proved, return the proof support
 
-(defun explain-inference (prop &optional (spec *last-checked-spec*) (seed *last-checked-seed*))
+(defun explain-inference (prop &key (spec *last-checked-spec*) (seed *last-checked-seed*) (timeout 120))
   (let ((axs (collect-axioms-from-spec spec))
 	(facts (mapcar (lambda(e) `(:fact ,e)) seed)))
-    (and (vampire-prove (append axs facts) `(:fact ,prop) :timeout 120)
+    (and (vampire-prove (append axs facts) `(:fact ,prop) :timeout timeout)
 	 (let ((support (get-vampire-proof-support)))
 	   (loop for sup in support
 		 for formula = (axiom-sexp sup)
@@ -136,43 +142,21 @@
 	(facts (mapcar (lambda(e) `(:fact ,e)) seed)))
     (eq :unsat (vampire-check-unsatisfiable  (append axs facts)))))
 
-(defun check-theorems-are (spec-including-theorems &key dry-run)
-  (let* ((theorems (intersection (collect-axioms-from-spec '((:status :theorem))) (collect-axioms-from-spec spec-including-theorems)))
-	 (the-rest (set-difference (collect-axioms-from-spec spec-including-theorems) theorems))
+(defun check-theorems-are (spec-including-theorems)
+  (let* ((all (collect-axioms-from-spec spec-including-theorems))
+	 (theorems (intersection (collect-axioms-from-spec '((:status :theorem))) all))
+	 (the-rest (set-difference all theorems))
 	 (lparallel:*kernel* (lparallel:make-kernel 8)))
-    (when dry-run
-      (loop for e in theorems
-	    for with =  (second (assoc :check-theorem-with (axiom-plist e)))
-	    do
-	       (format t "Will check: ~a" (axiom-name e))
-	       (if with
-		   (progn (format t " with ~a~%" with)
-			  (setq with `(,@with (:exclude (:status :theorem)))))
-		   (terpri))
-	       (when (and with (remove e (set-difference (collect-axioms-from-spec with) the-rest)))
-		 (warn "Theorem ~a supposed to be proved with ~a, but it has ~a that isn't in full spec"
-		       (axiom-name e)
-		       with
-		       (mapcar 'axiom-name (set-difference (set-difference (collect-axioms-from-spec with) the-rest))))))
-      (return-from check-theorems-are nil))
     (let ((done (lparallel::pmapcar  
-		 (lambda(e &aux res)
-		   (let ((with (second (assoc :check-theorem-with (axiom-plist e)))))
-		     (when with (setq with `(,@with (:exclude (:status :theorem)) (:exclude (:kind :meta)))))
-		     (when (and with (remove e (set-difference (collect-axioms-from-spec with) the-rest)))
-		       (warn "Theorem ~a supposed to be proved with ~a, but it has ~a that isn't in full spec"
-			     (axiom-name e)
-			     with
-			     (mapcar 'axiom-name (set-difference (collect-axioms-from-spec with) the-rest))))
-		     (setq res  (prover9-prove (or with the-rest) e :timeout 45))
+		 (lambda(to-prove &aux res)
+		   (let ((prove-with (intersection (get-axiom-key-value (get-axiom to-prove) :check-theorem-with)
+					     the-rest)))
+		     (setq res  (prover9-prove (or prove-with the-rest) to-prove :timeout 45))
 		     (if (eq res :proved) 
 			 res
-			  (z3-prove (or with the-rest) e :timeout 60))))
+			  (z3-prove (or prove-with the-rest) to-prove :timeout 60))))
 		   theorems)))
       (loop for ax in theorems
 	    for attempt in done
 	    do (format t "~a: ~a~%" (axiom-name ax) attempt)
 	    when (not (eq attempt :proved)) collect (keywordify (axiom-name ax))))))
-   
-
-
