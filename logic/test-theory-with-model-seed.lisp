@@ -149,13 +149,13 @@
 	 (lparallel:*kernel* (lparallel:make-kernel 8)))
     (let ((done (lparallel::pmapcar  
 		 (lambda(to-prove &aux res)
-		   (let ((prove-with (intersection (get-axiom-key-value (get-axiom to-prove) :check-theorem-with)
-					     the-rest)))
-		     (setq res  (prover9-prove (or prove-with the-rest) to-prove :timeout 45))
+		   (let ((prove-with (intersection (collect-axioms-from-spec (get-axiom-key-value to-prove :check-theorem-with))
+						   the-rest)))
+		     (setq res  (prover9-prove* (or prove-with the-rest) to-prove :timeout 45))
 		     (if (eq res :proved) 
 			 res
-			  (z3-prove (or prove-with the-rest) to-prove :timeout 60))))
-		   theorems)))
+			 (z3-prove (or prove-with the-rest) to-prove :timeout 60))))
+		 theorems)))
       (loop for ax in theorems
 	    for attempt in done
 	    do (format t "~a: ~a~%" (axiom-name ax) attempt)
