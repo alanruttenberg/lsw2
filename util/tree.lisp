@@ -34,6 +34,29 @@
 			    replacement))))))
     (tr-internal tree)))
 
+;; Like nsubst - replacing atoms in the tree without disturbing the list structure.
+(defun tree-nsubst-if (replace-fn test-fn tree)
+  "destructively modify tree replacing each atom that satisfies test-fn  with the result of calling replace-fn on it"
+  (labels ((tr-internal (tree)
+	     (cond ((and (atom tree) (funcall test-fn tree)) (funcall replace-fn tree))
+		   ((atom tree) tree)
+		   ((and (atom (cdr tree)) (not (null (cdr tree))))
+		    (when (and (atom (car tree)) (funcall test-fn (car tree)))
+		      (rplaca tree (funcall replace-fn (car tree))))
+		    (when (funcall test-fn (cdr tree))
+		      (rplacd tree (funcall replace-fn (cdr tree))))
+		    tree)
+		   (t (loop for (this . rest) on tree
+			    for pos from 0
+			    do (setf (nth pos tree) (tr-internal this))
+			    when (and rest (atom rest) (funcall test-fn rest))
+			      do (setf (cdr (last tree)) (funcall replace-fn rest))
+				 (return tree)
+			    )
+		      tree))))
+    (tr-internal tree)
+    tree))
+
 
 (defun tree-remove-if (test tree)
   "create new tree without any expressions that match test"
