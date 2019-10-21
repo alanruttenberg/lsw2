@@ -510,13 +510,15 @@
     (setq *last-expanded-model* props)))
 
 
-(defun compute-rules (spec)
+(defun compute-rules (spec &optional for-formula)
   (multiple-value-bind (binaries ternaries) (inverses-from-spec spec)
   (let ((theory  (rewrite-inverses  spec 
 				    :binary-inverses binaries
 				    :ternary-inverses ternaries :copy-names? t)))
     (generate-rules 
-     :theory theory :check theory
+     :theory theory :check (if for-formula (list (if (keywordp for-formula)
+						     for-formula
+						     (axiom-name for-formula))) theory)
      :check-with-reasoner t))))
 
 (defun rules-for-axiom (axiom background-theory)
@@ -570,3 +572,4 @@
 	  ;; only set this *after* compute rules is successful, otherwise if there's an error the cache can be stale NOPE doesn't help
 	  (setf (gethash spec *spec->collected-axioms-cache*) collected)))))
 
+;; HOW TO COMPUTE RULES for something: (compute-rules *everything-theory* :inheres-in-rule-helper)
