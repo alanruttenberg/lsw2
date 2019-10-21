@@ -121,7 +121,12 @@
 
 (defun z3-get-unsat-core (assumptions &key (timeout 10) expected-proof &allow-other-keys)
   (z3-syntax-check assumptions nil)
-  (let* ((input  (if (stringp assumptions) assumptions (concatenate 'string "(set-option :produce-unsat-cores true)" (z3-render assumptions nil nil (list "(check-sat)""(get-unsat-core)")))))
+  (let* ((input   (concatenate 'string "(set-option :produce-unsat-cores true)" 
+			       (if (stringp assumptions)
+				   (if (search "(get-unsat-core)" assumptions)
+				       assumptions
+				       (format nil "~a~%(get-unsat-core)~%" assumptions))
+				   (z3-render assumptions nil nil (list "(check-sat)""(get-unsat-core)")))))
 	 (answer (run-z3 input timeout)))
     (when (not (search "(check-unsat)" input))
 	(setq input (concatenate 'string input "(check-unsat)")))
@@ -133,7 +138,9 @@
       (setf (prover-output expected-proof) answer))
     (if (#"matches" answer "(?s)^unsat.*")
 	(let ((names (mapcar 'car (all-matches (subseq answer 6)  "([A-Za-z.+-]+)" 1))))
-	  (mapcar (lambda(e) (keywordify 
+	  (mapcar (lambda(e) 
+		    (or (gethash (keywordify (string-upcase e)) *autonamed-axioms*)
+			(keywordify 
 			      (string-upcase
 			       (#"replaceAll" 
 			       (#"replaceAll" 
@@ -144,7 +151,7 @@
 								  ("four" "4") ("five" "5") ("six" "6") ("seven" "7")
 								  ("eight" "8") ("nine" "9")) :test 'equalp))) 1)
 			       "\\.gt\\." ">") ;; unmangle names
-			       "\\.lt\\." "<")))) 
+			       "\\.lt\\." "<"))))) 
 		  names))
 	answer)))
 
