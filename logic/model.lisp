@@ -108,7 +108,10 @@ which defaults to the model tuples.
   (remove (1+ arity) tuples :key 'length :test '=))
 
 (defmethod model-domain ((m tuple-model))
- (remove-duplicates (apply 'append (mapcar 'cdr (tuples m)))))
+  (remove-duplicates (apply 'append (mapcar 'cdr (tuples m)))))
+
+(defmethod model-domain ((m list))
+ (remove-duplicates (apply 'append (mapcar 'cdr m))))
 
 (defmethod model-domain-size ((m tuple-model))
   (length (model-domain m)))
@@ -185,9 +188,11 @@ which defaults to the model tuples.
   (loop for (prefix . pred-positions) in prefix-pred-positions
 	do (setq tuples (relabel-by-predicate-and-positions m pred-positions prefix tuples)))
   tuples)
+
+;; are two constants in the model equated?
+(defmethod equated? ((m mace4-model) a b)
+  (member (list a b) (equivalences m) :test 'alexandria:set-equal))
 							    
-
-
 ;; example
 
 (defmethod display-part-of-model ((m tuple-model))
