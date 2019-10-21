@@ -3,7 +3,10 @@
 (defvar *running-in-vagrant* nil)
 (defvar *vampire-box-name* "vampirebox")
 
-;; On OSX use vampire.brew in this directory: brew install --HEAD vampire.brew
+;; On OSX
+;; cp vampire.rb /usr/local/Homebrew/Library/Taps/homebrew/homebrew-core/Formula/
+;; brew install vampire
+
 (defvar *vampire-executable* "vampire_rel")
 
 (defvar *vampire-shared-directory-remote* (namestring "/vagrant/"))
