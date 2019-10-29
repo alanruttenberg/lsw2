@@ -57,8 +57,8 @@ names don't consist of standard characters. TBD
 						  () "Quantifier ~a expects a list of variables but got ~a" name (second form))
 					  (let ((renamed (loop for sym in vars
 							       if (char= (char sym 0) #\?)
-								 collect (list sym (intern sym))
-							       collect (list sym (intern (concatenate 'string "?" (string-upcase sym)))))))
+								 collect (list sym (intern (string-upcase (string sym))))
+							       else collect (list sym (intern (concatenate 'string "?" (string-upcase sym)))))))
 					    `(:forall ,(mapcar 'second renamed)
 					       ,@(mapcar (lambda(e) (walk e (append renamed bindings))) (cddr form))))))
 				       ((member name '("AND" "OR" "IFF" "IF" "NOT" "=") :test 'equalp)
@@ -116,7 +116,11 @@ names don't consist of standard characters. TBD
 							 (not (clif-name-char-p next)))
 					       collect (read-char stream))
 					 nil)) 'string)))))
-    (clif-escape result)))
+    (if (#"matches" result "//.*")
+	(progn
+	  (read-line stream)
+	  (read stream))     
+	(clif-escape result))))
 
 (defparameter *clif-readtable*
   (let ((table (copy-readtable)))
@@ -200,6 +204,7 @@ names don't consist of standard characters. TBD
 	  (read-char stream )
 	  (cond ((eql (peek-char nil stream eof-errorp eof-value) #\/) ;; // ignore rest of line
 		 (progn
+		   (print 'here)
 		   (read-line stream eof-errorp eof-value)
 		   (return-from read-clif-form (read-clif-form stream eof-errorp eof-value))))
 		((eql (peek-char nil stream eof-errorp eof-value) #\*)
@@ -257,7 +262,7 @@ names don't consist of standard characters. TBD
 	  ("(cl:comment 'a|b')" ("cl:comment" (:literal "a|b"))))
 	for read = (read-clif-form (make-string-input-stream string))
 	do
-	   (print-db read result)
+;	   (print-db read result)
 	   (assert (equalp read result) ()
 		   "input: ~s, expected: ~s, got:~s" string result read)))
 
@@ -315,6 +320,7 @@ names don't consist of standard characters. TBD
 		      do (incf count)
 			 (when (and (not clif-errorp) print-clif)
 			   (let ((*print-pretty* t)) (format t "~&~a~%~%" clif)))
+;			 (print-db lsw print-lsw lsw-errorp)
 			 (when (and (not lsw-errorp) lsw print-lsw)
 			   (let ((*print-pretty* t)) (format t "~&~s~%~%" lsw)))
 		    finally
@@ -323,3 +329,88 @@ names don't consist of standard characters. TBD
 			 (write-string clif-errorp)
 			 (write-string separator))
 		       (Format t  "Read ~a CLIF formulas without errors" count)))))))
+
+#|
+another check:
+
+If you have an :implies you want it to be the case (generally) that any universally quantified variable used the
+consequent is used in a relation with a variable that is in the antecedent.
+(:iff a b) is same as (:and (:implies a b) (:implies b a))
+e.g
+
+(:forall (?a ?b)
+  (:implies (f ?a) (g ?b)))
+
+can be rewritten
+
+(:forall (?a)
+  (:implies (f ?a)
+      (:forall (?b) (g ?b))))
+
+Usually not what you want.
+
+
+((let (walk (el)
+      (lambda(el)
+	(if (and (consp el) (eq (car el) :forall))
+	    (push (second el) universally-quantified
+
+
+
+(:forall (?a ?b)
+  (:implies (f ?a) (:exist (?c) (:and (h ?c) (g ?c ?b))))
+
+later
+|#
+
+#|
+Explaining the initial intended use of this code, in conjunction with docker lsw:
+
+I have written something that does some checks on a clif file. For now it will be a little clunky to use but I'll make
+it easier once we know it works.
+
+I've attached a lisp file that implements the check: read-clif.lisp
+The current version is also at https://raw.githubusercontent.com/alanruttenberg/lsw2/owlapiv4/logic/read-clif.lisp
+
+Put it in the directory you are in when you run docker.
+I'll assume a clif file (call it f.clif) also is in that folder.
+
+Start docker with: docker run -it --rm -v`pwd`:"/local" lsw2/lisp
+
+The --rm cleans up the used docker container once you are done.
+The "-v`pwd`:"/local" arranges for your current directory to be mapped to "/local" in the docker image.
+
+Once lisp is running, do
+(in-package :logic)
+(load "/local/read-clif.lisp")
+
+Now you can do the following
+(check-clif "f.lisp")
+
+It will print how many formulas it successfully reads, as well as any problems it finds. It won't find all problems, but
+I can improve that over time.
+
+If you want to have it print the clif that it reads, then instead do
+(check-clif "RTA-RTP-RT-Axioms.clif" :print-clif t)
+
+To see instead an LSW translation (I've tried to translate your symbols into idiomatic LSW)
+(check-clif "RTA-RTP-RT-Axioms.clif" :print-lsw t)
+
+You can print both with
+(check-clif "RTA-RTP-RT-Axioms.clif" :print-lsw t :print-clif t)
+
+If you call just (check-clif) then it will use the arguments you used last time you ran it within a docker run, to make
+it easier to iterate as you work on a file.
+
+Reminder: Comments have to be surrounded by "/*" and "*/", or on any line after "//" . With "//" all text until the end of the line is considered a comment.
+
+To test whether error checking works, do some tests by modifying f.clif and then running check-clif on the modified version
+Test 1: Remove the initial comment marker "/*"
+Test 2: Add an extra close parenthesis
+Test 3: Remove a closing parethesis
+
+A note about CLIF vs LSW. In LSW all variables start with a "?". That makes it possible to flag free variables. In
+common logic you can't tell the difference between a constant and a free variable. In order to do that (and other)
+checks I'm considering something to be a variable in CLIF if it is a letter followed by a number or "n". You might
+consider naming your variables to start with a "?" so I don't have to guess. Also, some of the reasoners are picky about
+overloading symbols. Use a symbol for only one of relation, variable or constant.
