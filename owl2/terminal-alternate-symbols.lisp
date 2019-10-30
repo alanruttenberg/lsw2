@@ -121,13 +121,18 @@
 	       (setf (gethash capitalized table) entry)
 	       (loop for s in other-synonyms do (setf (gethash s table) entry))
 	    )
-      table)
+      (maphash (lambda(k v)
+		 (when (and (symbolp k) (not (keywordp k)))
+		   (import k 'owlterm)
+		   (export k 'owlterm)))
+	       table)
+      table))
   "A value has (in this order)
   - the lowercased string used in the spec
   - the lispish syntax symbol - dashes where the capital letters are
   - The string used in Functional Syntax
   - &rest more synonyms
-  An entry in the table is recorded with the key being each of the alternatives in the value"))
+  An entry in the table is recorded with the key being each of the alternatives in the value")
 
 
 (defparameter *owl2-manchesterish-function-syntax-terms*
