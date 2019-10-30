@@ -64,7 +64,11 @@
 
 
 (defmethod logical-or ((g latex-logic-generator) expressions) 
-  (format nil "~{~a ~^\\lor ~}"  (mapcar (lambda(e) (latex-expression g e)) expressions)))
+  (format nil 
+	  (if (eql (maybe-line-break g) #\newline)
+	      "~{~a ~^~%\\lor ~}"
+	      "~{~a ~^\\lor ~}")
+	  (mapcar (lambda(e) (latex-expression g e)) expressions)))
 
 (defmethod logical-iff ((g latex-logic-generator) antecedent consequent)
   (format nil "~a ~a\\leftrightarrow ~a" (latex-expression g antecedent) (maybe-line-break g) (latex-expression g consequent)))
@@ -81,8 +85,12 @@
 (defmethod logical-fact ((g latex-logic-generator) fact)
   (latex-expression g fact))
 
-(defmethod logical-parens ((g latex-logic-generator) expression)
+#|(defmethod logical-parens ((g latex-logic-generator) expression)
   (format nil "~a(~a)" (maybe-line-break g) (latex-expression g expression)))
+|#
+
+(defmethod logical-parens ((g latex-logic-generator) expression)
+  (format nil "(~a)" (latex-expression g expression)))
 
 ;; ugh this got ugly handling bug  (:not (:exists (?a ?b) ..)) should -> (:not (:exists (?a) (:not (:exists (?b) ...
 
