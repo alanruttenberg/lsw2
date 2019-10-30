@@ -17,7 +17,8 @@ returnIdType	N	Specifies the type of identifier you wish to retrieve.	‘aui’,
 sabs	N	Comma-separated list of source vocabularies to include in your search	Any root source abbreviation in the UMLS.	All UMLS sources	n/a
 searchType	N	Type of search you wish to use	‘exact’,‘words’,‘leftTruncation’, ‘rightTruncation’,‘approximate’, ‘normalizedString’	‘words’	Use ‘exact’ when using inputType = ‘code’, ‘sourceConcept’, ‘sourceDescriptor’, or ‘sourceUi’.
 pageNumber	N	Whole number that specifies which page of results to fetch.	1,2,3, etc	1	n/a
-pageSize	N	Whole number that specifies the number of results to include per page.	1,2,3, etc	25	n/a")
+pageSize	N	Whole number that specifies the number of results to include per page.	1,2,3, etc	25	n/a"
+  :use-http t)
 
 (define-umls-api-function
   umls-concept-info
@@ -286,3 +287,24 @@ pageSize	N	Whole number that specifies the number of results to include per page
   "Retrieves NLM-asserted preferred atom for a CUI"
   ""
   :one-result-only t)
+
+(define-umls-api-function
+    umls-concept-definitions
+    "/content/{version}/CUI/{CUI}/definitions"
+  "Retrieves definitions for a CUI"
+  "Retrieves definitions for a CUI"
+  ""
+  :one-result-only t)
+
+(define-umls-api-function
+    umls-mapped-identifiers-for-source
+  "/crosswalk/{version}/source/{source}/{id}"
+  "Retrieves all source-asserted identifiers that share a UMLS CUI with a particular code"
+  "Retrieves all source-asserted identifiers that share a UMLS CUI with a particular code"
+  "targetSource	N	Returns codes from the specified UMLS vocabulary	Any root source abbreviation in the UMLS. See the \“Abbreviation\” column for a list of UMLS source vocabulary abbreviations.	All UMLS source vocabularies	Use a comma between each source abbreviation to specify more than one.
+includeObsolete	N	Determines whether to return obsolete codes.	true,false	false	n/a
+pageNumber	N	Whole number that specifies which page of results to fetch.	1,2,3, etc	1	n/a
+pageSize	N	Whole number that specifies the number of results to include per page.	1,2,3, etc	25	n/a"  
+  )
+
+

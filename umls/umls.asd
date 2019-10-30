@@ -26,6 +26,7 @@
 	     (:file "relations")
 	     (:file "sources")
 	     (:file "explore")
+	     (:file "icd")
 	     )))
   :depends-on (jss cl-json graph-dag))
 

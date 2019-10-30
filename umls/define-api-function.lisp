@@ -10,9 +10,12 @@
 (defvar *umls-api-cache* (make-hash-table :test 'equalp))
 (defvar *umls-api-cache-enabled* t)
 (defvar *interned-umls-strings* (make-hash-table :test 'equal))
+(defvar *current-umls-api-version* "current")
 
 (defun get-umls-api-ticket-granting-ticket (&optional (username *umls-username*) (password *umls-password*))
   "This is like a session ticket. It is used to get a ticket, one of which is needed for each api call"
+  (assert (and *umls-password* *umls-username*) (*umls-password* *umls-username*)
+	  "*umls-username* and *umls-password* must first be set")
   (setq *last-umls-tgt* 
 	(caar (all-matches 
 	       (get-url "https://utslogin.nlm.nih.gov/cas/v1/tickets" 
@@ -105,27 +108,32 @@
 	      (setq *umls-api-cache* table)))))))
 
 (defun intern-umls-strings (thing type)
+  (declare (ignore type))
   (flet ((intern-string (string)
 	   (or (gethash string *interned-umls-strings*)
 	       (setf (gethash string *interned-umls-strings*) string))))
-    (ecase type
-      (:call (loop for arg in thing for pos from 0 if (stringp arg) do (setf (nth pos thing) (intern-string arg))))
-      (:results 
-       (flet ((maybe-intern-cdr (pair)
-		(if (stringp (cdr pair))
-		    (setf (cdr pair) (intern-string (cdr pair))))))
-	 (loop for result in (car thing) ;; each result an alist
-	    do
-	      (map nil 
-		   (lambda (el)
-		     (if (eq (car el) :semantic-types)
-			 (map nil #'maybe-intern-cdr (cdr el))
-			 (maybe-intern-cdr el)))
-		   result)))))
-    thing))
+
+    (tree-nsubst-if (lambda(e) (intern-string e)) 'stringp thing))) 
+		    
+    ;; (ecase type
+    ;;   (:call (loop for arg in thing for pos from 0 if (stringp arg) do (setf (nth pos thing) (intern-string arg))))
+    ;;   (:results 
+    ;;    (flet ((maybe-intern-cdr (pair)
+    ;; 		(if (stringp (cdr pair))
+    ;; 		    (setf (cdr pair) (intern-string (cdr pair))))))
+    ;; 	 (loop for result in (car thing) ;; each result an alist
+    ;; 	       unless (eq (car result) :class-type)
+    ;; 	    do
+    ;; 	      (map nil 
+    ;; 		   (lambda (el)
+    ;; 		     (if (eq (car el) :semantic-types)
+    ;; 			 (map nil #'maybe-intern-cdr (cdr el))
+    ;; 			 (maybe-intern-cdr el)))
+    ;; 		   result)))))
+    ;; thing))
 
 
-(defmacro define-umls-api-function (function-name path doc &optional extended-doc parameters-doc &key one-result-only )
+(defmacro define-umls-api-function (function-name path doc &optional extended-doc parameters-doc &key one-result-only use-http )
   "Defines a function to do a UMLS REST API call.  You need to call
 get-umls-api-ticket-granting-ticket once every 8 hours, but otherwise
 tickets (for authentication) are retrieved as needed.  Arguments are
@@ -165,6 +173,7 @@ results, the list of results is returned directly"
 	(let ((method
 	       `(defun ,function-symbol (,@args &key ,@query-parameter-syms probe &aux (path ,path))
 		  ,doc
+		  (unless *last-umls-tgt* (get-umls-api-ticket-granting-ticket))
 		  ,@(when (member 'pagesize query-parameter-syms) 
 			  `((setq pagesize *umls-max-results-per-call*)))
 		  (let ((call-args (list ',function-symbol ,@args ,@query-parameter-syms)))
@@ -176,8 +185,8 @@ results, the list of results is returned directly"
 			   (multiple-value-list
 			    (catch 'catch-umls-error 
 			      (handler-bind ((http-error-response 'handle-umls-error-response))
-				(let ((url (format nil "https://uts-ws.nlm.nih.gov/rest~a" path)))
-				  (setq url (#"replaceAll" url "[{]version[}]" "current"))
+				(let ((url (format nil "http~a://uts-ws.nlm.nih.gov/rest~a" (if ,use-http "" "s")  path)))
+				  (setq url (#"replaceAll" url "[{]version[}]" *current-umls-api-version*))
 				  ,@(loop
 				       for parameter-name in `,parameter-names
 				       for arg in `,args
