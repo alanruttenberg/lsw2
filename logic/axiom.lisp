@@ -13,6 +13,9 @@
    (generation-form :accessor axiom-generation-form)
    (from :accessor axiom-from :initform nil :initarg :from)))
 
+(defmethod axiom-plist ((name symbol))
+  (axiom-plist (get-axiom name)))
+    
 (defun keywordify (x) (intern (string x) :keyword))
 
 (defmethod initialize-instance ((a axiom) &rest keys &key &allow-other-keys)
@@ -67,8 +70,13 @@
 	    (error "Couldn't find axiom named ~s" name))
 	found)))
 
-
-
+(defun get-axiom-by-key (key name &optional (errorp t))
+  (let* ((name (intern (string name) 'keyword))
+	 (key (intern (string key) 'keyword))
+	 (found (car (collect-axioms-from-spec (list (list key name)) nil))))
+	(if (and errorp (not found))
+	    (error "Couldn't find axiom named ~s" name))
+	found))
 
 (defun delete-axiom (name)
   (remhash (intern (string name) 'keyword) *axioms*))
@@ -108,9 +116,10 @@
 		 *axioms*)
 	(loop for axiom in from
 	      when
-	      (loop for (k v) on key-values by #'cddr
-		    always (check-key-spec k v (axiom-plist axiom)))
-	      do (push axiom them)))
+		(and (typep axiom 'axiom)
+		      (loop for (k v) on key-values by #'cddr
+		    always (check-key-spec k v (axiom-plist axiom))))
+	      do  (push axiom them)))
     (if (and (not them) errorp)
 	(error "Couldn't find axiom with keys ~s" key-values))
     them))
@@ -179,6 +188,9 @@
 (defun collect-axiom-names-from-spec (specs &optional (error-if-not-found t))
   (loop for a in (collect-axioms-from-spec specs error-if-not-found)
 	if (typep a 'axiom) collect (axiom-name a) else collect a))
+
+(defun get-axiom-key-value (axiom key)
+  (second (assoc key (axiom-plist (if (typep axiom 'axiom) axiom (get-axiom axiom))))))
 
 (defun subjects-of (spec &optional (error-if-not-found t))
   (remove-duplicates (loop for ax in (collect-axioms-from-spec spec error-if-not-found)
@@ -273,24 +285,31 @@
 
 (defmethod pprint-spec-axiom-names (spec &rest args &key  &allow-other-keys)
   (apply 'pprint-spec-axioms spec 
-	 :only-name t args))
+	 :only-name t :with-colons nil args))
 
-(defun pprint-spec-axioms (spec &key only-name (plist nil) with-colons (allow-missing t) &allow-other-keys)
+(defmethod pprint-spec-axiom-names-categorized (spec categories &rest args &key  &allow-other-keys)
+  (apply 'pprint-spec-axioms spec 
+	 :only-name t :with-colons nil args))
+
+(defun pprint-spec-axioms (spec &key only-name (plist nil) with-colons (allow-missing t) categories &allow-other-keys)
   (let ((*print-case* :downcase))
     (map nil (lambda(e)
 	       (if (formula-sexp-p e)
 		   (format t "unnamed")
-		   (format t "~%** ~a: " (axiom-name e)))
+		   (format t "~%** ~a~a " (axiom-name e) (if with-colons ":" "")))
+	       (when plist
+		 (if (formula-sexp-p e)
+		     nil
+		     (loop for ((k v) . more) on (axiom-plist e)
+			   when (or (and (consp plist) (member k plist))
+				    (not (consp plist)))
+			     do (format t "~a:~a" k v) (when more (format t ", ")))))
 	       (unless only-name
-		 (when plist
-	       (if (formula-sexp-p e)
-		   nil
-		   (loop for ((k v) . more) on (axiom-plist e) do (format t "~a:~a" k v) (when more (format t ", ")))))
 	       (terpri)
 	       (let ((*print-pretty* t))
 		 (if with-colons
-		 (format t "~%~s" (axiom-sexp e))
-		 (format t "~%~a" (axiom-sexp e))))
+		     (format t "~%~s" (axiom-sexp e))
+		     (format t "~%~a" (axiom-sexp e))))
 	       (terpri)))
 	 (sort (logic::collect-axioms-from-spec (if (symbolp spec) (list spec) spec) (not allow-missing))
 	       'string-lessp :key 'prin1-to-string)
@@ -303,8 +322,8 @@
   (assert (formula-sexp-p a) (a) "Axioms should be objects of formula sexps: ~a" a)
   (or (and (next-method-p) (call-next-method))
       (let ((name (substitute #\- #\space (format nil "formula-~r" (incf *axiom-counter*)))))
-	(setf (gethash (intern (string-upcase name) :keyword) *autonamed-axioms*) a)
-	(setf (slot-value a 'name)  name)
+	(setf (gethash (setq name (intern (string-upcase name) :keyword)) *autonamed-axioms*) a)
+;	(setf (slot-value a 'name)  name)
 	name)))
 
 (defmethod axiom-name :around ((a axiom))
@@ -501,6 +520,7 @@
 	      duplicates formula)))
     (check-builtins-keyword formula label)
     (check-builtins-args formula label)
+    formula
     ))
 
 (defun check-builtins-args (formula &optional label &aux explain)
