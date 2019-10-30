@@ -20,6 +20,9 @@
 		cl-user::tree-replace cl-user::tree-find cl-user::tree-walk cl-user::tree-remove-if cl-user::tree-walk-conditional  cl-user::?
 		cl-user::all-matches
 		)
+  ;; cl-unification
+  (:import-from :it.unimib.disco.ma.cl.ext.dacf.unification "UNIFY" "FIND-VARIABLE-VALUE" "MATCH-CASE" "MATCH")
+
 ;  (:import-from :winston-ai  #:remember-assertion #:remember-rule #:forward-chain #:make-empty-stream #:*rules* #:*assertions*)
   (:import-from :ginsberg-cnf-dnf ginsberg-cnf-dnf::<= ginsberg-cnf-dnf::=> ginsberg-cnf-dnf::<=>) 
   (:import-from :sys sys::run-program sys::process-output sys::process-input)
