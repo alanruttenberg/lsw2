@@ -77,18 +77,18 @@
 (defun is-umls-api-call-cached (args)
   (and *umls-api-cache-enabled* (gethash args *umls-api-cache*)))
 
-(defun persist-umls-api-call-cache ()
+(defun persist-umls-api-call-cache (&optional (path "~/Desktop/umls-api-cache.lisp"))
   (let ((c *umls-api-cache*))
-    (ensure-directories-exist "umls:work;")
-    (if (probe-file "umls:work;api-call-cache.lisp")
-	(rename-file "umls:work;api-call-cache.lisp" "umls:work;api-call-cache-backup.lisp"))
-    (with-open-file (f "umls:work;api-call-cache.lisp" :if-does-not-exist :create :if-exists :supersede :direction :output)
+    (ensure-directories-exist path)
+    (if (probe-file path)
+	(rename-file path (concatenate-string "backup-of-" (namestring (truename path)))))
+    (with-open-file (f path :if-does-not-exist :create :if-exists :supersede :direction :output)
       (format f "(*umls-api-cache* :test ~a :size ~a :count ~a)~%" (hash-table-test c) (hash-table-size c) (hash-table-count c))
       (maphash (lambda(k v) (format f "~s~%~s~%;;;~%" k v)) *umls-api-cache*)
       )))
 
-(defun restore-umls-api-call-cache ()
-  (with-open-file (f "umls:work;api-call-cache.lisp" :direction :input)
+(defun restore-umls-api-call-cache (&optional (path "~/Desktop/umls-api-cache.lisp"))
+  (with-open-file (f path :direction :input)
     (let ((spec (read f)))
       (destructuring-bind (token &key test size count) spec
 	(print-db (setq @ token) test size count)
@@ -171,7 +171,7 @@ results, the list of results is returned directly"
 	   (query-parameter-syms (mapcar 'intern (mapcar 'string-upcase query-parameters))))
       (let ((doc (format-umls-api-function-documentation doc parameters-doc extended-doc)))
 	(let ((method
-	       `(defun ,function-symbol (,@args &key ,@query-parameter-syms probe &aux (path ,path))
+	       `(defun ,function-symbol (,@args &key ,@query-parameter-syms probe ignore-errors &aux (path ,path))
 		  ,doc
 		  (unless *last-umls-tgt* (get-umls-api-ticket-granting-ticket))
 		  ,@(when (member 'pagesize query-parameter-syms) 
@@ -191,7 +191,7 @@ results, the list of results is returned directly"
 				       for parameter-name in `,parameter-names
 				       for arg in `,args
 				       collect
-					 `(setq url (#"replaceAll" url (format nil "[{]~a[}]" ,parameter-name) ,arg)))
+					 `(setq url (#"replaceAll" url (format nil "[{]~a[}]" ,parameter-name) ,(print-db arg))))
 				  (let ((page-of-results nil)
 					(result-pages nil))
 				    (when (member 'pagesize ',query-parameter-syms)
@@ -202,9 +202,13 @@ results, the list of results is returned directly"
 					    for param in ',query-parameters
 					    for value in (list ,@query-parameter-syms)
 					    when value
-					    do (setq page-url (format nil "~a&~a~a~a" page-url param "=" (princ-to-string value))))
-					 (setq page-of-results (cl-json::decode-json (make-string-input-stream (get-url page-url))))
-					 (push page-of-results result-pages)
+					    do (setq page-url (format nil "~a&~a~a~a" page-url param "=" (#"encode" 'java.net.URLEncoder
+							     (princ-to-string value) "UTF-8"))))
+					 (setq page-of-results 
+					       (if ignore-errors 
+						   (ignore-errors (cl-json::decode-json (make-string-input-stream (get-url page-url :ignore-errors t))))
+						   (cl-json::decode-json (make-string-input-stream (get-url page-url :ignore-errors nil)))))
+					 (when page-of-results (push page-of-results result-pages))
 				       until
 					 ,(if (member 'pagesize query-parameter-syms)
 					      '(prog1
@@ -224,6 +228,14 @@ results, the list of results is returned directly"
 				      (let ((result (cdr (assoc :result r))))
 					(if one-result-only (list result) result)))
 				    (reverse pages))))
+
+(defun flush-umls-api-cache (&optional api-function)
+  (if api-function
+      (loop for key in (alexandria::hash-table-keys *umls-api-cache*)
+	    when (eq (car key) api-function)
+	      do (remhash key *umls-api-cache*))
+      (setq *umls-api-cache* (make-hash-table :test 'equalp))))
+  
 
 
 

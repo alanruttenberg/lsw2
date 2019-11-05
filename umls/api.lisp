@@ -68,9 +68,7 @@ pageSize	N	Whole number that specifies the number of results to include per page
     "Retrieve the source-asserted definitions for a known CUI.
 Note that ‘current’ in the URI can always be used to search against the latest UMLS publication.
 You may use any valid UMLS release back to 2008AA in your URI if you would like to search against a particular version of the UMLS."
-    "
-Parameter name	Required? Y/N	Description	Valid Values	Default value	Usage Note
-ticket	Y	A single-use service ticket is required for each call to the API. See authentication for more information	n/a	n/a	n/a
+    "ticket	Y	A single-use service ticket is required for each call to the API. See authentication for more information	n/a	n/a	n/a
 sabs	N	One or more source abbreviations	Any root source abbreviation in the UMLS	n/a	Use a comma between each source abbreviation to specify more than one.
 pageNumber	N	Whole number that specifies which page of results to fetch.	1,2,3, etc	1	n/a
 pageSize	N	Whole number that specifies the number of results to include per page.	1,2,3, etc	25	n/a"
