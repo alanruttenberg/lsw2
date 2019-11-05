@@ -145,52 +145,8 @@
 (defmethod builtin-predicate ((g logic-generator) pred)
   nil)
     
-(defmethod predicates ((g logic-generator) (a axiom))
-  (predicates g (axiom-sexp a)))
-
-(defmethod constants ((g logic-generator) (a axiom))
-  (constants g (axiom-sexp a)))
-
-(defmethod predicates ((g logic-generator) (exp list))
-  (let ((them nil)
-	(exp (axiom-sexp exp))) ;; so macroexpansion happens
-    (labels ((walk (form)
-	       (unless (atom form)
-		 (if (builtin-predicate g (car form))
-		     (map nil #'walk (rest form))
-		     (case (car form)
-		       ((:forall :exists) (map nil #'walk (cddr form)))
-		       ((:implies :iff :and :or :not := :fact :distinct) (map nil #'walk (rest form)))
-		       (otherwise 
-			(pushnew (list (intern (string (car form))) (1- (length form)))  them :test 'equalp)
-			(map nil #'walk (rest form))))))))
-      (walk exp)
-      them)))
-
-(defmethod constants ((g logic-generator) (exp list))
-  (let ((them nil)
-	(exp (axiom-sexp exp))) ;; so macroexpansion happens
-    (labels ((walk (form)
-	       (if (and (symbolp form) (not (char= (char (string form) 0) #\?))) 
-		   (pushnew (intern (string form)) them)
-		   (unless (atom form)
-		     (case (car form)
-		       ((builtin-predicate g (car form)) (map nil #'walk (rest form)))
-		       ((:forall :exists) (map nil #'walk (cddr form)))
-		       ((:implies :iff :and :or :not := :distinct) (map nil #'walk (rest form)))
-		       (otherwise (map nil #'walk (rest form))))))))
-      (walk exp)
-      them)))
-
 (defmethod render-axiom ((g logic-generator) (a axiom))
   (let ((*logic-generator* g))
-    ;; (print-db (axiom-sexp a))
-    ;; (multiple-value-bind (predicates constants functions variables) (formula-elements (axiom-sexp a))
-    ;;   (print-db predicates constants functions variables)
-    ;;   (let ((overloaded (intersection constants variables :test (lambda(a b) (string-equal a (subseq (string b) 1))))))
-    ;; 	(print-db overloaded)
-    ;; 	(when overloaded
-    ;; 	  (error "A variable and constant are named the same: ~a" overloaded))))
     (eval (axiom-generation-form a))))
 
 (defmethod render-axiom ((g logic-generator) (a list))
