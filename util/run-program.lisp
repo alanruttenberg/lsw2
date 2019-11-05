@@ -10,22 +10,28 @@
 (defun run-program-string->string (executable args &optional input &key wd)
   (let ((process (sys::run-program executable args :directory wd :input (if input :stream))))
     (push process *running-processes*)
+    (when (boundp '*active-job-slot*)
+      (push (list process executable args) (unix-processes (aref *jobs* *active-job-slot*))))
     (unwind-protect 
-     (progn
-       (when input
-	 (write-string input (sys::process-input process))
-	 (ignore-errors (close (sys::process-input process))))
-       (let ((output (with-output-to-string (s)
-                    (loop for line = (read-line (sys::process-output process) nil :eof)
-                          until (eq line :eof)
-                          do (write-line line s) ))))
-	 (let ((error (unless (eq (peek-char nil (sys::process-error process) nil :eof) :eof)
-			(with-output-to-string (s)
-			  (loop for line = (read-line (sys::process-error process) nil :eof)
-				until (eq line :eof)
-				do (write-line line s))))))
-	   (values output error))))
-     (setq *running-processes* (remove process *running-processes*)))))
+	 (progn
+	   (when input
+	     (write-string input (sys::process-input process))
+	     (ignore-errors (close (sys::process-input process))))
+	   (let ((output (with-output-to-string (s)
+			   (loop for line = (read-line (sys::process-output process) nil :eof)
+				 until (eq line :eof)
+				 do (write-line line s) ))))
+	     (let ((error 
+
+		     (catch 'caught
+		       (handler-bind ((sys::stream-error #'(lambda (c) (throw 'caught c))))
+			 (unless (member (peek-char nil (sys::process-error process) nil :eof) '(:eof #\Null) :test 'eql)
+			   (with-output-to-string (s)
+			     (loop for line = (read-line (sys::process-error process) nil :eof)
+				   until (eq line :eof)
+				   do (write-line line s))))))))
+	       (values output error))))
+      (setq *running-processes* (remove process *running-processes*)))))
 
 
 

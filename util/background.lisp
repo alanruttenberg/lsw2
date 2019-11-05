@@ -17,6 +17,7 @@
    (ended :accessor job-ended :initarg :ended :initform nil)
    (stdout :accessor job-stdout :initarg :stdout)
    (result :accessor job-result :initarg :result :initform :no-result)
+   (unix-processes :accessor unix-processes :initform nil)
    ))
 
 (defmethod print-object ((job job) stream)
@@ -33,12 +34,21 @@
 	(format nil "%~a finished in ~,2f seconds ~a -> ~a"
 		(1+ (job-slot job))
 		(/ (- (job-ended job) (job-started job)) 1000.0)
-		 (truncating-print (job-form job) 90)
+		 (truncating-print (without-package (job-form job)) 90)
 		 (truncating-print (job-result job) 30))
 	(format nil "%~a running ~,2f  seconds ~a" 
 		(1+ (job-slot job))
 		(/ (- (#"currentTimeMillis" 'system)  (job-started job)) 1000.0)
-		(truncating-print (job-form job) 90)))))
+		(truncating-print (without-package (job-form job)) 90)))))
+
+(defun without-package (form)
+  (if (and (consp form)
+	   (eq (car form) 'let)
+	   (consp (car (second form)))
+	   (eq (car (car (second form))) '*package*))
+      (third form)
+      form))
+	   
 
 (defvar *jobs* (make-array 10 :adjustable t))
 
@@ -47,6 +57,9 @@
 
 (unless lparallel:*kernel*
   (reset-workers))
+
+;; to pass to sys:run-program 
+(defvar *active-job-slot*)
 
 (defmacro & (form)
   (let ((job (make-symbol "JOB")))
@@ -69,7 +82,9 @@
 				   (list *package* *readtable*))))
 	 (setf (job-future ,job) 
 	       (lparallel:future (let ((done nil)
-				       (*debugger-hook* debugger-hook))
+				       (*debugger-hook* debugger-hook)
+				       (*active-job-slot* (job-slot ,job)))
+				   (declare (special *active-job-slot*))
 				   (progv maybe-swank-vars maybe-swank-vals
 				     (let ((result nil))
 				       (unwind-protect (multiple-value-prog1
@@ -79,7 +94,7 @@
 					 (setf (job-result ,job) result)
 					 (when done (format (job-stdout ,job) "~&~a~&" (status-line ,job)))
 					 (unless done (setf (aref *jobs* (job-slot ,job)) nil)))
-				     (values-list result)))))))
+				       (values-list result)))))))
 
        ,job))))
 
@@ -146,3 +161,17 @@
     (lparallel::pmapcar 'sleep (loop repeat howmany collect 0.25))
     (values (< (- (#"currentTimeMillis" 'System) start)  300) (- (#"currentTimeMillis" 'System) start))))
   
+(defun kill-all-running-processes ()
+  (loop for process in (copy-list cl-user::*running-processes*)
+	for jprocess = (sys::process-jprocess process)
+	unless (get-java-field jprocess "hasExited" t)
+	  do (#"destroy" jprocess)))
+
+(defmethod print-object ((p system::process) stream)
+  (print-unreadable-object (p stream :identity t)
+    (format stream "Unix process pid: ~a~a"
+	    (get-java-field (sys::process-jprocess p) "pid" t)
+	    (if (get-java-field (sys::process-jprocess p) "hasExited" t)
+		" Exited"
+		""))))
+		     

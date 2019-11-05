@@ -357,10 +357,10 @@
 	(exp (axiom-sexp sexp))) ;; so macroexpansion happens
     (labels ((uses-constant (sym) (pushnew sym constants))
 	     (uses-predicate (sym args) (pushnew (list sym (length args)) predicates :test 'equalp))
-	     (uses-function (sym) (pushnew sym functions))
+	     (uses-function (sym arity) (pushnew (list sym arity) functions :test 'equalp))
 	     (uses-variable (sym) (pushnew sym variables))
 	     (walk-function (form)
-	       (uses-function (car form))
+	       (uses-function (car form) (length (cdr form)))
 	       (walk-terms (cdr form)))
 	     (walk-terms (form)
 	       (loop for el in form
