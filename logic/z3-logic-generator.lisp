@@ -77,19 +77,25 @@
 (defmethod builtin-predicate ((g z3-logic-generator) pred)
   (member pred '(declare-datatypes + - < > * = <= >= ^)))
   
-(defmethod generate-declarations ((g z3-logic-generator) (a list) &key (include-constants t) (include-predicates t))
-  (let ((constants (remove-duplicates (apply 'append (mapcar (lambda(e) (constants g (axiom-sexp e))) a))))
-	(predicates (remove-duplicates (apply 'append (mapcar (lambda(e) (predicates g (axiom-sexp e))) a)) :test 'equalp)))
+
+(defmethod generate-declarations ((g z3-logic-generator) (a list) &key (include-constants t) (include-predicates t) (include-functions t))
+  (multiple-value-bind (predicates constants functions variables)
+      (formula-elements `(:and ,@(mapcar 'axiom-sexp a)))
     (apply 'concatenate 'string
 	   (append
 	    (and include-constants
 		 (loop for c in constants
 		       collect (to-string g `(declare-const ,(normalize-names g c) ,(domain-sort g)))))
-	    (and include-predicates
-		 (loop for p in predicates
+	    (and include-functions
+		 (loop for (f arity) in functions
 		       collect (to-string g
-					  `(declare-fun ,(normalize-names g (car p))
-							,(loop repeat (second p) collect (domain-sort g)) |Bool|))))))))
+					  `(declare-fun ,(normalize-names g f)
+							,(loop repeat arity collect (domain-sort g)) ,(domain-sort g)))))
+	    (and include-predicates
+		 (loop for (p arity) in (remove-duplicates predicates :test 'equalp :key (lambda(e) (string(car e))))
+		       collect (to-string g
+					  `(declare-fun ,(normalize-names g p)
+							,(loop repeat arity collect (domain-sort g)) |Bool|))))))))
 
   
 (defmethod render-axiom ((g z3-logic-generator) (a axiom))
