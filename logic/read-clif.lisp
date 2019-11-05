@@ -38,48 +38,6 @@ names don't consist of standard characters. TBD
   (intern form))
 
 
-(defun clif-form-to-lsw (form &optional (stylefn 'no-mangling-style))
-  (labels ((walk (form bindings)
-;	     (print-db form bindings)
-	     (let ((result 
-		     (if (atom form)
-			 (or (second (assoc form bindings :test 'equalp))
-			     (funcall stylefn form)
-			     )
-			   (if (and (consp form) (eq (car form) :literal))
-			       (second form)
-					;			       (error "Can't handle common logic 'wild-west' expression as predicate : ~a" head))
-			       (let ((name (car form)))
-				 (cond ((member name '("FORALL" "EXISTS") :test 'equalp)
-					(let ((vars (second form)))
-					  (assert (and (consp vars)
-						       (every 'stringp vars))
-						  () "Quantifier ~a expects a list of variables but got ~a" name (second form))
-					  (let ((renamed (loop for sym in vars
-							       if (char= (char sym 0) #\?)
-								 collect (list sym (intern (string-upcase (string sym))))
-							       else collect (list sym (intern (concatenate 'string "?" (string-upcase sym)))))))
-					    `(:forall ,(mapcar 'second renamed)
-					       ,@(mapcar (lambda(e) (walk e (append renamed bindings))) (cddr form))))))
-				       ((member name '("AND" "OR" "IFF" "IF" "NOT" "=") :test 'equalp)
-					`(,(if (equalp name "IF") :implies (intern (string-upcase name)  'keyword))
-					  ,@(mapcar (lambda(e) (walk e bindings)) (cdr form))))
-				       (t `( ,@(mapcar (lambda(e) (walk e bindings)) form)))))))))
-	       result
-	       ; (print-db result)
-	       )))
-    (walk form nil)))
-
-
-	  
-
-(defparameter *clif-punctuation* '(#\~ #\! #\# #\$ #\% #\^ #\& #\* #\_ #\+ #\{ #\} #\| #\: #\< #\> #\? #\` #\- #\= #\[ #\] #\; #\, #\. #\/))
-
-(defun clif-name-char-p (char)
-  (or (alpha-char-p char)
-      (digit-char-p char)
-      (member char *clif-punctuation* :test 'eql)))
-
 (defun starting-a-comment (stream)
   (when (eql (peek-char t stream nil :eof) #\/)
     (read-char stream)
@@ -101,6 +59,83 @@ names don't consist of standard characters. TBD
 			      (eql (peek-char nil stream nil :eof) #\/)
 			      (read-char stream )
 			      ))))))
+
+(defun de-comment-formula (lsw-form)
+  (cond ((atom lsw-form)
+	 lsw-form)
+	((consp lsw-form)
+	 (if (eq (car lsw-form) :comment)
+	     (de-comment (third lsw-form))
+	     (mapcar 'de-comment lsw-form)
+	     ))))
+
+(defun maybe-comment-inner (form)
+  (if (and (consp form)
+	   (equalp (car form) "cl:comment")
+	   (null (assert (eq (car (second form)) :literal) () "Literal needs to follow cl:comment, instead got ~a" (second form)))
+	   (null (assert (= (length form) 3) () "Comment has to have 3 elements, got: ~s" form)))
+      (let ((inner (third form)))
+	(if (or (atom inner) (and (consp inner) (not (equalp (car inner) "cl:comment"))))
+	  inner
+	  (maybe-comment-inner inner)))
+      form))
+
+(defun maybe-rewrap-comment (initial rewritten-inner)
+  (if (and (consp initial)
+	   (equalp (car initial) "cl:comment"))
+      `(:comment ,(second (second initial)) ,(maybe-rewrap-comment (third initial) rewritten-inner))
+      rewritten-inner))
+
+(defun clif-form-to-lsw (form &key (stylefn 'no-mangling-style) (keep-comments nil))
+  (labels ((walk (form bindings)
+;	     (print-db form bindings)
+	     (let ((result 
+		     (if (atom form)
+			 (or (second (assoc form bindings :test 'equalp))
+			     (funcall stylefn form)
+			     )
+			 (if (and (consp form) (eq (car form) :literal))
+			     (second form)
+					;			       (error "Can't handle common logic 'wild-west' expression as predicate : ~a" head))
+			     (if (and (consp form) 
+				      (equalp (car form) "cl:comment"))
+				 `(:comment ,(walk (second form) bindings) ,(walk (third form) bindings))
+				 (let ((name (car form)))
+				   (cond ((member name '("FORALL" "EXISTS") :test 'equalp)
+					  (let ((vars (mapcar 'maybe-comment-inner (second form))))
+					    (assert (and (consp vars)
+							 (every 'stringp vars))
+						    () "Quantifier ~a expects a list of variables but got ~a" name (second form))
+					    (let ((renamed (loop for maybe-comment-sym in (Second form)
+								 for sym = (maybe-comment-inner maybe-comment-sym)
+								 if (char= (char sym 0) #\?)
+								   collect (list sym (intern (string-upcase (string sym))))
+								 else collect (list sym 
+										    (maybe-rewrap-comment maybe-comment-sym 
+												      (intern (concatenate 'string "?" (string-upcase sym))))))))
+					      `(:forall ,(mapcar 'second renamed)
+						 ,@(mapcar (lambda(e) (walk e (append renamed bindings))) (cddr form))))))
+					 ((member (maybe-comment-inner name) '("AND" "OR" "IFF" "IF" "NOT" "=") :test 'equalp)
+					  (let ((maybe-wrapped-name (maybe-comment-inner name)))
+					    (maybe-rewrap-comment maybe-wrapped-name 
+							      `(,(maybe-rewrap-comment name  (if (equalp maybe-wrapped-name "IF") :implies (intern (string-upcase maybe-wrapped-name)  'keyword)))
+								,@(mapcar (lambda(e) (walk e bindings)) (cdr form))))))
+					 (t `( ,@(mapcar (lambda(e) (walk e bindings)) form))))))))))
+	       result
+	       ; (print-db result)
+	       )))
+    (if keep-comments
+	(walk form nil)
+	(de-comment (walk form nil)))))
+
+(defparameter *clif-punctuation* '(#\~ #\! #\# #\$ #\% #\^ #\& #\* #\_ #\+ #\{ #\} #\| #\: #\< #\> #\? #\` #\- #\= #\[ #\] #\; #\, #\. #\/))
+
+(defun clif-name-char-p (char)
+  (or (alpha-char-p char)
+      (digit-char-p char)
+      (member char *clif-punctuation* :test 'eql)))
+
+
 	   
 (defun read-clif-name (stream char)
 ;  (print-db (peek-char nil stream))
@@ -267,26 +302,11 @@ names don't consist of standard characters. TBD
 		   "input: ~s, expected: ~s, got:~s" string result read)))
 
 
-(defvar *check-clif-last-args* nil)
+(defun test-comment-syntax ()
+  (read-clif-form "(cl:comment 'a|b' (forall (x) (f x)))"))
+  
 
-(defun check-clif (&optional path &rest args &key print-clif print-lsw)
-  (if (and (null path) *check-clif-last-args*)
-      (apply 'check-clif *check-clif-last-args*)
-      (if (not (probe-file path))
-	  (format t "Didn't find the file ~a" path)
-	  (progn
-	    (setq *check-clif-last-args* (list* path args))
-	    (with-open-file (f path)
-	      (loop for form = (read-clif-form f t :eof)
-		    for count from 1
-		    until (eq form :eof)
-		    when print-lsw
-		      do (pprint (clif-form-to-lsw form 'dl-demangle-style))
-		    when print-clif
-		      do (pprint form)
-		    finally 
-		      (format t  "Read ~a CLIF formulas without errors" count)
-	      ))))))
+(defvar *check-clif-last-args* nil)
 
 ;;(test-read-clif)
 
@@ -303,7 +323,7 @@ names don't consist of standard characters. TBD
 	      (loop for start = (file-position f)
 		    with separator = (concatenate 'string "****************************************************************" (string #\newline))
 		    for (clif clif-errorp abort) = (multiple-value-list (ignore-errors (read-clif-form f nil :eof nil)))
-		    for (lsw lsw-errorp) = (and (not clif-errorp) (multiple-value-list (ignore-errors (validate-formula-well-formed (clif-form-to-lsw clif 'dl-demangle-style)))))
+		    for (lsw lsw-errorp) = (and (not clif-errorp) (multiple-value-list (ignore-errors (validate-formula-well-formed (clif-form-to-lsw clif  :stylefn 'dl-demangle-style)))))
 		    for end = (file-position f)
 		    with count = 0
 		    until (or abort (eq clif :eof))
