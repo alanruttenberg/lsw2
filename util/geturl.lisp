@@ -17,10 +17,14 @@
 
 (defvar *http-stream* nil)
 
+(defvar *trace-geturl* nil)
+(defvar *default-ignore-errors* nil)
+
 (defun get-url (url &key post (force-refetch  post) (dont-cache post) (to-file nil) (persist (and (not post) (not to-file))) cookiestring nofetch verbose tunnel referer (follow-redirects t) when-done  
-		      (ignore-errors nil) head accept  extra-headers (appropriate-response (lambda(res) (and (numberp res) (>= res 200) (< res 400)))) (verb "GET")
+		      (ignore-errors *default-ignore-errors*)  head accept  extra-headers (appropriate-response (lambda(res) (and (numberp res) (>= res 200) (< res 400)))) (verb "GET")
 		&aux it done)
     (declare (special *http-stream))
+  (when *trace-geturl* (format t "Getting ~s~%" url))
     (unwind-protect
 	 (progn 
 	   (setq it (threads:make-thread 
