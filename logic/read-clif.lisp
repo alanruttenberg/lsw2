@@ -65,8 +65,8 @@ names don't consist of standard characters. TBD
 	 lsw-form)
 	((consp lsw-form)
 	 (if (eq (car lsw-form) :comment)
-	     (de-comment (third lsw-form))
-	     (mapcar 'de-comment lsw-form)
+	     (de-comment-formula (third lsw-form))
+	     (mapcar 'de-comment-formula lsw-form)
 	     ))))
 
 (defun maybe-comment-inner (form)
@@ -126,7 +126,7 @@ names don't consist of standard characters. TBD
 	       )))
     (if keep-comments
 	(walk form nil)
-	(de-comment (walk form nil)))))
+	(de-comment-formula (walk form nil)))))
 
 (defparameter *clif-punctuation* '(#\~ #\! #\# #\$ #\% #\^ #\& #\* #\_ #\+ #\{ #\} #\| #\: #\< #\> #\? #\` #\- #\= #\[ #\] #\; #\, #\. #\/))
 
