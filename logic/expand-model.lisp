@@ -428,36 +428,6 @@
 		      (return (list* label head new-body)))))
   )
 
-;; Currently using the old code from winston ai, but might switch to prolog.
-;; Those rules use the syntax (? v) for my ?v
-;; This function rewrites the latter to the former
-(defun rewrite-variables-for-forward-chainer (form)
-  (substitute '= := (cl-user::tree-replace (lambda(e) 
-				    (if (and (symbolp e) (eq (char (string e) 0) #\?) )
-					`(? ,(intern (subseq (string e) 1)))
-					e))
-				  form)))
-
-;; Forward chain the rules starting with assertions and return the resultant list of asserted and inferred propositions
-(defun winston-forward-chain-rules (rules assertions) 
-  (setq *rules* (make-empty-stream) 
-	*assertions* (make-empty-stream))  
-  (loop for ass in assertions
-	do (remember-assertion ass))
-  ;; some of our rules have equality in the antecedents - add an explicit (= x x ) for every ground symbol in the assertions.
-  (loop for const in (second (multiple-value-list (formula-elements `(:and ,assertions))))
-	do
-	   (remember-assertion  `(= ,const ,const)))
-  ;; reformat the rules so that Winston's code likes it. The format is: (label antecedent antecedent .. consequent)
-  (loop for (label (nil (nil . ants) cons)) in rules
-	do (remember-rule `(,label ,@(mapcar 'rewrite-variables-for-forward-chainer ants) ,(rewrite-variables-for-forward-chainer cons))))
-  (forward-chain)
-  (loop for el = *assertions* then (funcall (second el))
-	until (symbolp el)
-	unless (eq (caar el) '=)
-	  collect (car el)))
-
-
 (defun graal-forward-chain-rules (rules assertions)
   (let ((kb (make-instance 'graal-kb)))
     (set-rules kb rules)
