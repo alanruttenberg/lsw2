@@ -15,7 +15,7 @@ single quoted literals are coded `(:literal <the string>)
 Takes a form read by read-clif-form and translates to LSW
 Tries to be studly about case - all lower case -> upper case, otherwise de-camelcase
 
-There will have to be mangling of names in order to pass stuff to the reasoner, if
+1There will have to be mangling of names in order to pass stuff to the reasoner, if
 names don't consist of standard characters. TBD
 |#
 
@@ -138,7 +138,6 @@ names don't consist of standard characters. TBD
 
 	   
 (defun read-clif-name (stream char)
-;  (print-db (peek-char nil stream))
   (let ((result 
 	  (if (not (clif-name-char-p (peek-char nil stream)))
 	      (string char)
@@ -151,7 +150,9 @@ names don't consist of standard characters. TBD
 							 (not (clif-name-char-p next)))
 					       collect (read-char stream))
 					 nil)) 'string)))))
-    (if (#"matches" result "//.*")
+    (if (or (#"matches" result "//.*")
+	    (and (equal result "/")
+		 (peek-char nil stream t )))
 	(progn
 	  (read-line stream)
 	  (read stream))     
@@ -239,7 +240,6 @@ names don't consist of standard characters. TBD
 	  (read-char stream )
 	  (cond ((eql (peek-char nil stream eof-errorp eof-value) #\/) ;; // ignore rest of line
 		 (progn
-		   (print 'here)
 		   (read-line stream eof-errorp eof-value)
 		   (return-from read-clif-form (read-clif-form stream eof-errorp eof-value))))
 		((eql (peek-char nil stream eof-errorp eof-value) #\*)
