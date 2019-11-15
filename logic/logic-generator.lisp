@@ -7,6 +7,7 @@
    (ternary-inverses :accessor ternary-inverses :initarg :ternary-inverses :initform nil)
    (rewrite-inverses? :accessor rewrite-inverses? :initarg :rewrite-inverses? :initform t)
    (with-names :initarg :with-names)
+   (mangled-labels :accessor mangled-labels :initarg :mangled-labels :initform nil)
    ))
 
 (defgeneric logical-forall ((g logic-generator) vars expressions))
@@ -17,6 +18,7 @@
 (defgeneric logical-iff ((g logic-generator) antecedent consequent))
 (defgeneric logical-not ((g logic-generator) expression))
 (defgeneric logical-= ((g logic-generator) a b))
+(defgeneric logical-neq ((g logic-generator) a b))
 (defgeneric logical-holds ((g logic-generator) &rest args))
 (defgeneric logical-class ((g logic-generator) class el))
 (defgeneric logical-relation ((g logic-generator) head &rest args))
@@ -54,6 +56,7 @@
 (defmethod logical-iff ((g logic-generator) antecedent consequent) `(:iff ,antecedent ,consequent))
 (defmethod logical-not ((g logic-generator) expression) `(:not ,expression))
 (defmethod logical-= ((g logic-generator) a b) `(:= ,a ,b))
+(defmethod logical-neq ((g logic-generator) a b) `(:not (:= ,a ,b)))
 (defmethod logical-holds ((g logic-generator) &rest args) `(:holds ,@args))
 (defmethod logical-fact ((g logic-generator) fact) fact)
 (defmethod logical-distinct ((g logic-generator) &rest els)
@@ -130,6 +133,9 @@
 (defun l-= (a b)
   (logical-= *logic-generator* a b))
 
+(defun l-neq (a b)
+  (logical-neq *logic-generator* a b))
+
 (defun l-fact (a)
   (logical-fact *logic-generator* a))
 
@@ -140,7 +146,7 @@
   (logical-parens *logic-generator* expression))
 
 (defun formula-sexp-p (it)
-  (and (consp it) (member (car it) '(:implies :forall :exists :and :or :iff :not := :fact := :owl :expand :distinct))))
+  (and (consp it) (find (car it) *operators* :key 'car)))
 
 (defmethod builtin-predicate ((g logic-generator) pred)
   nil)
@@ -171,7 +177,9 @@
 (defmethod render-axioms ((g symbol) axs)
   (render-axioms (make-instance g) axs))
 
-(defun render (which assumptions &optional goals &key path at-beginning at-end sort (with-names t))
+(defun render (which assumptions &optional goals &key path at-beginning at-end sort (with-names t) princ)
+  (when (eq goals :princ)
+    (setq goals nil princ t))
   (let ((generator-class
 	  (ecase which
 	    (:z3 'z3-logic-generator)
@@ -214,4 +222,8 @@
 	(with-open-file (f path :direction :output :if-does-not-exist :create :if-exists :supersede)
 	  (progn
 	    (write-string (doit) f) (truename path)))
-	(doit)))))
+	(if princ
+	    (progn (princ (doit))
+		   (values))
+	    (doit)
+	    )))))

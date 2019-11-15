@@ -2,6 +2,12 @@
 
 (defvar *axioms* (make-hash-table))
 
+(defvar *operators* '((:distinct l-distinct) (:implies l-implies) (:iff l-iff) (:and l-and) (:or l-or) (:forall l-forall) (:exists l-exists) (:not= l-neq)
+		      (:not l-not) (:= l-=) (:fact l-fact) (:owl l-owl) (:parens l-parens) (:not= l-neq )))
+
+(defun operator? (x)
+  (find x *operators* :key 'car))
+
 (defun clear-axioms ()
   (clrhash *axioms*))
 
@@ -187,7 +193,7 @@
 
 (defun collect-axiom-names-from-spec (specs &optional (error-if-not-found t))
   (loop for a in (collect-axioms-from-spec specs error-if-not-found)
-	if (typep a 'axiom) collect (axiom-name a) else collect a))
+	if (typep a 'axiom) collect (keywordify (axiom-name a)) else collect a))
 
 (defun get-axiom-key-value (axiom key)
   (second (assoc key (axiom-plist (if (typep axiom 'axiom) axiom (get-axiom axiom))))))
@@ -209,9 +215,13 @@
   (loop for el in  (set-difference (collect-axioms-from-spec spec1 ) (collect-axioms-from-spec spec2 ))
 	if (typep el 'axiom) collect (axiom-name el) else collect el))
 
+(defun spec-intersection (spec1 spec2)
+  (loop for el in  (intersection (collect-axioms-from-spec spec1 ) (collect-axioms-from-spec spec2 ))
+	if (typep el 'axiom) collect (axiom-name el) else collect el))
+
 (defun rewrite-to-axiom-generation-form (form)
-  (let ((keys '((:distinct l-distinct) (:implies l-implies) (:iff l-iff) (:and l-and) (:or l-or) (:forall l-forall) (:exists l-exists)
-		(:not l-not) (:= l-=) (:fact l-fact) (:owl l-owl) (:parens l-parens))))
+  (let ((keys '((:distinct l-distinct) (:implies l-implies) (:iff l-iff) (:and l-and) (:or l-or) (:forall l-forall) (:exists l-exists) (:not= l-neq)
+		(:not l-not) (:= l-=) (:fact l-fact) (:owl l-owl) (:parens l-parens) )))
     (labels ((rewrite (expression)
 	       (cond ((and (consp expression) (member (car expression) keys :key 'car))
 		      `(,(second (assoc (car expression) keys))
@@ -275,10 +285,6 @@
 (defmethod negate-axiom ((a axiom))
   (make-instance 'axiom 
 		 :sexp `(:not ,(axiom-sexp a))
-
-
-
-
 		 :name (intern (concatenate 'string "NEGATED-" (string (axiom-name a))) 'keyword)
 		 :description (concatenate 'string "(negated) " (axiom-description a))
 		 :from a))
@@ -291,12 +297,12 @@
   (apply 'pprint-spec-axioms spec 
 	 :only-name t :with-colons nil args))
 
-(defun pprint-spec-axioms (spec &key only-name (plist nil) with-colons (allow-missing t) categories &allow-other-keys)
+(defun pprint-spec-axioms (spec &key only-name (plist nil) (with-colons t) (allow-missing t) categories &allow-other-keys)
   (let ((*print-case* :downcase))
     (map nil (lambda(e)
 	       (if (formula-sexp-p e)
 		   (format t "unnamed")
-		   (format t "~%** ~a~a " (axiom-name e) (if with-colons ":" "")))
+		   (format t "~%** ~a~a " (if with-colons ":" "") (axiom-name e)))
 	       (when plist
 		 (if (formula-sexp-p e)
 		     nil
@@ -336,6 +342,36 @@
 (defun spec-elements (spec)
   (formula-elements `(:and ,@(mapcar 'axiom-sexp (collect-axioms-from-spec spec)))))
 
+;; print a little report comparing the axioms in two specs
+(defun compare-specs (spec1 spec2)
+  (flet ((stats-for (axs desc)
+	   (format t "~a formulas in common ~%" (length axs))
+	   (multiple-value-bind (predicates constants functions variables) (spec-elements axs)
+	     (format t "~a predicates, ~a classes, ~a functions~a~%"
+		     (length predicates) (length constants) (length functions) desc)
+	   (list predicates constants functions)))
+	 (list-differences (them description)
+	   (format t "~&~%**~a~%"  description)
+	   (map nil 'print them)))
+  (let ((spec1s (collect-axiom-names-from-spec spec1))
+	(spec2s (collect-axiom-names-from-spec spec2)))
+    (stats-for (intersection spec1s spec2s) " in common")
+    (let ((elements1 (stats-for (set-difference spec1s spec2s) " only in first"))
+	  (elements2 (stats-for (set-difference spec2s spec1s) " only in second")))
+      (list-differences (set-difference spec1s spec2s) "Formulas only in first ")
+      (list-differences (set-difference spec2s spec1s) "Formulas only in second")
+      (mapcar (lambda(diff what)
+		(if diff (list-differences diff what)))
+	      (mapcar (lambda(a b) (set-difference a b  :test 'equalp)) elements1 elements2)
+	      '("Predicates only in first" "Constants only in first" "Functions only in first"))
+      (mapcar (lambda(diff what)
+		(if diff (list-differences diff what)))
+	      (mapcar (lambda(a b) (set-difference a b  :test 'equalp)) elements2 elements1)
+	      '("Predicates only in second" "Constants only in second" "Functions only in second"))
+    
+    ))))
+
+
 ;; return predicates, constants, function symbols in formula
 (defun formula-elements (sexp)
   ;; expecting an sexp but accept a spec.
@@ -346,7 +382,7 @@
   ;;  2) the first element is an axiom
   ;;  3) The first element is a list
   (when (or (and (keywordp (car sexp))
-		 (not (member (car sexp) '(:forall :exists :and :or :iff :implies := :not))))
+		 (not (member (car sexp) '(:forall :exists :and :or :iff :implies := :not :not=))))
 	    (consp (car sexp))
 	    (typep (car sexp) 'axiom))
     (setq sexp `(:and ,@(mapcar 'axiom-sexp (collect-axioms-from-spec sexp)))))
@@ -384,7 +420,7 @@
 			  ((:axiom) (walk (axiom-sexp (get-axiom (second form)))))
 			  ((:implies :iff :and :or :not  :fact) 
 			   (map nil #'walk (rest form)))
-			  ((:distinct :=) (walk-terms (rest form)))
+			  ((:distinct := :not=) (walk-terms (rest form)))
 			  (otherwise
 			   (uses-predicate (car form) (Rest form))
 			   (walk-terms (rest form))))))))
@@ -534,7 +570,7 @@
 			    ((:forall :exists)
 			     (setq explain "quanitified variables need to start with '?'")
 			     (and (consp (second e)) (every 'logic-var-p (second e))))
-			    ((:implies :=) 
+			    ((:implies := :not= :iff) 
 			     (setq explain ":if, :iff, and := should have 2 arguments")
 			     (= (length (cdr e)) 2)
 			     )
