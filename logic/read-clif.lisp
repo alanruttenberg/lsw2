@@ -88,7 +88,6 @@ names don't consist of standard characters. TBD
 
 (defun clif-form-to-lsw (form &key (stylefn 'no-mangling-style) (keep-comments nil))
   (labels ((walk (form bindings)
-;	     (print-db form bindings)
 	     (let ((result 
 		     (if (atom form)
 			 (or (second (assoc form bindings :test 'equalp))
@@ -96,7 +95,6 @@ names don't consist of standard characters. TBD
 			     )
 			 (if (and (consp form) (eq (car form) :literal))
 			     (second form)
-					;			       (error "Can't handle common logic 'wild-west' expression as predicate : ~a" head))
 			     (if (and (consp form) 
 				      (equalp (car form) "cl:comment"))
 				 `(:comment ,(walk (second form) bindings) ,(walk (third form) bindings))
@@ -122,7 +120,6 @@ names don't consist of standard characters. TBD
 								,@(mapcar (lambda(e) (walk e bindings)) (cdr form))))))
 					 (t `( ,@(mapcar (lambda(e) (walk e bindings)) form))))))))))
 	       result
-	       ; (print-db result)
 	       )))
     (if keep-comments
 	(walk form nil)
@@ -134,8 +131,6 @@ names don't consist of standard characters. TBD
   (or (alpha-char-p char)
       (digit-char-p char)
       (member char *clif-punctuation* :test 'eql)))
-
-
 	   
 (defun read-clif-name (stream char)
   (let ((result 
