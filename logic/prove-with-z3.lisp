@@ -135,7 +135,7 @@
 	(setq input (concatenate 'string input "(get-unsat-core)")))
     (when expected-proof
       (setf (prover-unsat-explanation expected-proof) answer)
-      (setf (prover-input expected-proof) answer)
+      (setf (prover-input expected-proof) input)
       (setf (prover-output expected-proof) answer))
     (if (#"matches" answer "(?s)^unsat.*")
 	(let ((names (mapcar 'car (all-matches (subseq answer 6)  "([A-Za-z.+-]+)" 1))))
