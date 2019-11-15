@@ -1,3 +1,4 @@
+(in-package :cl-user)
 (setq *rules* nil)
 
 (defun add-rule (pattern action)
