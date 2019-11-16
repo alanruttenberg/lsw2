@@ -1,7 +1,8 @@
 (in-package :logic)
 
 (defclass fol-text-logic-generator (fol-logic-generator) 
-  ((use-camel :accessor use-camel :initform t :initarg :use-camel)))
+  ((use-camel :accessor use-camel :initform t :initarg :use-camel)
+   (no-spaces :accessor no-spaces :initform nil :initarg :no-spaces)))
 
 ;; renders as a string, based on fol-logic-generator tokens
 
@@ -12,8 +13,8 @@
 	       ((∀ ∃) (format s "~a" el))
 	       (([ {) (write-char #\( s))
 	       ((] }) (write-char #\) s))
-	       (_ (write-char #\space s))
-	       ((∧ ∨ → ↔) (format s " ~a " el))
+	       (_ (unless (no-spaces g) (write-char #\space s)))
+	       ((∧ ∨ → ↔) (if (no-spaces g) (format s "~a" el s) (format s " ~a " el)))
 	       (t (format s "~a" (if (use-camel g)
 				     (cl-user::camelcase (string el))
 				     (string-downcase (string el))

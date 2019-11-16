@@ -291,18 +291,32 @@
 
 (defmethod pprint-spec-axiom-names (spec &rest args &key  &allow-other-keys)
   (apply 'pprint-spec-axioms spec 
-	 :only-name t :with-colons nil args))
+	 :only-name t  args))
 
 (defmethod pprint-spec-axiom-names-categorized (spec categories &rest args &key  &allow-other-keys)
   (apply 'pprint-spec-axioms spec 
-	 :only-name t :with-colons nil args))
+	 :only-name t args))
 
-(defun pprint-spec-axioms (spec &key only-name (plist nil) (with-colons t) (allow-missing t) categories &allow-other-keys)
-  (let ((*print-case* :downcase))
+;; http://3e8.org/pub/scheme/doc/lisp-pointers/v5i2/p27-waters.pdf
+;; Make a pprint dispatch table that print prints symbols without packages (like ~a) except for keywords.
+
+(defvar *formula-pprint-dispatch* (copy-pprint-dispatch))
+
+(eval-when (:load-toplevel :execute)
+  (set-pprint-dispatch 'symbol
+		       #'(lambda (s id)
+			   (if (keywordp id) (write-char #\: s))
+			   (write-string (string-downcase (string id)) s))
+		       0 *formula-pprint-dispatch*))
+
+(defun pprint-spec-axioms (spec &key only-name (plist nil) (allow-missing t) (as-text nil) categories &allow-other-keys)
+  (let ((*print-case* :downcase)
+	(*print-pprint-dispatch* *formula-pprint-dispatch*)
+	(xp::*pprint-indentation-advance* 2)) ;; depends on util/control-pprint-indentation.lisp. Each indent is 2 instead of built-in  1
     (map nil (lambda(e)
 	       (if (formula-sexp-p e)
 		   (format t "unnamed")
-		   (format t "~%** ~a~a " (if with-colons ":" "") (axiom-name e)))
+		   (format t "~%** ~s " (keywordify (axiom-name e))))
 	       (when plist
 		 (if (formula-sexp-p e)
 		     nil
@@ -311,15 +325,26 @@
 				    (not (consp plist)))
 			     do (format t "~a:~a" k v) (when more (format t ", ")))))
 	       (unless only-name
-	       (terpri)
-	       (let ((*print-pretty* t))
-		 (if with-colons
-		     (format t "~%~s" (axiom-sexp e))
-		     (format t "~%~a" (axiom-sexp e))))
-	       (terpri)))
-	 (sort (logic::collect-axioms-from-spec (if (symbolp spec) (list spec) spec) (not allow-missing))
+		 (terpri)
+		 (if as-text
+		     (render :fol-text (list e))
+		     (let ((*print-pretty* t))
+		       (format t "~%~s" (axiom-sexp e))))
+		 (terpri)))
+	 (sort (collect-axioms-from-spec (if (symbolp spec) (list spec) spec) (not allow-missing))
 	       'string-lessp :key 'prin1-to-string)
 	 )))
+
+(defun pps (spec &rest args &key only-name (plist nil) (allow-missing t) categories &allow-other-keys)
+  (declare (ignore only-name plist allow-missing categories))
+  (if (formula-sexp-p spec)
+      (let ((*print-pprint-dispatch* *formula-pprint-dispatch*)
+	    (xp::*pprint-indentation-advance* 2))
+	(pprint spec))
+      (apply 'pprint-spec-axioms spec args)))
+
+(defun ppsn (spec &rest args)
+  (apply 'pprint-spec-axiom-names spec args))
 
 (defparameter *autonamed-axioms* (make-hash-table :test 'equalp :weakness :key))
 (defvar *axiom-counter* 0)

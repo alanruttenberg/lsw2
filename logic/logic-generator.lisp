@@ -189,6 +189,7 @@
 	    (:clif 'clif-logic-generator)
 	    (:dol 'dol-logic-generator)
 	    (:lsw 'logic-generator)
+	    (:fol-text 'fol-text-logic-generator)
 	    ))
 	(*print-case* :downcase))
     (flet ((doit ()
@@ -200,23 +201,25 @@
 	       (when (eq sort :label)
 		   (setq axioms (sort axioms 'cl-user::number-aware-string-lessp :key (cl-user::compose 'string 'axiom-name))))
 	       (values
-		(if (eq which :dol)
-		    (render-ontology
-		     (setq generator (make-instance generator-class :with-names with-names))
-		     "Anonymous" axioms)
-		    (if (eq which :lsw)
-			(with-output-to-string (s) (pprint (render-axioms (make-instance generator-class) axioms) s))
-		    (concatenate
-		     'string
-		     (or (and at-beginning (format nil "~a~%" at-beginning)) "")
-		     (if (eq which :vampire)
-			 (let ((g (setq generator (make-instance generator-class   :with-names with-names))))
-			   (values (render-axioms g axioms) g))
-			 (if (eq which :z3)
-			     (let ((g (setq generator (make-instance generator-class  :with-names with-names ))))
-			       (render-axioms g axioms ))
-			     (render-axioms (setq generator (make-instance generator-class  :with-names with-names )) axioms )))
-		     (or (and at-end (format nil "~a~%" at-end))  ""))))
+		(if (eq which :fol-text)
+		     (render-axioms (make-instance generator-class) axioms )
+		    (if (eq which :dol)
+			(render-ontology
+			 (setq generator (make-instance generator-class :with-names with-names))
+			 "Anonymous" axioms)
+			(if (eq which :lsw)
+			    (with-output-to-string (s) (pprint (render-axioms (make-instance generator-class) axioms) s))
+			    (concatenate
+			     'string
+			     (or (and at-beginning (format nil "~a~%" at-beginning)) "")
+			     (if (eq which :vampire)
+				 (let ((g (setq generator (make-instance generator-class   :with-names with-names))))
+				   (values (render-axioms g axioms) g))
+				 (if (eq which :z3)
+				     (let ((g (setq generator (make-instance generator-class  :with-names with-names ))))
+				       (render-axioms g axioms ))
+				     (render-axioms (setq generator (make-instance generator-class  :with-names with-names )) axioms )))
+			     (or (and at-end (format nil "~a~%" at-end))  "")))))
 		generator))))
       (if path
 	(with-open-file (f path :direction :output :if-does-not-exist :create :if-exists :supersede)
