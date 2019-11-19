@@ -472,7 +472,7 @@
 			       until (null next)
 			       if (and (consp next)
 				       (eq (car next) type))
-				 do (setq queue (append queue (cdr next)))
+				 do (setq queue (append (cdr next) queue))
 			       else  collect (simplify-and-or next) into conjuncts
 			       finally (return `(,type ,@conjuncts))))
 		       e)))
