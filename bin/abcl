@@ -167,6 +167,7 @@ then
     args=("-server" ${args[@]})
 fi
 
+args=("-Dfile.encoding=UTF-8" ${args[@]})
 echo "java -version says: $versionwhole"
 #echo "lisp args: ${lisp[@]}"
 
