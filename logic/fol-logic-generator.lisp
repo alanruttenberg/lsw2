@@ -8,11 +8,11 @@
 (defclass fol-logic-generator (logic-generator) ())
 
 ;; helper to recognize :not=
-(defun equals-inside-not (expression)
-  (and (consp expression)
-       (eq (car expression) :not)
-       (consp (second expression))
-       (eq (car (second expression)) :=)))
+(defmacro equals-inside-not (expression)
+  `(and (consp ,expression)
+       (eq (car ,expression) :not)
+       (consp (second ,expression))
+       (eq (car (second ,expression)) :=)))
 
 ;; An expression is singular if it doesn't have to be parenthesized in a conjunction.
 (defmethod expression-singular ((g fol-logic-generator) exp)
@@ -34,7 +34,7 @@
   (if (expression-singular g exp)
       exp
       `(:parens ,exp)))
-    
+
 ;; rewrite-form-adding-parentheses-as-necessary
 ;; ____________________________________________
 
@@ -89,61 +89,67 @@
 
 		     
 (defmethod rewrite-form-adding-parentheses-as-necessary ((g fol-logic-generator) expression)
-  (if (not (formula-sexp-p expression)) ;; leave relationships alone 
-      expression
-      (let ((op (car expression)))
-	(cond 
-	  ;; rewrite "(:not (:= a b)" -> "(:not= a b)" 
-	  ((equals-inside-not expression)
-	   `(:not= ,@(cdr (second expression))))
+  (setq expression (simplify-and-or expression))
+  (labels ((rewrite (expression)
+	     (if (not (formula-sexp-p expression)) ;; leave relationships alone 
+		 expression
+		 (let ((op (car expression)))
+		   (cond 
+		     ;; rewrite "(:not (:= a b)" -> "(:not= a b)" 
+		     ((equals-inside-not expression)
+		      `(:not= ,@(cdr (second expression))))
 
-	  ;; not applies to as little as possible, so unless it's a relational expression, parenthesize	
-	  ((eq op :not)
-	   ;; We always rewrite the inner form before checking whether singular 
-	   (let ((inner (rewrite-form-adding-parentheses-as-necessary g (second expression))))
-	     `(:not ,(parenthesize-unless-singular g inner))
-	     ))
+		     ;; not applies to as little as possible, so unless it's a relational expression, parenthesize	
+		     ((eq op :not)
+		      ;; We always rewrite the inner form before checking whether singular 
+		      (let ((inner (rewrite (second expression))))
+			`(:not ,(parenthesize-unless-singular g inner))
+			))
 		 
-	  ;; :exists and :forall  apply to as little as possible, like :not 
-	  ;; So if the body isn't singular it needs to be parenthesized 
-	  ((member op '(:forall :exists))
-	   (let ((inner (rewrite-form-adding-parentheses-as-necessary g (third expression))))
-	     (if (expression-singular g inner)
-		 `(,(car expression) ,(second expression) ,inner)
-		 `(,(car expression) ,(second expression) (:parens ,inner)))))
+		     ;; :exists and :forall  apply to as little as possible, like :not 
+		     ;; So if the body isn't singular it needs to be parenthesized 
+		     ((member op '(:forall :exists))
+		      (let ((inner (rewrite (third expression))))
+			(if (expression-singular g inner)
+			    `(,(car expression) ,(second expression) ,inner)
+			    `(,(car expression) ,(second expression) (:parens ,inner)))))
 
-	  ;; For :implies and :iff, if the consequent is another implication then wrap it in
-	  ;; "gratuitous" parens, even though according to rule 4 it doesn't need it.
-	  ;; Hard for me to read, otherwise
-	  ((member op '(:implies :iff))
-	   (let ((raw
-		   `(,(car expression)
-		     ,(rewrite-form-adding-parentheses-as-necessary g (second expression))
-		     ,(rewrite-form-adding-parentheses-as-necessary g (third expression)))))
-	     (if (member (car (third expression)) '(:iff :implies))
-		 raw
-		 `(:parens, raw))))
+		     ;; For :implies and :iff, if the consequent is another implication then wrap it in
+		     ;; "gratuitous" parens, even though according to rule 4 it doesn't need it.
+		     ;; Hard for me to read, otherwise
+		     ((member op '(:implies :iff))
+		      (let ((raw
+			      `(,(car expression)
+				,(rewrite (second expression))
+				,(rewrite (third expression)))))
+			(if (member (car (third expression)) '(:iff :implies))
+			    raw
+			    `(:parens, raw))))
 
-	  ;; in a conjunctiion, parenthesize anything not singular (definition of singular) 
-	  ((member op '(:and :or))
-	   `(,(car expression)
-	     ,@(mapcar
-		(lambda(e)
-		  (parenthesize-unless-singular g (rewrite-form-adding-parentheses-as-necessary g e)))
-		(cdr expression))))
+		     ;; in a conjunctiion, parenthesize anything not singular (definition of singular) 
+		     ((member op '(:and :or))
+		      `(,(car expression)
+			,@(mapcar
+			   (lambda(e)
+			     (parenthesize-unless-singular g (rewrite e)))
+			   (cdr expression))))
 	  
-	  ;; equality binds tightest, so always singular 
-	  ((member (car expression) '(:= :not=))
-	   expression)
+		     ;; equality binds tightest, so always singular 
+		     ((member (car expression) '(:= :not=))
+		      expression)
 
-	  ;; :fact wraps a relationship when it would otherwise be toplevel. 
- 	  ((eq (car expression) :fact)
-	   (second expression))
+		     ;; :fact wraps a relationship when it would otherwise be toplevel. 
+		     ((eq (car expression) :fact)
+		      (second expression))
 
-	  ((eq (car expression) :parens)
-	   expression)
+		     ((eq (car expression) :parens)
+		      expression)
+
+		     ((eq (car expression) :distinct)
+		      expression)
 	  
-	  (t (error "Shouldn't be here - missed a case in rewrite-form-adding-parentheses-as-necessary"))))))
+		     (t (error "Shouldn't be here - missed a case in rewrite-form-adding-parentheses-as-necessary")))))))
+    (rewrite expression)))
 
 
 ;; Creates a linearized formula - the tokens respond to who the formula would be laid out literally.
@@ -197,6 +203,7 @@
 		       (:not (emit '¬) (inner (second form)))
 		       (:= (emit-w-middle (cdr form) '=))
 		       (:not= (emit-w-middle (cdr form) '≠))
+		       (:distinct (progn (emit 'distinct '{) (emit-w-comma (cdr form)) (emit '})))
 			   )))))
       (inner (axiom-sexp a))
       (reverse them))))

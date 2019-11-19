@@ -29,6 +29,8 @@
     ((:file "snark-logic-generator")
      (:file "prover9-logic-generator")
      (:file "z3-logic-generator")
+     (:file "fol-logic-generator")
+     (:file "fol-text-logic-generator")
      (:file "latex-logic-generator")
      (:file "clif-logic-generator")
      (:file "dol-logic-generator")
