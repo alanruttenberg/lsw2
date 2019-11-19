@@ -1,3 +1,4 @@
+(in-package :cl-user)
 #|
 2. Abstract Syntax
 
@@ -67,8 +68,7 @@ Implies(' [ URIreference ] { annotation } antecedent consequent ')
      (let ((*bindings* bindings))
        (let ((*head* (fresh-blank)))
 	 (triple *head* !rdf:first (t (? ?el)))
-	 (triple *head* !rdf:rest !rdf:nil)
-	 *head*))))
+
 
   (add-rule
    '(seq (?+ ?el))

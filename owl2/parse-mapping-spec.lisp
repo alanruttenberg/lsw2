@@ -1,3 +1,5 @@
+(in-package :cl-user)
+
 (defparameter *mapping-symbol-types* '(("OP" ?object-property) ("OPE" ?object-property-expression)
 				  ("DP" ?data-property) ("DPE" ?data-property-expression)
 				  ("AP" ?annotation-property) ("C" ?class)
