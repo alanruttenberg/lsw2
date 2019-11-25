@@ -33,9 +33,6 @@ Immediately after we expect a lisp form that describes the proofs inside a sourc
 #+BEGIN_EXAMPLE
   #+NAME: proof-consistent-base
   #+BEGIN_SRC lisp 
-    (print 'wait)
-    (inspect (sys::backtrace))
-  (break)
   (add-proof-here consistent-base
     :formula-key :ropaper
     :kind :sat
