@@ -121,6 +121,7 @@
 (defun predicate-name (a) (intern (de-camel-case a) 'logic))
 
 (defun variable-ignore-comment (a comment)
+  (declare (ignore comment))
   (variable a))
 
 ;; If we parse (:and (:and a b) c) reduce to (:and a b c). Same with :or
@@ -168,6 +169,7 @@
   `(:iff ,a ,c))
 
 (defun negation (a b)
+  (declare (ignore a))
   `(:not ,b))
 
 (defun parenthesized (paren1 b paren2)
@@ -183,6 +185,7 @@
   (list `(:setting ,a)))
 
 (defun list-directive (a period-at-end)
+  (declare (ignore period-at-end))
   (if a
       `((:start-list ,a))
       '((:end-list))))
@@ -192,14 +195,15 @@
   (list `(:end-list)))
 
 (defun formula-kind-1 (fk open a close)
-  (declare (ignore period-at-end))
+  (declare (ignore fk open close))
   a)
 
 (defun formula-kind-end (end)
-  (declare (ignore period-at-end))
+  (declare (ignore end))
   nil)
 
 (defun end-of-list (a period)
+  (declare (ignore a period))
   '((:end-of-list)))
 
 (defun formula-with-attributes (a attributes period-at-end)
@@ -207,6 +211,7 @@
   (list `(:formula ,a ,@attributes)))
 
 (defun an-attribute (i which value)
+  (declare (ignore i))
   `((:attribute ,(intern (string-upcase (string which)) :keyword) ,value)))
 
 (defun equality (a b c)
@@ -226,7 +231,7 @@
   (append first second))
 
 (defun ignore-comment (comment string formula)
-  (declare (ignore comment))
+  (declare (ignore comment string))
   formula)
 
 (defun value (&rest args)
@@ -242,6 +247,7 @@
   `(:assign ,(third args) nil))
 
 (defun conditional (if open id close dot1 settings end dot2)
+  (declare (ignore if open  close dot1 end dot2))
   `(:if ,(keywordify (string-upcase id))
 	,@settings))
 
@@ -543,7 +549,7 @@
     (princ wo) (terpri)
     (princ w) (terpri)
     (multiple-value-bind (res error)
-	(equivalent-formulas w wo)
+	(equivalent-formulas w wo :with with)
       (when error
 	(print error))
       res)))

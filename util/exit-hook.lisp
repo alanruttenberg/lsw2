@@ -13,6 +13,7 @@
 			  nil
 			  "run"
 			  (lambda(&rest ignore)
+			    (declare (ignore ignore))
 			    (dolist (h *exit-hooks*)
 			      (ignore-errors (funcall h)))))))))
     (workaround))

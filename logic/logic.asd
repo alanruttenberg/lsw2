@@ -47,12 +47,12 @@
      (:file "expand-model")
      (:file "graal")
      (:file "test-theory-with-model-seed")
-     (:file "paper-support")
+     (:org "paper-support")
      (:file "read-clif"))
     :depends-on ("package" "main"
 			   "graal"
 			   )))
-  :depends-on (:cl-ansi-text :yacc :paiprolog :util :md5 :cl-unification)
+  :depends-on (:cl-ansi-text :yacc :paiprolog :util :md5 :cl-unification :literate-lisp)
   )
 
 
