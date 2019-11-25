@@ -6,7 +6,8 @@
    (right-margin :accessor right-margin :initform 75 :initarg :right-margin)
    (pprint-dispatch-table :accessor pprint-dispatch-table
 			  :initform (copy-pprint-dispatch)
-			  :initarg :pprint-dispatch-table)))
+			  :initarg :pprint-dispatch-table)
+   (for-latex :accessor for-latex :initarg :for-latex :initform nil)))
 
 (defmethod initialize-instance ((g fol-text-logic-generator) &rest args &key &allow-other-keys)
   (declare (ignore args))
@@ -28,8 +29,11 @@
 				  priority
 				  (pprint-dispatch-table g)
 				  ))))
+(defmacro if-for-latex (if else &optional (generator 'g))
+  `(if (for-latex ,generator)
+       ,if
+       ,else))
 
-function priority *fol-text-pprint-dispatch*))  
 
 ;; constants for the unicode characters for the logic symbols
 
@@ -43,6 +47,10 @@ function priority *fol-text-pprint-dispatch*))
 (defconstant s-= "=")
 (defconstant s-not= "≠")
 
+;; special characters 
+(defconstant t-aleph "ℵ") ;; used to indicate a {\\\\hskip .1em} space should be here
+(defconstant t-bet "ℶ")   ;; used to indicate that there should be a space {\\\\hskip .1em} size if the next character is
+			  ;; a paren otherwise \, space
 
 ;; The rules of how to typeset FOL are given by Herbert Enderton, A
 ;; Mathematical Introduction to Logic, page 78. Those rules specify how
@@ -92,14 +100,13 @@ function priority *fol-text-pprint-dispatch*))
       (pprint-pop)
       (loop
 	(let ((next (pprint-pop)))
-					;	  (pprint-indent :block -2 stream)
 	  (pprint-w-paren-if-not-singular g stream next))
+	(pprint-indent :block -1 stream)
 	(pprint-exit-if-list-exhausted) 
 	(pprint-newline :fill stream)
-					;	  (pprint-indent :block 0 stream)
-	(write-char #\space stream)
+	(write-string (if (for-latex g) t-aleph " ") stream)
 	(write-string sep stream)
-	(write-char #\space stream)
+	(write-string (if (for-latex g) t-aleph " ") stream)
 	))))
 
 (defmethod pprint-implication ((g fol-text-logic-generator) stream sexp)
@@ -109,12 +116,15 @@ function priority *fol-text-pprint-dispatch*))
       (let ((ant (pprint-pop))
 	    (cons (pprint-pop)))
 	(pprint-logical-block (stream ant)
-	  (pprint-indent :block -3 stream)
+
 	  (write ant :stream stream)
+	  (write-char #\space stream)
 	  (pprint-newline :linear stream)) ;; does better than :fill
-	(write-char #\space stream)
+	  ;; (if (eq sep :implies)
+	  ;;     (pprint-indent :block -3 stream))
+	
 	(write-string sep stream)
-	(write-char #\space stream)
+	(write-string (if-for-latex t-aleph " ") stream)
 	;; For :implies and :iff, if the consequent is another implication then wrap it in
 	;; "gratuitous" parens, even though according to rule 4 it doesn't need it.
 	;; Hard for me to read, otherwise
@@ -182,19 +192,27 @@ function priority *fol-text-pprint-dispatch*))
       (loop (write (pprint-pop) :stream stream )
 	    (pprint-exit-if-list-exhausted) 
 	    (write-char #\, stream)))
-    (write-char #\space stream)
+;    (write-string "ℵ" stream)
+    (write-string (if (for-latex g) t-bet " ") stream)
     (pprint-w-paren-if-not-singular g stream (third sexp))
     ))
 
 (defmethod pprint-fact ((g fol-text-logic-generator) stream sexp)
   (pprint-function g stream (second sexp)))
 
+(defmethod pprint-symbol ((g fol-text-logic-generator) stream sexp)
+  (let ((string 
+	  (if (char= (char (string sexp) 0) #\?)
+	      (subseq  (string sexp) 1)
+	      (string sexp))))
+    (format stream (cl-user::camelcase (string-downcase string)))))
+
 (defmethod render-axiom ((g fol-text-logic-generator) (a axiom))
   (let* ((*print-pprint-dispatch* (pprint-dispatch-table g))
 	 (*print-right-margin* (right-margin g))
 	 (*print-pretty* t))
     (with-output-to-string (s)
-      (pprint-logical-block (nil (axiom-sexp a))
+      (pprint-logical-block (s (axiom-sexp a))
 	(write (simplify-and-or (eval (rewrite-to-axiom-generation-form (axiom-sexp a)))) :stream s)))))
 
 ;; pretty-print-formula - print indented as (UTF-8) text 
@@ -210,12 +228,13 @@ function priority *fol-text-pprint-dispatch*))
 
 (defclass latex-logic-generator-2 (logic-generator)
   ((text-generator :accessor text-generator :initform nil :initarg :text-generator)
-   (centered :accessor centered :initform t :initarg :centered)))
-  
+   (centered :accessor centered :initform t :initarg :centered)
+   (font-family :accessor font-family :initform nil :initarg :font-family )))
+
 
 (defmethod initialize-instance ((g latex-logic-generator-2) &rest args &key &allow-other-keys)
   (call-next-method)
-  (setf (text-generator g) (apply 'make-instance 'fol-text-logic-generator args)))
+  (setf (text-generator g) (apply 'make-instance 'fol-text-logic-generator :for-latex t args)))
 
 ;; foltext is pretty-printed text of formula
 ;; This collects the different numbers of spaces indented for all the lines
@@ -246,11 +265,13 @@ function priority *fol-text-pprint-dispatch*))
 (defmethod insert-leading-tabs ((g latex-logic-generator-2) foltext)
   (let ((stops (tab-positions-for-foltext g foltext)))
     (with-output-to-string (s)
-      (loop for line in (split-at-char (insert-tab-positions g foltext) #\newline)
+      (loop for (line . more) on (split-at-char (insert-tab-positions g foltext) #\newline)
 	    for space = (position-if-not 'whitespacep line)
 	    do (unless (zerop space)
 		 (loop repeat (position space stops) do (write-string "\\>" s)))
-	       (format s "~a\\\\~%" line s)
+	       (if more 
+		 (format s "~a\\\\~%" line s)
+		 (format s "~a" line s))
 	    ))))
 
 ;; Simple transform of foltext to latex. Mostly change the symbols to the latex math symbols
@@ -259,8 +280,8 @@ function priority *fol-text-pprint-dispatch*))
 ;; Maybe fix that.
 ;; This isn't the greatest - e.g. not easy to style variables. But indenting properly is more important
 (defmethod foltext-to-latex ((g latex-logic-generator-2) foltext)
-  (setq foltext (#"replaceAll" foltext s-forall "\\$\\\\forall\\$\\\\;"))
-  (setq foltext (#"replaceAll" foltext s-exists "\\$\\\\exists\\$"))
+  (setq foltext (#"replaceAll" foltext s-forall "\\$\\\\forall\\${\\\\hskip .1em}"))
+  (setq foltext (#"replaceAll" foltext s-exists "\\$\\\\exists\\${\\\\hskip .1em}")) ;; hskip
   (setq foltext (#"replaceAll" foltext s-and "\\$\\\\land\\$"))
   (setq foltext (#"replaceAll" foltext s-or "\\$\\\\lor\\$"))
   (setq foltext (#"replaceAll" foltext s-implies "\\$\\\\rightarrow\\$"))
@@ -268,56 +289,128 @@ function priority *fol-text-pprint-dispatch*))
   (setq foltext (#"replaceAll" foltext s-not "\\$\\\\neg\\$"))
   ;;      (setq foltext (#"replaceAll" foltext s-= "\\$=\\$"))
   (setq foltext (#"replaceAll" foltext "([a-z])(prime)\\b" "$1\\\\textprime"))
-  (setq foltext (#"replaceAll" foltext s-not= "\\$\\\\neq\\$")))
+  (setq foltext (#"replaceAll" foltext s-not= "\\$\\\\neq\\$"))
+  (setq foltext (#"replaceAll" foltext t-aleph "{\\\\hskip .1em}"))
+  (setq foltext (#"replaceAll" foltext "ℶ\\(" "{\\\\hskip .1em}\\("))
+  (setq foltext (#"replaceAll" foltext t-bet "\\\\,")))
 
 
-(defmethod formula-in-tabbed-latex-environment ((g latex-logic-generator-2) latex )
-  (let ((tabbed (format nil "\\begin{tabbing}~a~%\\end{tabbing}~%"
-			latex)))
-    (if (centered g) 
-	(format nil "\\begin{center}\\parbox{0cm}{~a}\\end{center}" tabbed)
-	tabbed)))
+;; centering: https://tug.org/pipermail/macostex-archives/2005-April/014755.html
+
+;; https://tex.stackexchange.com/questions/334961/two-parbox-besides-eachother-in-a-tabular
+;; but I don't understand why I can't include the \parbox in the command 
+;; \newcommand{\formulalabel}[2]{%
+;;   \begin{tabularx}{\linewidth}[t]{@{} X p{3mm}}
+;;       #2 &
+;;     \textbf{#1} 
+;;   \end{tabularx} 
+;; }
+;;
+;; Have to use this as: \formulalabel{thelabel}{\parbox{0cm}{ ___ }}
+
+(defmethod formula-in-tabbed-latex-environment ((g latex-logic-generator-2) latex &optional label)
+  (let* ((tabbed (format nil "\\parbox[c]{0cm}{\\begin{tabbing}~a\\end{tabbing}}~%" latex)))
+    (let ((center? (centered g)))
+      (cond ((and label center?)
+	     (format nil "~&~%\\centeredformulalabel{~a}{~a}" label tabbed))
+	    ((and label (not center?))
+	     (format nil "~&~%\\leftflushformulalabel{~a}{~a}" label tabbed))
+	    ((and (not label) center?)
+	     (format nil "~&~%\\centerformula{~a}" tabbed))
+	    ((and (not label) (not center?))
+	     tabbed
+	     )))))
 
 (defmethod render-axiom ((g latex-logic-generator-2) (a axiom))
   (formula-in-tabbed-latex-environment g
    (foltext-to-latex g
-    (insert-leading-tabs g (render-axiom (text-generator g) a)))))
+		     (insert-leading-tabs g (render-axiom (text-generator g) a)))
+   ))
+
+(defmethod render-axiom-labeled ((g latex-logic-generator-2) (a axiom) label)
+  (formula-in-tabbed-latex-environment g
+   (foltext-to-latex g
+		     (insert-leading-tabs g (render-axiom (text-generator g) a)))
+   label))
 
 ;; pretty-print latex
-(defun ppl (sexp &key (right-margin 70) (centered t))
-  (render-axiom
-   (make-instance 'latex-logic-generator-2 :right-margin right-margin :centered centered)
-   (make-instance 'axiom :sexp sexp :dont-validate t)))
+(defun ppl (sexp &key (right-margin 70) (centered t) label generator)
+  (unless generator (setq generator
+			  (make-instance 'latex-logic-generator-2
+					 :right-margin right-margin :centered centered)))
+  (let ((axiom (if (keywordp sexp)
+		   (get-axiom sexp)
+		   (make-instance 'axiom :sexp sexp :dont-validate t))))
+    (if label
+	(render-axiom-labeled generator axiom label)
+	(render-axiom generator axiom))
+    ))
 
-(defun dump-bfo-fol-pp ()
-  (with-open-file (f  "~/Desktop/debug.txt" :if-does-not-exist :create :if-exists :supersede :direction :output)
-    (let ((*standard-output* f))
-      (loop with counts 
-	    for ax in (collect-axioms-from-spec bfo::*everything-theory*) 
-	    for sexp = (axiom-sexp ax)
-	    do  (terpri) (princ "----------------------------------------------------------------")
-		(pps (axiom-name ax))
-		(terpri)
-		(ppf sexp 100)
-		(terpri)(terpri)
-		(ppf sexp 70)
-		(terpri)
-	    ))))
+(defun dump-a-bunch-of-formulas-to-text        
+    (&key (right-margin 80)
+       (spec (symbol-value (intern "*everything-theory*" 'bfo) ))
+       (dest "~/desktop/debug.txt")
+       (show-sexp t))
+  (flet ((doit (stream)
+	   (loop for ax in (collect-axioms-from-spec spec)
+		 for sexp = (axiom-sexp ax)
+		 do  (when (not (atom right-margin))
+		       (format stream "~%----------------------------------------------------------------~%")
+		       (terpri stream)
+		       (terpri stream))
+		     (pps (axiom-name ax) :only-name (not show-sexp))
+		       (terpri stream)
+		       (terpri stream)
+		     (loop for margin in  (if (atom right-margin) (list right-margin) right-margin)
+			   do (format stream "~a~%~%" (ppf sexp :right-margin margin)))
+		     (terpri stream))))
+    (if (or (member dest '(nil t)) (streamp dest))
+	(doit dest)
+	(with-open-file (f  "~/Desktop/debug.txt" :if-does-not-exist :create :if-exists :supersede :direction :output)
+	  (let ((*standard-output* f))
+	    (doit f))))))
 
-(defun dump-bfo-fol-latex (&optional (margin 80))
-  (with-open-file (f  "~/Desktop/debug.tex" :if-does-not-exist :create :if-exists :supersede :direction :output)
-    (let ((*standard-output* f))
-      (format f "\\documentclass{article}~%\\usepackage{amsmath}~%\\usepackage{flexisym}~%\\begin{document}\\setlength{\\parindent}{0pt}
-~%")
+(defmethod required-latex-packages ((c (eql 'latex-logic-generator-2)))
+  '("amsmath" "flexisym" "xcolor" "tabularx" "trimclip"))
 
-      (loop for ax in (collect-axioms-from-spec bfo::*everything-theory*) 
-	    if (null (ignore-errors (ppl (axiom-sexp ax) :right-margin margin)))
-	      do (warn "error in ~a" (axiom-name ax))
-	    else	    do (ignore-errors 
-				(format t "~%\\textbf{:~a}" (axiom-name ax))
-				(format t "~%\\message{~a}" (axiom-name ax))
-				(princ (ppl (axiom-sexp ax) :right-margin margin) f)
-				(format f "~%")))
-      (format f "\\end{document}~%"))))
+;; Provides 4 macros for layout of a formula within a paper
+;; - \centeredformula{formula}
+;; - \leftformula{formula}
+;; - \centeredformulalabel{label}{formula}
+;; - \leftformulalabel{label}{formula}
+
+(defmethod required-latex-macros ((c (eql 'latex-logic-generator-2)))
+  '("\\newcolumntype{Y}{>{\\centering\\arraybackslash}X}"
+    ("\\newcommand{"
+     "  \\formulalabel}[3]{\\begin{myformulafont}"
+     "      \\begin{tabularx}{\\linewidth}[c]{ #1  p{7mm} @{} }\\trimbox{0pt .5em 0pt .5em}{#3} & \\textbf{#2}"
+     "      \\end{tabularx}\\end{myformulafont}}")
+    "\\newcommand{\\centeredformulalabel}[2]{\\formulalabel{Y}{#1}{#2}}"
+     "\\newcommand{\\leftformulalabel}[2]{\\formulalabel{X}{#1}{#2}}"
+     "\\newcommand{\\centerformula}[1]{\\begin{ppl}\\begin{center}{\\trimbox{0pt 1em 0pt 1em}{#1}} \\end{center}\\end{ppl}}"
+     "\\newcommand{\\leftformula}[1]{\\begin{ppl}\\trimbox{0pt 1em 0pt 1em}{#1}\\end{center}\\end{ppl}}"
+    ("\\usepackage[activate={true,nocompatibility},final,tracking=true,kerning=true,spacing=true,factor=1100,stretch=10,shrink=10]{microtype}"
+     "% activate={true,nocompatibility} - activate protrusion and expansion"
+     "% final - enable microtype; use \"draft\" to disable"
+     "% tracking=true, kerning=true, spacing=true - activate these techniques"
+     "% factor=1100 - add 10% to the protrusion amount (default is 1000)"
+     "% stretch=10, shrink=10 - reduce stretchability/shrinkability (default is 20/20)"
+     )
+))
+
+;; Either need to include an empty one, or create it with a family if the
+;; formulas are going to use a different family.
+;; first value is any packages that need to be included
+;; second line is any macros that need to be defined 
+;; e.g. `(("\\usepackage{mathpazo}") (,(make-font-macro)))
+
+(defun make-font-macro (&optional family)
+  (format nil "\\newenvironment{myformulafont}{~a}{\\par}"
+	  (if family (format nil "\\fontfamily{~a}\\selectfont" family) "")))
+
+;; default is that we do nothing. Can change either by subclassing latex-logic-gener
+(defmethod required-latex-fonts ((c (eql 'latex-logic-generator-2)))
+  (list `(nil (,(make-font-macro)))))
+
 
 

@@ -115,8 +115,186 @@
 (defvar *proofs-noninteractive* nil)
 (defvar *org-paper-supplemental-directory* "supplemental")
 (defvar *org-paper-includes-directory* "i")
-(defvar *org-paper-cache-directory* "proof-cache")
-  
+(defvar *org-paper-cache-directory* )
+
+;; ****************************************************************
+;; Class latex-paper
+;; ****************************************************************
+
+;; This class represents a paper. Associated information includes a list of
+;; classes that might have something to say to latex each
+;; participating-generators is asked to contribute packages, fonts (also
+;; packages + macros), macros, possibly directives to be included after
+;; \begin{document}
+
+;; paper-folder: Assumes there will be a folder where all the files for the
+;; paper go
+
+;; participation-generators: a list of generators that might have something to say to
+;; latex each participating-generators is asked to contribute packages, fonts (also
+;; packages + macros), macros, possibly directives to be included after
+;; \begin{document}
+
+;; Participation genererators should implement these methods. The generators
+;; would typically be specialized as (eql '<generator-generator-name>) but as long
+;; as the generator is something that the below methods can dispatch off.
+
+;; required-latex-packages:
+;;   Returns a list of package names and optionally arguments for the package
+;;   e.g. '("amsmath" "flexisym" ("geometry "margin=1in")) which will be translated to
+;;   \include{amsmath}
+;;   \include{flexisym}
+;;   \include[margin=1in]{geometry}
+
+;; required-latex-fonts: 
+;;   Returns a list with two elements. First element is a list of any packages that
+;;   need to be included, same format as required-latex-packages second line is any
+;;   macros that need to be defined to use them in specific contexts
+
+;; required-latex-macros:
+;;   Each macro is either a string or a list of strings comprising one macro.
+;;   macro isn't quite right, directives and other code can be included as well. E.g. the columntype 
+;;   that has to be defined before \tabularx can be used with it. So everything rendered as-is 
+;;
+;; document-class
+;;   used in \documentclass. e.g. "article". If a list the first is the class and
+;;   the second is a string for the []options.
+;;
+;; margin
+;;   if given then a length, like "1in". TODO allow specification of all margins. Default "1in"
+;;
+;; input-filename
+;;   The method prepare-latex-to-include generates a tex file to include. This is relative to the paper folder
+;;   default lsw.tex. Meant to be \input{}
+;;
+;; required-latex-packages, required-latex-fonts, required-latex-macros
+;;   Described above. If supplied packages an macros are added to those from other generators
+;;   The fonts behave differently - if supply they override 
+
+;; after-document-begins
+;;   If supplied then we're making the whole document, so add \begin{document} and then this
+;;   Whatever writes the body is responsible for adding \end{document}
+
+(defclass latex-paper ()
+  ((paper-folder :accessor paper-folder :initform nil :initarg :paper-folder)
+   (participating-generators :accessor participating-generators :initform nil :initarg :participating-generators)
+   (document-class :accessor document-class :initform "article" :initarg :document-class )
+   (margin :accessor margin :initform "1in" :initarg :margin )
+   (input-filename :accessor input-filename :initform "lsw.tex" :initarg :input-filename )
+   (required-latex-packages :accessor required-latex-packages :initform nil :initarg :required-latex-packages )
+   (required-latex-fonts :accessor required-latex-fonts :initform nil :initarg :required-latex-fonts )
+   (required-latex-macros :accessor required-latex-macros :initform nil :initarg :required-latex-macros)
+   (after-document-begins :accessor after-document-begins :initform nil :initarg :after-document-begins )
+   ))
+
+;; Add ourself as the first generator
+(defmethod initialize-instance ((p latex-paper) &rest args)
+  (declare (ignore args))
+  (call-next-method)
+  (push p (participating-generators p)))
+    
+;; Generate a latex file which can either be the start of a standalone document, or \input into another one.
+;; It collects packages and macros, and the fonts from the first generator that supplies it.
+;; It then writes out fonts, then packages, then macros
+;; If after-document-begins is passed it also writes \begin{document} and then whatever after-document-begins is.
+
+(defmethod prepare-latex-to-include ((p latex-paper))
+  (with-open-file (f (merge-pathnames (input-filename p) (paper-folder p)) :direction :output :if-exists :supersede)
+    (when (document-class p) (format f "\\documentclass~a{~a}~%" 
+				     (if (stringp (document-class p))
+					 ""
+					 (format nil "[~a]" (second (document-class p))))
+				     (if (stringp (document-class p)) (document-class p))))
+    (when (margin p) (format f "\\usepackage[margin=~a]{geometry}~%" (margin p)))
+    ;; packages written first, then fonts, then macros
+    (loop for generator in (participating-generators p)
+	  for (fonts font-macros) = (unless (or fonts macros) (required-latex-fonts generator))
+	  for use-fonts = (or use-fonts fonts)
+	  append (required-latex-packages generator) into packages
+	  append font-macros into macros
+	  append (required-latex-macros generator) into macros
+	  finally
+	     (progn
+	       (inspect p)
+	       (format f  "~{~a~%~}" use-fonts)
+	       (format f "~{\\usepackage{~a}~%~}" packages)
+	       (format f  "~{~a~%~}" 
+		       (mapcan (lambda(e) (if (stringp e) (list e) (copy-list e))) macros))))
+    (when (after-document-begins p)
+      (format f "\\begin{document}~%")
+      (format f  "~{~a~%~}" 
+	      (mapcan (lambda(e) (if (stringp e) (list e) (copy-list e))) (after-document-begins p))))))
+
+;; format an axiom name into latex - for debugging, generally 
+(defun format-axiom-name (axiom-name)
+  (labels ((transform (what replacements)
+	     (if (null replacements) what
+		 (destructuring-bind (match replace) (pop replacements)
+		   (transform (#"replaceAll" what match replace) replacements)))))
+    (format nil "\\textbf{~a}"
+	    (transform
+	     (string-downcase (string axiom-name))
+	     `(("<->" " \\$\\\\leftrightarrow\\$ " )
+	       ("->" " \\$\\\\rightarrow\\$ ")
+	       ("-" " ")
+	       ("\\+" " and ")
+	       ("\\." " is ")
+	       (">" "{\\\\textgreater}")
+	       ("<" "{\\\\textless}"))))))
+
+;; function dump-a-bunch-of-axioms-to-latex
+;;   mostly for debug, 
+;;   takes keys
+;;    :paper-margin default "1in"
+;;    :right-margin default 80 - for the text generator
+;;    :spec for the axioms to include
+;;    :fonts - as the format for required-latex-macros
+;;    :dest - pathname where the file should be created, default ~/desktop/debug.tex
+
+(defun dump-a-bunch-of-formulas-to-latex
+    (&key
+       (paper-margin "1in")
+       (dest "~/desktop/debug.tex")
+       (right-margin 80)
+       (spec (symbol-value (intern "*everything-theory*" 'bfo) ))
+       fonts)
+  (when (probe-file dest) (delete-file dest))
+  (let* ((paper (make-instance
+		 'latex-paper
+		 :participating-generators '(latex-logic-generator-2)
+		 :paper-folder (namestring (make-pathname :directory (pathname-directory dest)))
+		 :after-document-begins '("\\setlength{\\parindent}{0pt}")
+		 :margin paper-margin
+		 :input-filename (concatenate 'string (pathname-name  dest) "." (pathname-type  dest))
+;		 :required-latex-fonts (list nil (list (make-font-macro "ppl")))
+		 :required-latex-fonts (or fonts (list (list "\\usepackage{mathpazo}") (list (make-font-macro))))
+		 )))
+    (prepare-latex-to-include paper)
+    (with-open-file (f  dest :if-does-not-exist :error :if-exists :append :direction :output)
+      (let ((*standard-output* f))
+	(loop with generator = (make-instance 'latex-logic-generator-2 :centered t :right-margin right-margin)
+	      for count from 1
+	      for lab = (format nil "~a" count)
+	      for ax in (collect-axioms-from-spec spec)
+	      if (null  (render-axiom-labeled generator ax lab))
+		do (warn "error in ~a" (axiom-name ax))
+	      else	    do
+		
+		;;(format f (format t "~%\\message{~a}~%" (axiom-name ax)))
+		(format f "~a~%~a" 
+			(format-axiom-name (axiom-name ax))
+			(render-axiom-labeled generator ax count)))
+	(format f "\\end{document}~%")))))
+
+(defclass logic-paper (latex-paper)
+  ((default-font :accessor default-font :initform nil :initarg :default-font)
+   (org-file-path :accessor org-file-path :initform nil :initarg :org-file-path )
+   (generator :accessor generator :initform nil :initarg :generator)
+   (formulas :accessor formulas :initform nil :initarg :formulas)
+   (includes-folder :accessor includes-folder :initform "i" :initarg :includes-folder )
+   (supplemental-folder :accessor supplemental-folder :initform  "supplemental" :initarg :supplemental-folder)
+   (proof-cache-folder :accessor proof-cache-folder :initform "proof-cache" :initarg :proof-cache-folder )))
+
 ;; emacs helper functions. Useful when functions here are called in
 ;; response to being evaluated as source blocks in org mode
 ;; top buffer is the one that you are editing when evaluating the source block
