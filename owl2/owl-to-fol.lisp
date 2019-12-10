@@ -1,5 +1,12 @@
 (in-package :logic)
 
+;; References:
+;; Using Vampire to Reason with OWL http://www.cs.man.ac.uk/~horrocks/Publications/download/2004/TRBH04a.pdf
+;; Description Logic Handbook https://cdn.preterhuman.net/texts/science_and_technology/The%20Description%20Logic%20Handbook%20-%20Theory,%20Implementation%20and%20Applications%20(2003).pdf
+;;  Chapter 2 Basic Description Logics 54-55
+;;  Chapter 4 Relationships with other Formalisms, p 161-163
+;; On the relative expressiveness of description logics and predicate logics https://core.ac.uk/download/pdf/82134362.pdf
+
 (defvar *classinstancevar* )
 
 ;; If :rdf-type o-class-expression expands to (rdf-type c *classinstancevar*)
