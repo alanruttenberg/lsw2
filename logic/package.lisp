@@ -56,6 +56,7 @@
    #:vampire-prove
    #:vampire-render
    #:pprint-spec-axioms  #:pprint-spec-axiom-names  #:clear-axioms
+   #:pps #:ppf #:ppl #:dump-ontology-and-fol-translation #:render-ontology-as 
    #:*last-z3-input* #:*last-z3-output*
    #:*last-vampire-input* #:*last-vampire-output*
    #:*last-clausetester-input*   #:*last-clausetester-output*
