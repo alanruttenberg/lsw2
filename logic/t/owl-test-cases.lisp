@@ -16,15 +16,16 @@
          ;; ugly - scraping is never pretty
          (clean
            (mapcar (lambda(ont)
-                     (#"replaceAll" 
                       (#"replaceAll" 
                        (#"replaceAll" 
                         (#"replaceAll" 
-                         (jss::replace-all ont
-                                           "&#(x?)([A-Fa-f0-9][A-Fa-f0-9]);"
-                                           (lambda(x e) (let ((*read-base* (if (equal x "") 10 16)))
-                                                          (string (code-char (read-from-string e)))))
-                                           1 2) "&lt;" "<") "&gt;" ">") "&nbsp;" " ") "<br\\s*/>" "")) onts)))
+                         (#"replaceAll" 
+                          (jss::replace-all ont
+                                            "&#(x?)([A-Fa-f0-9][A-Fa-f0-9]);"
+                                            (lambda(x e) (let ((*read-base* (if (equal x "") 10 16)))
+                                                           (string (code-char (read-from-string e)))))
+                                            1 2) "(?i)&(amp;)?lt;" "<") "(?i)&(amp;)?gt;" ">") "(?i)&(amp;)?nbsp;" " ") "(?i)<br\\s*/>" " "))
+                   onts)))
     ;; We don't do datatype tests now. Mark them by adding "Data" to the profiles
     (if (or
          (some (lambda(ont) (search "DatatypeProperty" ont)) clean)
@@ -57,6 +58,8 @@
 
 ;; So far the only set used. Last count there were 38
 (defun check-positive-entailment-test-case  (url &optional debug (reasoner 'z3-prove))
+  (when (not (eql 0 (search "http" url)))
+      (setq url (format nil "http://owl.semanticweb.org/page/~a.html" url)))
   (destructuring-bind (profiles ((raw1 o1 o1axs) (raw2 o2 o2axs))) (get-owl-test-case url)
     (when debug
       (setf (symbol-value 'o1) o1)
@@ -77,14 +80,23 @@
                   (when (or (null cons) (equal cons '(:and)))
                     (warn "Empty consequent. Skipping")
                     (return-from check-positive-entailment-test-case o2 ))
-                  (when (equalp ant '((:and)))
+                  (when (and debug (equalp ant '((:and))))
                     (warn "Empty antecedent, checking consequent is tautology"))
                   (if debug
                       (progn (print-db profiles raw1 o1 ant raw2 o2 cons)
                              )
                       (if (equalp ant '((:and)))
-                          (eq (z3-check-true cons) :proved)
-                          (eq (funcall reasoner ant cons) :proved)))))))))
+                          (eq (z3-check-true (fix-conflicting-symbols cons)) :proved)
+                          (eq (funcall reasoner `(:rdf-type-separation
+                                                  ,@(fix-conflicting-symbols ant)) 
+                                       (fix-conflicting-symbols cons)) :proved))
+                      )))))))
+
+(defun fix-conflicting-symbols (form)
+  (jss::tree-replace (lambda(e)
+                       (or (second (assoc e '((fp fp_x))))
+                           e))
+                     form))
 
 ;; Needs more logic - WIP
 (defun check-satisfiability-test-case  (url)
@@ -105,11 +117,11 @@
 ;; *all-owl-tests* is a list of names of tests, almost verbatim from the wiki
 ;; *skip-owl-tests* is a list of pairs a names and keywords explaining why we won't use this test.
 ;; Current reasons :not-dl, :empty-consequent, :data, :imports
-(defun run-owl-tests ()
+(defun run-owl-tests (&optional (tests *all-owl-tests*))
   (loop with count = 0
-        for test in *all-owl-tests*
+        for test in tests
         for url = (format nil "http://owl.semanticweb.org/page/~a.html" test)
-        unless (find test *skip-owl-tests* :key 'car :test 'equalp)
+        unless (or (consp test) (find test *skip-owl-tests* :key 'car :test 'equalp))
           do (print test)
              (incf count)
              (print-db (check-positive-entailment-test-case url))

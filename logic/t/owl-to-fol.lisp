@@ -123,10 +123,55 @@
       ("TestCase:WebOnt-miscellaneous-010" :imports)
       ("TestCase:WebOnt-miscellaneous-011" :imports)
       ("TestCase:WebOnt-oneOf-002" :not-dl)
+      ("Consistent-but-all-unsat" :cant-parse)
+      ("Owl2-rl-rules-ifp-askey"  :data)
+      ("Qualified-cardinality-boolean"  :data)
+      ("Qualified-cardinality-restricted-int"  :data)
+      ("TestCase:WebOnt-I5.26-010"  :not-dl)
+      ("TestCase:WebOnt-I5.3-014"  :not-dl)
+      ("TestCase:WebOnt-I5.3-015" :not-dl)
+      ("TestCase:WebOnt-I5.5-001" :not-dl)
+      ("TestCase:WebOnt-I5.5-002"  :not-dl)
+      ("TestCase:WebOnt-I5.5-005" :empty-consequent)
+      ("TestCase:WebOnt-I5.8-004"  :data)
+      ("TestCase:WebOnt-I5.8-006"  :data)
+      ("TestCase:WebOnt-I5.8-008"  :data)
+      ("TestCase:WebOnt-I5.8-009"  :data)
+      ("TestCase:WebOnt-I5.8-010"  :data)
+      ("TestCase:WebOnt-I5.8-011" :empty-consequent)
+      ("TestCase:WebOnt-I5.8-017" :not-dl)
+      ("TestCase:WebOnt-InverseFunctionalProperty-001" :not-dl)
+      ("TestCase:WebOnt-InverseFunctionalProperty-002"  :not-dl)
+      ("TestCase:WebOnt-AllDifferent-001"  :not-dl)
+      ("TestCase:WebOnt-Class-001"  :not-dl)
+      ("TestCase:WebOnt-Class-002"  :not-dl)
+      ("TestCase:WebOnt-Class-003"  :not-dl)
+      ("TestCase:WebOnt-Class-006"  :not-dl)
+      ("TestCase:WebOnt-FunctionalProperty-001"  :not-dl)
+      ("TestCase:WebOnt-FunctionalProperty-002"  :not-dl)
+      ("TestCase:WebOnt-FunctionalProperty-003"  :not-dl)
+      ("TestCase:WebOnt-FunctionalProperty-004"  :not-dl)
+      ("TestCase:WebOnt-FunctionalProperty-005"  :not-dl)
+      ("TestCase:WebOnt-I5.1-001" :not-dl)
+      ("TestCase:WebOnt-I5.21-002"  :data)
+      ("TestCase:WebOnt-I5.24-001" :not-dl)
+      ("TestCase:WebOnt-I5.24-002" :not-dl)
+      ("TestCase:WebOnt-I5.26-009" :cant-parse)
+      ("TestCase:WebOnt-I4.6-005-Direct" :empty-consequent)
+      ("TestCase:WebOnt-AnnotationProperty-002" :huh?) ; I think this test is wrong.
+      ("TestCase:WebOnt-description-logic-903" :too-big) ; uses cardinality 200
       ))
 
   (defparameter *all-owl-tests*
-    '("New-Feature-DisjointUnion-001"
+    '(
+      "Bnode2somevaluesfrom"
+      "Chain2trans"
+      "Consistent-but-all-unsat"
+      "Disjoint_Props_via_Disjoint_Domains"
+      "Disjoint_Props_via_Disjoint_Ranges"
+      "DisjointClasses-001"
+      "DisjointClasses-003"
+      "New-Feature-DisjointUnion-001"
       "New-Feature-Keys-001"
       "New-Feature-Keys-003"
       "New-Feature-ObjectPropertyChain-001"
@@ -172,7 +217,7 @@
       "TestCase:WebOnt-description-logic-665"
       "TestCase:WebOnt-description-logic-667"
       "TestCase:WebOnt-description-logic-901"
-      ;; cardinality 200                    "TestCase:WebOnt-description-logic-903" ;
+      "TestCase:WebOnt-description-logic-903" 
 
       "TestCase:WebOnt-differentFrom-001"
       "TestCase:WebOnt-differentFrom-002"
@@ -205,9 +250,56 @@
       "TestCase:WebOnt-miscellaneous-011"
       "TestCase:WebOnt-miscellaneous-302-Direct"
       "TestCase:WebOnt-oneOf-002"
+      "Owl2-rl-rules-fp-differentFrom"
+      "Owl2-rl-rules-ifp-askey"
+      "Owl2-rl-rules-ifp-differentFrom"
+      "Qualified-cardinality-boolean"
+      "Qualified-cardinality-restricted-int"
+      
+      "TestCase:WebOnt-AllDifferent-001"
+      "TestCase:WebOnt-AnnotationProperty-002"
+      "TestCase:WebOnt-Class-001"
+      "TestCase:WebOnt-Class-002"
+      "TestCase:WebOnt-Class-003"
+      "TestCase:WebOnt-Class-005-direct"
+      "TestCase:WebOnt-Class-006"
+      "TestCase:WebOnt-FunctionalProperty-001"
+      "TestCase:WebOnt-FunctionalProperty-002"
+      "TestCase:WebOnt-FunctionalProperty-003"
+      "TestCase:WebOnt-FunctionalProperty-004"
+      "TestCase:WebOnt-FunctionalProperty-005"
+      "TestCase:WebOnt-I4.5-001"
+      "TestCase:WebOnt-I4.6-003"
+      "TestCase:WebOnt-I4.6-005-Direct" 
+      "TestCase:WebOnt-I5.1-001"
+      "TestCase:WebOnt-I5.2-002"
+      "TestCase:WebOnt-I5.2-004"
+      "TestCase:WebOnt-I5.2-006"
+      "TestCase:WebOnt-I5.21-002"
+      "TestCase:WebOnt-I5.24-001"
+      "TestCase:WebOnt-I5.24-002"
+      "TestCase:WebOnt-I5.24-003"
+      "TestCase:WebOnt-I5.24-004"
+
+      "TestCase:WebOnt-I5.26-009" 
+      "TestCase:WebOnt-I5.26-010"
+      "TestCase:WebOnt-I5.3-014"
+      "TestCase:WebOnt-I5.3-015"
+      "TestCase:WebOnt-I5.5-001"
+      "TestCase:WebOnt-I5.5-002"
+      "TestCase:WebOnt-I5.5-005"
+      "TestCase:WebOnt-I5.8-004"
+      "TestCase:WebOnt-I5.8-006"
+      "TestCase:WebOnt-I5.8-008"
+      "TestCase:WebOnt-I5.8-009"
+      "TestCase:WebOnt-I5.8-010"
+      "TestCase:WebOnt-I5.8-011"
+      "TestCase:WebOnt-I5.8-017"
+      "TestCase:WebOnt-InverseFunctionalProperty-001"
+      "TestCase:WebOnt-InverseFunctionalProperty-002"
       ))
 
-  (prove:plan 38)
+  (prove:plan 54)
   (loop for test in *all-owl-tests*
         for url = (format nil "http://owl.semanticweb.org/page/~a.html" test)
         unless (find test *skip-owl-tests* :key 'car :test 'equalp)
@@ -217,3 +309,4 @@
 
 
   )
+
