@@ -61,6 +61,7 @@
   (let ((as (to-owl-syntax ontology :functional)))
     (setq as (#"replaceAll" as "(#[# ].*)\\n" ""))
     (with-input-from-string (s (regex-replace-all "_value" as "_ value"))
+      (print-db s)
       (multiple-value-bind (axioms ontology-iri version-iri namespaces)
 	  (parse-functional-syntax (read-and-tokenize-functional-syntax s))
 ;	(print-db ontology-iri version-iri namespaces)
@@ -101,13 +102,15 @@
 		       collect (cond ((eq colon? *colon*)
 ;				      (print-db this colon? that *default-uri-base* (length tok))
 				      (setq tok (cdddr tok))
-				      (let ((*print-case* :upcase))
-					(make-uri (format nil "~a~a"
-							  (if (eq :|http| this) 
-							      "http:"
-							      (second  (assoc (format nil "~a:" this) namespaces
-									      :test 'equal)))
-							  (princ-to-string that)))))
+                                      (if (eq this :_)
+                                          `(:blank ,that)
+                                          (let ((*print-case* :upcase))
+                                            (make-uri (format nil "~a~a"
+                                                              (if (eq :|http| this) 
+                                                                  "http:"
+                                                                  (second  (assoc (format nil "~a:" this) namespaces
+                                                                                  :test 'equal)))
+                                                              (princ-to-string that))))))
 				     ;; handle empty prefix
 				     ((eq this *colon*)
 ;				      (print-db this colon? that *default-uri-base* (length tok)) 
@@ -203,9 +206,9 @@
 		     ;; pellet-svn/trunk/test_data/owl-test/DatatypeProperty/consistent001.rdf
 		     ;; leave them as is for now. Don't know what to do with them yet, though
 		     (eq f :_)
-		     (prog1
+		     (print-db (prog1
 			 f
-		       (setf tokenized (cdr tokenized))))
+		       (setf tokenized (cdr tokenized)))))
 		    ( ;; if we're not a symbol, then we're a literal, or we should be left alone
 		     (not (symbolp f))
 		     (if (eq args :^^)
@@ -225,8 +228,18 @@
 			     (prog1 (format nil "~a~a" f (second tokenized))
 			       (setf tokenized (cddr tokenized)))
 			     (prog1 f (setf tokenized (cdr tokenized))))))
+                    ((eq f :|HasKey|)
+                     (let ((rest (second tokenized)))
+                       (let ((ce (first rest))
+                             (opes (second rest))
+                             (dpes (third rest)))
+                         (setq tokenized (cddr tokenized))
+                         `(,(second (gethash "HasKey" *owl2-vocabulary-forms*))
+                           ,ce
+                            ,opes
+                            ,dpes))))
 		    (t ;; we're a function, change to prefix after recursively processing args
-		     (prog1 
+		     (prog1
 			 (let ((temp (rearrange-functional-syntax-parens-for-lisp args)))
 			   (prog1 (cons
 				   (or (or (second (gethash (symbol-name f) *owl2-vocabulary-forms*))
