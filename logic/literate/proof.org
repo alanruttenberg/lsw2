@@ -1,0 +1,447 @@
+# -*- Mode: POLY-ORG;  -*- ---
+#+PROPERTY: literate-lang lisp
+#+PROPERTY: literate-load yes
+#+header: :package logic :results :none
+
+#+BEGIN_SRC lisp
+(in-package :logic)
+#+END_SRC
+
+* Support for proofs
+
+A proof request specifies a name for the proof, a kind of proof, assumptions (formulas or names)
+an optional reasoner, and a text template to provide the text describing the proof. 
+
+
+*** Kinds of proofs
+
+Currently four kinds of proofs are supported
+
+| :check-sat   | Checks whether the assumptions are satisfiable                |
+| :check-unsat | Checks whether the assumptions are unsatisfiable              |
+| :check-model | Checks whether the provided model is satisfied by assumptions |
+| :prove       | Checks if goal can be proven from assumptions                 |
+
+*** Specifying the assumption and goal formulas 
+
+Formulas can be retrieved from the lisp environment, or sourced from formulas defined in the file.
+Typically you will want to have formulas mentioned in a proof have labels. However, the
+labels might not be what the formulas are called in the lisp environment. In order to support this,
+there's the concept of a paper-key. The paper key is a keyword with a value on the axiom-plist.
+If we specify that a proof needs :a1 and :a2, and that the paper key is :mykey, then the
+formula retrieved will be the one which has key/value :mykey/:a1.
+
+TODO - should make it easy to either add labels in this file, or use labels solely defined in this file.
+
+Here's an example of a proof request.
+
+The first line is an optional name. With name the results block can be put anywhere. Recommended.
+Immediately after we expect a lisp form that describes the proofs inside a source block
+
+The add-proof-here form first argument is a label, used to form filenames of supplementary material.
+
+:formula-key says which key to use when finding axioms. Here we use :ropaper.
+
+:kind is :check-sat, so we will be trying to prove the assumptions are consistent.
+
+:reasoner choose the reasoner to use. Sat can be checked only by z3 and mace4
+
+:assumptions gives the list of antecendents. Remember paper key. :o1 means the formula
+with keyword :ropaper and value :o1
+
+:theorem-text is a template for how to say what the proof is. Special token $assumptions 
+is replaces with the list of labels in :assumptions.
+
+:proof-text is what to say if the proof succeeds. We generally expect them to succeed so
+when they don't they get boxed in red in the typeset paper.
+
+#+BEGIN_EXAMPLE
+  #+NAME: proof-consistent-base
+  ,#+BEGIN_SRC lisp 
+  (add-proof-here consistent-base
+    :formula-key :ropaper
+    :kind :check-sat
+    :reasoner :z3
+    :assumptions (:o1 :o2 :o3 :o4 :TDR :tt :ta :be1 :be2 :BT :BIW :BIB :BW :BIW)
+    :theorem-text "The theory comprising $assumptions is consistent"
+    :proof-text "There is a consistent model."
+  )     
+  ,#+END_SRC
+#+END_EXAMPLE
+
+
+When you execute the block using org-babel, a results block is added, which is latex
+formatted text that presents the results and refers to supplementary material with the
+proof input/output, etc.
+
+#+BEGIN_EXAMPLE
+#+RESULTS: proof-consistent-base
+#+BEGIN_LaTeX
+\input{i/proofs/consistent-base}
+#+END_LaTeX
+#+END_EXAMPLE
+
+To execute a block you can do M-x org-babel-execute-src-block.
+C-c C-c in the body of the lisp source, if you are using poly-mode, won't work - it just side-effects the lisp.
+Use "M-x org-babel-execute-buffer" to execute all source blocks
+
+*** Orphan
+How implemented:
+Org mode is set to not evaluate blocks on export, but to export results, and for results to be
+interpreted as latex.
+
+For add-proof here and add-formulas-here one or more auxilliary tex files are generated and put in the "i/"
+directory relative to the org source file. These are only generated when explicitly evaluating the source
+block, so that the text of the paper can be edited without having lisp running.
+
+Other forms are recognized as well: add-formulas-here, define-model, paper-defaults
+
+(paper-defaults &rest key-values) lets you default one or more of the initialization arguments in add-proof-here
+You need at least something like (paper-defaults :formula-key :ropaper). 
+
+(define-model name &body tuples) sets the variable name to the list of tuples.
+
+Note that the local variables section needs:
+
+#+BEGIN_EXAMPLE
+# eval: (setq org-babel-default-header-args:lisp '((:package . "LOGIC") (:exports . "results") (:results . "replace value latex")))
+# eval: (setq org-export-babel-evaluate nil)
+#+END_EXAMPLE
+
+which defaults that no code is run during export of the org file,
+that the package evaluated in is 'logic, and that results of
+interactive evaluation are put into the document as latex
+
+TODO: Write a function that creates a templated paper.org 
+
+Formulas: The formula-key is used to look up what the formula should be labeled in the paper.
+Make sure that add-formulas-here has a key/value like :ropaper :ot 
+References to formulas are assumed to be named "f:" then the formula name.
+When the block is executed the latex is generated and saved in ./i/formulas/
+
+Proofs: Assumptions and goals are a list of the formula-keys (e.g. (:ot) above)
+In the theorem text for $assumptions is substituted the formula-keys of the
+formula, as references. Proof associated files are cached in "./proof-cache"
+
+#+BEGIN_EXAMPLE
+(do-paper-proofs org-file)
+#+END_EXAMPLE
+
+* Proof implementation
+Collects the proof specification 
+Runs the proof, erroring if there's a problem
+Writes the supplemental files
+Writes the text that will be incorporated for the #INCLUDE:
+
+#+BEGIN_SRC lisp
+(defvar *proofs-noninteractive* nil "Set to t if you don't want proof requests from the paper actually evaluated when you babel eval a block")
+(defvar *org-paper-supplemental-directory* "supplemental")
+(defvar *org-paper-includes-directory* "i")
+#+END_SRC 
+
+
+
+(:foo) -> if paper key
+           then spec is '((key foo)) and label is key.
+          otherwise names a formula in which case
+            :label <label> 
+            <paperkey> <label>
+(foo (:forall ...) &rest keys ->
+          if paper key then if keys has 
+             <paperkey> <label> 
+            :label <label> 
+            otherwise foo 
+;;
+Return either (<label> spec) or (<label> <formula>)
+
+(defun get-add-formulas-formula (e)
+  (flet ((explicit-label ()
+	   (second (member :label e)))
+	 (keyed-name ()
+	   (second (member (getf *org-paper-defaults* :formula-key) e))))
+    (cond ((keywordp (car e))
+	   (let ((spec (if (getf *org-paper-defaults* :formula-key)
+			   (list (getf *org-paper-defaults* :formula-key) (car e))
+			   (car e)))
+		 (name (or (explicit-label) (keyed-name) (car e))))
+	     (let ((matching-formulas (collect-axioms-from-spec (list spec))))
+	       (assert (= (length matching-formulas) 1) ()
+		       "Formula key ~a is ambiguous" spec)
+	       (list name (keywordify (axiom-name (car matching-formulas)))))))
+	  (t (list (or (explicit-label) (keyed-name) (car e))
+		    (second e))))))
+
+
+  
+
+* Class paper-proof
+
+#+BEGIN_SRC lisp
+(defclass paper-proof ()
+  ((name :accessor name :initform nil :initarg :name)
+   (paper :accessor paper :initform nil :initarg :paper)
+   (formula-key :accessor formula-key :initform nil :initarg :formula-key)
+   (kind :accessor kind :initform nil :initarg :kind)
+   (assumptions :accessor assumptions :initform nil :initarg :assumptions)
+   (goal :accessor goal :initarg :goal :initform nil)
+   (model :accessor model :initarg :model :initform nil) ; model will be specified by a symbol whose value is the model
+   (reasoner :accessor reasoner :initform nil :initarg :reasoner)
+   (theorem-text :accessor theorem-text :initform nil :initarg :theorem-text)
+   (proof-text :accessor proof-text :initform nil :initarg :proof-text)
+   (org-directory :accessor org-directory) 
+   (succeeded :accessor succeeded :initarg :succeeded :initform nil)
+   (invocation :accessor invocation :initarg :invocation :initform nil)
+   (reasoner-arguments :accessor reasoner-arguments :initform nil :initarg :reasoner-arguments)
+   ))
+
+
+(defmethod initialize-instance ((p paper-proof) &rest initargs)
+  (apply #'call-next-method p  (append initargs *org-paper-defaults*))
+  ;; Default name of file to be included, directory where those are kept, and directory for proof supplemental files
+  (setf (org-directory p) *default-pathname-defaults*)
+  ;; default the reasoner if not supplied
+  (unless (reasoner p)
+    (setf (reasoner p) 
+	  (ecase (kind p)
+	    (:check-sat :z3)
+	    (:check-unsat :z3)
+	    (:check-model :clausetester)
+	    (:prove :prover9)))))
+
+
+	     
+(defmacro add-proof-here (name &rest initargs) ; from kind assumptions theorem-text proof-text goal reasoner model)
+  `(let ((paper (get-top-buffer-paper-instance))) 
+     (let ((proof (apply 'make-instance 'paper-proof :name ',name ',initargs :paper paper)))
+       (register-paper-proof paper proof)
+       (unless *proofs-noninteractive*
+	 (maybe-cache-proof-for-paper proof)
+	 (write-paper-files proof))
+       (format nil "\\input{i/proofs/~a}~%" ,(string-downcase (string name)))
+     )))
+#+end_src
+
+
+
+(defmethod formula-name-to-reference ((p paper-proof) name)
+  (format nil "\\\\ref*{f:~a}" (string-upcase (string name))))
+    
+(defmethod do-proof-substitutions ((p paper-proof) text)
+  (setq text (#"replaceAll" text "[$]assumptions" (format nil "~{~a~^, ~}" 
+							  (mapcar (lambda(e) (formula-name-to-reference p e))
+								  (assumptions p)))))
+  (#"replaceAll" text "[$]goal" (formula-name-to-reference p (goal p)))) 
+
+(defmethod write-tex-file ((proof paper-proof))
+  (let ((path 
+	  (merge-pathnames (make-pathname :name (string-downcase (string (name proof)))
+					  :type "tex" :directory '(:relative "i" "proofs"))
+			   (org-directory proof))))
+    (ensure-directories-exist path)
+    (with-open-file (f path :direction :output :if-does-not-exist :create :if-exists :supersede)
+      (write-proof-tex proof f)
+      )))
+
+(defmethod write-proof-tex ((proof paper-proof) stream)
+  (let ((raw 
+	  (with-output-to-string (s)
+	    (format s "\\begin{theorem}~%\\label{~a}~%~a~%\\end{theorem}~%" 
+		    (name proof)
+		    (do-proof-substitutions proof (theorem-text proof)))
+	    (format s "\\begin{proof}~%~a (proof by ~a; supplemental files ~a.* ~a) ~%\\end{proof}"
+		    (do-proof-substitutions proof (proof-text proof))
+		    (string-downcase (string (reasoner proof)))
+		    (name proof)
+		    (if (not (succeeded proof))
+			" FAILED! " ""))
+	    )))
+    (if (succeeded proof)
+	(write-string raw stream)
+	(format stream "{\\color{red}~%~a~&}~%" raw))))
+
+(defun md5 (string)
+  (format nil "~(~{~2,'0X~}~)"
+	(map 'list #'identity (md5::md5sum-string string))))
+
+(defmethod get-formulas ((p paper-proof) formulas)
+  (mapcar 'axiom-sexp 
+	  (if (formula-key p)
+	      (collect-axioms-from-spec `((,(formula-key p) (:or ,@formulas))))
+	      (collect-axioms-from-spec `(,@formulas)))))
+
+(defmethod get-formula ((p paper-proof) formula)
+  (axiom-sexp (car (get-formulas p (list formula)))))
+#+END_SRC
+
+  
+The file names are: input, output, interpretation, model, result, and form
+The file extensions are either
+  the reasoner name for input, output, interpretation
+  "cl" for model
+  "lisp" for invocation
+  "txt" for result of the invocation
+
+#+BEGIN_SRC lisp
+(defmethod write-proof-results ((p paper-proof) &key input output model interpretation result form)
+  (ensure-directories-exist (cache-directory p))
+  (labels ((the-path (name reasoner)
+	     (format nil "~a~a.~a" (cache-directory p) name (string-downcase (string reasoner ))))
+	   (write-it (filename reasoner string)
+	     (when (keywordp string)
+	       (setq string (prin1-to-string string)))
+	     (with-open-file (f (the-path filename reasoner) :direction :output :if-exists :supersede :if-does-not-exist :create)
+	       (write-string string f))))
+    (if input (write-it "input" (if (eq (reasoner p) :clausetester) :prover9 (reasoner p))  input))
+    (if output (write-it  "output" (reasoner p) output))
+    (if interpretation (write-it "interpretation" (reasoner p) interpretation))
+    (if model  (write-it  "model" "cl"  (with-output-to-string (s) (loop for tuple in model do (princ tuple s) (terpri)))))
+    (if result (if model (write-it  "result" "txt" :sat) (write-it  "result" "txt" result)))
+    (when form
+      (write-it "invocation" "lisp" (with-output-to-string (s) (pprint form s)))
+      (setf (invocation p) form)
+      )
+    (write-it "passfail" "lisp" (string (succeeded p)))
+    ))
+	
+(defmethod must-be-reasoner ((p paper-proof) &rest possible)
+  (assert (member (reasoner p) possible) ()
+	  "incompatible reasoner for ~a" (name p)))
+#+END_SRC
+
+  
+check if we've got a cached result.
+the cache key is a string comprised of all the formulas, the kind of check, the reasoner, and model if relevant.
+We don't use the names as the formulas may change.
+
+#+BEGIN_SRC lisp
+(defmethod is-cached ((p paper-proof))
+  (let ((*package* (find-package 'logic)))
+    (let ((elements `(,@(if (goal p) (list `(:goal ,(get-formula p (goal p)))))
+		      (:assumptions ,(get-formulas p (assumptions p)))
+		      (:kind ,(kind p))
+		      (:reasoner ,(reasoner p))
+		      ,@(if (model p) (list `(:model ,(if (symbolp (model p)) (symbol-value (model p)) (model p))))))
+		    ))
+      (let ((md5 (md5 (with-output-to-string (s)
+			(loop for (nil what) in elements
+			      do (princ what s))
+			))))
+	(setf (cache-directory p) (proof-cache-path (paper p) md5))
+	(ensure-directories-exist (cache-directory p))
+	(and (probe-file (cache-directory p))
+	     (probe-file (merge-pathnames "passfail.lisp"  (cache-directory p)))
+	     (with-open-file (f (merge-pathnames "passfail.lisp"  (cache-directory p)))
+	       (setf (invocation p) (with-open-file (f (merge-pathnames "invocation.lisp"  (cache-directory p))) (read f)))
+	       (setf (succeeded p) (read f))))))))
+
+(defmethod failed-message ((p paper-proof) result)
+  (ecase (kind p)
+    (:check-unsat (format nil "~a was expected to be unsatisfiable but we got ~s instead." (name p) result))
+    (:check-sat (format nil "~a was expected to be satisfiable but we got ~s instead." (name p) result))
+    (:prove  (format nil "~a was expected to be proved but wasn't. Got ~s." (name p) result))
+    (:check-model (format nil "in ~a the model was not satisfying. Got ~s." (name p) result))))
+
+(defmethod maybe-cache-proof-for-paper ((p paper-proof))
+  (flet ((keyed (names)
+	   (if (formula-key p)
+	       `((,(formula-key p) (:or ,@names)))
+	       names))
+	 (expect (result what)
+	   (if (if (functionp what)
+		   (not (funcall what result))
+		   (not (eq result what)))
+	       (warn (failed-message p result))
+	       (setf (succeeded p) t))))
+    (let ((reasoner-args (reasoner-arguments p)))
+      (if (is-cached p)
+	  (format *debug-io* "Getting cached results for ~a~%" (name p))
+	  (progn
+	    (format *debug-io* "Recomputing ~a ~a~%" (kind p) (name p))
+	    (ecase (kind p)
+	      (:check-sat
+	       (must-be-reasoner p :check-sat :z3)
+	       (let* ((form `(z3-find-model ',(keyed (assumptions p)) ,@reasoner-args))
+		      (result (eval form)))
+		 (expect result (lambda(e) (typep e 'z3-model)))
+		 (write-proof-results p :input *last-z3-input* :output *last-z3-output* :result result :form form
+					:model (tuples result))
+		 ))
+	      (:check-unsat 
+	       (must-be-reasoner p :check-unsat :z3 :prover9 :vampire)
+	       (let* ((form (ecase (reasoner p)
+			      (:z3 `(z3-check-satisfiability ',(keyed (assumptions p)) ,@reasoner-args))
+			      (:prover9 `(prover9-check-unsatisfiable ',(keyed (assumptions p))))
+			      (:vampire `(vampire-check-unsatisfiable ',(keyed (assumptions p))))))
+		      (result (eval form)))
+		 (expect  result :unsat)
+		 (ecase (reasoner p)
+		   (:z3 (write-proof-results p :input *last-z3-input* :output *last-z3-output* :result result :form form))
+		   (:prover9 (write-proof-results p :input *last-prover9-input* :output *last-prover9-output* :result result :form form))
+		   (:vampire (write-proof-results p :input *last-vampire-input* :output *last-vampire-output* :result result :form form)))
+		 ))
+	      (:prove
+	       (must-be-reasoner p :prove :z3 :prover9 :vampire)
+	       (let* ((form (ecase (reasoner p)
+			      (:z3 `(z3-prove ',(keyed (assumptions p)) ',(keyed (list (goal p))) ,@reasoner-args))
+			      (:prover9 `(prover9-prove ',(keyed (assumptions p)) ',(keyed (list (goal p))) ,@reasoner-args))
+			      (:vampire `(vampire-prove ',(keyed (assumptions p)) ',(keyed (list (goal p))) ,@reasoner-args))))
+		      (result (eval form)))
+		 (expect result :proved)
+		 (ecase (reasoner p)
+		   (:z3 (write-proof-results p :input *last-z3-input* :output *last-z3-output* :result result  :form form))
+		   (:prover9 (write-proof-results p :input *last-prover9-input* :output *last-prover9-output* :result result :form form))
+		   (:vampire (write-proof-results p :input *last-vampire-input* :output *last-vampire-output* :result result :form form)))
+		 ))
+	      (:check-model
+	       (must-be-reasoner p :check-model :clausetester)
+	       (let* ((form `(clausetester-check-model ,(model p) ',(keyed (assumptions p)) ,@reasoner-args))
+		      (result (eval form)))
+		 (expect result :satisfying-model)
+		 (write-proof-results p :interpretation (first *last-clausetester-input*)
+					:input (second *last-clausetester-input*)
+					:output *last-clausetester-output*
+					:model (symbol-value (model p))
+					:form form))
+	       )
+	      ))))))
+
+(defmethod write-paper-files ((p paper-proof))
+  (write-tex-file p)
+  (flet ((cache-file-named (name)
+	   (car (directory (merge-pathnames (make-pathname :name name :type :wild) (cache-directory p)))))) 
+    (flet ((copy-one (which &key type (suffix ""))
+	     (let* ((file (cache-file-named which)))
+	       (when file
+		 (let ((new-name (merge-pathnames (make-pathname :name (concatenate 'string (string-downcase (string (name p))) suffix)
+								 :type (or type (pathname-type file))
+								 :directory `(:relative ,*org-paper-supplemental-directory* "proofs"))
+						  (org-directory p))))
+		   (ensure-directories-exist new-name)
+		   (uiop/stream:copy-file (cache-file-named which) new-name)
+		   (delete-file (format nil "~a.bak" (namestring new-name)))
+		   ) ))))
+      (copy-one "input")
+      (copy-one "output" :type "out")
+      (copy-one "model" :suffix "-model")
+      (copy-one "interpretation" :type "interp")
+      )))
+  
+(defmacro define-model (name &body tuples)
+  `(setq ,name ',tuples))
+
+(defun do-paper-proofs (org-file)
+  (collect-paper-proofs org-file)
+  (maphash (lambda(k v)
+	     (declare (ignore k))
+	     (maybe-cache-proof-for-paper v)
+	     (write-paper-files v))
+	   *paper-proofs*))
+#+END_SRC
+
+No global for the paper.
+#+BEGIN_SRC lisp
+(defun flush-proof-cache (sys)
+  '(map nil (lambda(e) (uiop/filesystem:delete-directory-tree e :validate t))
+       (directory (merge-pathnames "*" (paper-directory-relative "proofcache/")))))
+
+#+end_src

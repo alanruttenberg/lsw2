@@ -1,0 +1,85 @@
+# -*- Mode: POLY-ORG;  -*- ---
+#+PROPERTY: literate-lang lisp
+#+PROPERTY: literate-load yes
+#+header: :package logic :results :none
+
+#+BEGIN_SRC lisp
+(in-package :logic)
+#+END_SRC
+
+* Global operations on papers
+#+BEGIN_SRC lisp
+
+(defun collect-paper-proofs (org-file)
+  (setq *paper-proofs* (make-hash-table))
+  (with-open-file (f org-file)
+    (loop for line = (read-line f nil :eof)
+	  until (eq line :eof)
+	  when (#"matches" line "#\\+BEGIN_SRC lisp.*")
+	    do (let ((*package* (find-package 'logic))
+		     (*proofs-noninteractive* t))
+		 (loop while (not (char= (peek-char t f) #\#))
+		       do 
+			  (let ((form (read f)))
+			    (when (and (consp form) (member (car form) '(add-proof-here def-logic-axiom define-model paper-defaults)))
+			      (eval form))))))))
+#+END_SRC
+
+org-file-path-or-string is a string then understand as file name
+if a list then car is org mode source as string
+read through and pick up pairs of names and formulas
+formula can either be a formula-sexp or a formula name
+
+#+BEGIN_SRC lisp
+(defun paper-formulas-and-names (org-file-path-or-string &aux key)
+  (let ((paper-formulas nil))
+    (flet ((doit (stream)
+	     (loop for line = (read-line stream nil :eof)
+		   until (eq line :eof)
+		   when (#"matches" line "#\\+BEGIN_SRC lisp.*")
+		     do (let ((*package* (find-package 'logic))
+			      (*proofs-noninteractive* t))
+			  (loop while (not (char= (peek-char t stream) #\#))
+				do 
+				   (let ((form (read stream)))
+				     (when (and (consp form) (eq (car form) 'paper-defaults)
+						(setq key (or (second (member :formula-key form)) key))
+						))
+				     (when (and (consp form) (member (car form) '(add-formulas-here)))
+				       (setq paper-formulas (append  paper-formulas
+								     (let ((*org-paper-defaults* (list :formula-key key)))
+								       (mapcar 'get-add-formulas-formula
+									       (cdr form)))))
+				       )))))))
+      (if (consp org-file-path-or-string)
+	  (with-input-from-string (s (car org-file-path-or-string))
+	    (doit s))
+	  (with-open-file (f org-file-path-or-string)
+	    (doit f)))
+	    paper-formulas)))
+#+END_SRC
+
+if org-file is passed, then the formulas are read from that file and saved
+to i/formulas.cl
+Otherwise assume the top buffer is our org file and ask emacs for the current string contents
+The function (write-formulas-clif) will write all formulas to supplemental directory formulas.cl
+
+
+#+BEGIN_SRC lisp
+(defun write-formulas-clif (&optional org-file)
+  (with-open-file (f (ensure-directories-exist
+		      (merge-pathnames (make-pathname :directory `(:relative ,*org-paper-supplemental-directory*)
+						      :name "formulas"
+						      :type "cl")
+				       *default-pathname-defaults*)) 
+		     :direction :output
+		     :if-does-not-exist :create
+		     :if-exists :supersede)
+    (let ((name-formulas (paper-formulas-and-names
+			  (Or org-file
+			      (list (emacs-top-buffer-contents))))))
+      (loop for (label formula) in name-formulas
+	    do (format f "(cl:comment 'label:~a')~%" label)
+	       (write-string (render :clif (axiom-sexp formula)) f)
+	       (terpri f)(terpri f)))))
+#+END_SRC

@@ -1,0 +1,110 @@
+* Demo
+** Class demo-latex-paper 
+#+begin_src lisp
+(defclass demo-latex-paper (latex-paper)
+  ())
+#+end_src
+
+*** latex-preamble
+#+begin_src lisp
+(defmethod latex-preamble ((p  demo-latex-paper))
+  (if (license p)
+      '("\\usepackage[type={CC},modifier={by},version={4.0},]{doclicense}"
+	( ;; for license
+	 "\\fancyhf{}"
+	 "\\pagestyle{fancy}"
+	 "% https://tex.stackexchange.com/questions/220800/how-i-can-typeset-a-footer-on-only-one-page"
+	 "\\renewcommand{\\footrulewidth}{0pt}\\renewcommand{\\headrulewidth}{0pt}"
+	 "\\fancypagestyle{licenseAtBottom}{\\fancyhf{}\\fancyfoot[L]{Alan Ruttenberg, \\today \\doclicenseThis}}"
+	 "% prevents the license logo from being cit off on the bottom"
+	 "\\setlength\\voffset{-0.5in}"
+	 ))))
+#+end_src
+
+*** function dump-a-bunch-of-axioms-to-latex
+
+This function is useful and serves as base functionality. It will produce a
+latex file that lists a bunch of formula.  Some of this should probably move
+into the base class.
+
+*Arguments*
+- ~:paper-margin~ default "1in"
+- ~:right-margin~ default 80 - this is a parameter to the latex logic generator
+- ~:spec~ specifies the axioms to included
+- ~:fonts~ - as the format for latex-preamble
+- ~:dest~ - pathname where the file should be created, default ~/desktop/debug.tex
+- ~:textfn~ - called on an axiom, returns text to be displayed before the formula
+- ~:labelfn~ - called on an axiom, returns text to be displayed as an identifier for the axiom
+- ~:title~ - Title for the document 
+- ~:smaller-formulas~ - if the formulas should be set in a slightly smaller font 
+- ~:paper-horizontal-margin~ - in the format of a latex length or comma-separated latex lengths. Space on left and right side.
+- ~:paper-vertical-margin~ - in the format of a latex length or comma-separated latex lengths. Space on top and bottom side.
+
+#+BEGIN_SRC lisp
+(defun dump-a-bunch-of-formulas-to-latex
+    (&key
+       (paper-horizontal-margin ".75in")
+       (paper-vertical-margin "{.75in,.25in}")
+       (dest "~/desktop/debug.tex")
+       (right-margin 80)
+       (spec (symbol-value (intern "*EVERYTHING-THEORY*" 'bfo) ))
+       fonts
+       (textfn (lambda(ax) (format-axiom-name (axiom-name ax))))
+       (labelfn nil)
+       (smaller-formulas t)
+       title)
+  (when (probe-file dest) (delete-file dest))
+  (let* ((paper (make-instance
+		 'demo-latex-paper
+		 :latex-generators '(latex-logic-generator-2)
+		 :paper-folder (namestring (make-pathname :directory (pathname-directory dest)))
+		 :latex-after-document-begins '("\\setlength{\\parindent}{0pt}")
+		 :hmargin paper-horizontal-margin
+		 :vmargin paper-vertical-margin
+		 :input-filename (concatenate 'string (pathname-name  dest) "." (pathname-type  dest))
+;		 :latex-fonts (list nil (list (make-font-macro "ppl")))
+		 :latex-fonts (or fonts (list (list "\\usepackage{mathpazo}") (list (make-font-macro nil smaller-formulas))))
+		 :license t
+		 )))
+    (prepare-latex-to-include paper)
+    (with-open-file (f  dest :if-does-not-exist :error :if-exists :append :direction :output)
+      (let ((*standard-output* f))
+	(when title (format f "{\\bf \\Large{~a}}\\vspace{.6cm}~%~%" title))
+	(loop with generator = (make-instance 'latex-logic-generator-2 :centered nil :right-margin right-margin)
+	      for count from 1
+	      for lab = (if labelfn (funcall labelfn ax) (format nil "~a" count))
+	      for ax in (collect-axioms-from-spec spec)
+	      if (null  (render-axiom-labeled generator ax lab))
+		do (warn "error in ~a" (axiom-name ax))
+	      else	    do
+		
+		;;(format f (format t "~%\\message{~a}~%" (axiom-name ax)))
+		(format f "~%~a\\par~%~a\\par" 
+			(funcall textfn ax)
+			(render-axiom-labeled generator ax (if labelfn (funcall labelfn ax) (format nil "~a" count)))))
+	(when (license paper)
+	  (write-string "\\setlength\\voffset{-0.5in}\\thispagestyle{licenseAtBottom}" f)
+	  (terpri f))
+	(format f "\\end{document}~%")))))
+
+;format an axiom name into latex - for debugging, generally 
+
+(defun format-axiom-name (axiom-name)
+  (labels ((transform (what replacements)
+	     (if (null replacements) what
+		 (destructuring-bind (match replace) (pop replacements)
+		   (transform (#"replaceAll" what match replace) replacements)))))
+    (format nil "\\textbf{~a}"
+	    (transform
+	     (string-downcase (string axiom-name))
+	     `(("<->" " \\$\\\\leftrightarrow\\$ " )
+	       ("->" " \\$\\\\rightarrow\\$ ")
+	       ("-" " ")
+	       ("\\+" " and ")
+	       ("\\." " is ")
+	       (">" "{\\\\textgreater}")
+	       ("<" "{\\\\textless}"))))))
+#+END_SRC
+
+
+

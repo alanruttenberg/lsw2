@@ -1,0 +1,63 @@
+# -*- Mode: POLY-ORG;  -*- ---
+* Class logic paper
+
+~logic-paper~ is a class for writing papers about logic, using LSW resources. It
+generates two kinds of content: formulas and proofs. Other helpers are expected
+to be added over time. The assumption as with latex papers is that a paper is 
+put in a folder. Relative to this folder, the following folders may be added
+
+Generated files are put in one of three places relative to org paper file. By default these are 
+as below, but can be changed by setting instance variables.
+- i/formulas - tex to be included for formulas 
+- i/proofs - tex to be included for proofs
+- supplemental/ - files intended to be distributed with the paper as supplemental material
+- supplemental/formulas.cl - the formulas in the paper, in CLIF format
+- supplemental/proofs - the supplemental files for proofs - native inputs and outputs
+- proof-cache/ - cache files so that proofs don't have to be re-evaluated unless they have changed
+
+The workflow is that you define what you want in lisp source blocks. When the
+source block is executed files in the paper folder are created, and the result
+of the block are instructions to load those files.
+
+#+BEGIN_SRC lisp
+(defclass logic-paper (latex-paper)
+  ((formulas :accessor formulas :initform nil :initarg :formulas)
+   (proofs :accessor proofs :initform (make-hash-table) :initarg :proofs) 
+   (includes-folder :accessor includes-folder :initform "i" :initarg :includes-folder )
+   (supplemental-folder :accessor supplemental-folder :initform  "supplemental" :initarg :supplemental-folder)
+   (formulas-folder :accessor formulas-folder :initform  "formulas" :initarg :formulas-folder)
+   (proofs-folder :accessor proofs-folder :initform  "proofs" :initarg :proofs-folder)
+   (proof-cache-folder :accessor proof-cache-folder :initform "proof-cache" :initarg :proof-cache-folder )))
+#+END_SRC
+
+** Pathname constructors
+
+#+begin_src lisp
+(defmethod formula-path ((p logic-paper) formula-name)
+  (merge-pathnames (make-pathname :name formula-name :type "tex")
+                   (merge-pathnames 
+                    (make-pathname :directory `(:relative ,(formulas-folder p)))
+                    (make-pathname :directory `(:relative ,(supplemental-folder p))))))
+
+(defmethod proof-cache-path ((p logic-paper) md5)
+  (merge-pathnames (make-pathname :directory `(:relative ,md5))
+                   (make-pathname :directory `(:relative ,(proof-cache-folder p)))))
+
+(defmethod proofs-folder-path ((p logic-paper) )
+  (merge-pathnames 
+   (make-pathname :directory `(:relative ,(proofs-folder p)))
+   (make-pathname :directory `(:relative ,(supplemental-folder p)))))
+
+#+end_src
+
+** Registering proofs and formulas
+
+The paper instance keeps track of formulas and proofs in the paper in a list by name.
+
+#+begin_src lisp
+(defmethod register-paper-formula ((p logic-paper) formula)
+  (pushnew formula (formulas p) :key 'name))
+
+(defmethod register-paper-proof ((p logic-paper) proof)
+  (pushnew proof (proofs p) :key 'name))
+#+end_src

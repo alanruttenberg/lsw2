@@ -1,9 +1,6 @@
 ;;;; -*- Mode: LISP -*-
 ;;;;
-
 (in-package :asdf)
-
-;(load (merge-pathnames "winston-ai/winston-forward-chain.asd" *load-truename*))
 
 (defsystem :logic
   :name "LOGIC"
@@ -47,12 +44,28 @@
      (:file "expand-model")
      (:file "graal")
      (:file "test-theory-with-model-seed")
-     (:org "paper-support")
+     (:org "render-ontology-fol")
      (:file "read-clif"))
     :depends-on ("package" "main"
 			   "graal"
-			   )))
-  :depends-on (:cl-ansi-text :yacc :paiprolog :util :md5 :cl-unification :literate-lisp)
-  )
+			   ))
+   (:module "literate"
+    :components
+    ((:org "latex-paper")
+     (:org "logic-paper")
+     (:org "proof")
+     (:org "formula"))))
+  :depends-on (:cl-ansi-text :yacc :paiprolog :util :md5 :cl-unification)
+  :defsystem-depends-on  ("lilith")
+  :in-order-to ((test-op (load-op "logic/test"))))
 
 
+(defsystem :logic/test
+  :description "Test OWL to FOL translations"
+  :perform  (test-op (o s)
+                     (load uiop:symbol-call :abcl.test.lisp '#:run))
+  :components
+  ((:module "t"
+    :components ((:file "owl-test-cases")
+                 (:file "owl-to-fol"))
+    :serial t)))

@@ -1,0 +1,188 @@
+# -*- Mode: POLY-ORG;  -*- ---
+#+PROPERTY: literate-lang lisp
+#+PROPERTY: literate-load yes
+#+header: :package logic :results :none
+
+#+BEGIN_SRC lisp
+(in-package :logic)
+#+END_SRC
+
+* Specifying formulas to be included in the paper 
+
+~add-formulas-here~ accepts a number of formula specifications.
+Here is an example of the specification of an inline formula to be rendered by lisp.
+
+#+BEGIN_EXAMPLE
+  #+NAME: symmetric-f
+  #+BEGIN_SRCL lisp
+  (add-formulas-here
+     (symmetric-f
+	(:forall (?x ?y) (:implies (my-relation ?x ?y) (my-relation ?y ?x)))
+	 :label :symf)
+     (:exists-at-domain-range :label :edf))
+  #+END_SRC 
+#+END_EXAMPLE
+
+The first line provides an optional name. The name is carried to the
+results block, and named result blocks can be anywhere in the
+file. Recommended.  Immediately after we expect a series of forms
+denoting formulas.
+
+Each formula specification can either be 
+- A list with a name followed by an LSW formula optionally followed by
+  a :label <label>
+- A list with a keyword naming a formula already in the lisp
+  environment, optionally followed by :label <label> The formula will
+  be retrieved using get-axiom
+
+If you want to be able to reference the formula, say to include it in
+a proof, or discuss it in the text, you need to give the label.
+
+When you execute the block a latex file for each formula is generated,
+and a result block is added to include them, something like
+
+#+BEGIN_EXAMPLE
+ #+BEGIN_LaTeX
+\insertFormulaPath{./i/formulas/symmetric-f.tex}\vspace*{-\baselineskip}\vspace*{-\baselineskip}
+\insertFormulaPath{./i/formulas/exists-at-domain-range.tex}\vspace*{-\baselineskip}
+#+END_LaTeX
+#+END_EXAMPLE
+
+** Class: paper-formula
+
+We create an instance of paper formula for every formula in an
+~add-formulas-here~ form.
+
+- name will either be the given name of an explicit formula, or a keyword naming the formula.
+- label is the label, if given 
+- the-formula is used when there's an explicit formular, otherwise the formula is retrieved by the name.
+- paper is the instance of logic-paper the formula is part of.
+
+#+begin_src lisp
+(defclass paper-formula ()
+  ((name :accessor name :initform nil :initarg :name)
+   (label :accessor label :initform nil :initarg :label)
+   (the-formula :accessor the-formula :initform nil :initarg :the-formula)
+   (paper :accessor paper :initform nil :initarg :paper)
+   (include-formula-format :accessor include-formula-format :initform  "\\insertFormula{./~a}{~a}~%" :initarg :include-formula-format)))
+#+end_src
+
+** Macro: add-formulas-here
+
+#+begin_src lisp
+(defmacro add-formulas-here (&rest formula-descs)
+  (add-formulas-here-internal formula-descs))
+
+(defun add-formulas-here-internal (formula-descs)
+  (with-output-to-string (s)
+    (loop for formula-desc in formula-descs
+          for name = (car formula-desc)
+          for formula-here = (and (consp (second formula-desc)) (second formula-desc))
+          for properties = (if formula-here (cddr formula-desc) (cdr formula-desc))
+          for label = (getf properties :label)
+          with paper = (get-top-buffer-paper-instance)
+          for formula = (make-instance 'paper-formula
+                                       :name name
+                                       :label label
+                                       :the-formula formula-here
+                                       :paper paper)
+          do (register-paper-formula paper formula)
+             (write-formula-tex formula)
+             (write-string (include-formula-latex formula) s))))
+
+
+#+begin_src lisp
+(defmethod write-formula-tex ((f paper-formula))
+  (let* ((g (make-instance 'logic::latex-logic-generator-2 ))
+        (relative-path (formula-path (paper f) (name f)))
+        (full-path (merge-pathnames relative-path (paper-folder f))))
+    (ensure-directories-exist full-path)
+    (with-open-file (f full-path :direction :output :if-exists :supersede)
+      (format f "~a~%" (with-output-to-string (s) (render-axiom g f))))))
+#+END_SRC
+
+#+begin_src lisp
+(defmethod include-formula-latex ((f paper-formula))
+  (format nil (include-formula-format f) (formula-path (paper f) (name f)) (or (label f) "")))
+          
+
+name (string-upcase (string short)) skip)
+
+#+end_src
+
+
+            
+	      (with-output-to-string (s)
+		(loop for rnames on (reverse ,names)
+		      for (name short) = (car rnames)
+		      for skip = (if (null (cdr rnames))
+				     "\\vspace*{-\\baselineskip}"
+				     "\\vspace*{-\\baselineskip}\\vspace*{-\\baselineskip}")
+		      if short
+			do (format s "\\insertFormulaPathTagged{./i/formulas/~a.tex}{~a}~a~%" name (string-upcase (string short)) skip)
+		      else
+			do
+			   (format s "\\insertFormulaPath{./i/formulas/~a.tex}~a~%" name skip)
+		      do
+                         (write-formula-tex (list 
+                                             (if (getf *org-paper-defaults* :formula-key)
+                                                 (get-axiom-by-key (getf *org-paper-defaults* :formula-key) name)
+                                                 (keywordify name)))
+                                            (merge-pathnames (make-pathname :directory `(:relative ,*org-paper-includes-directory* "formulas")
+                                                                            :type "tex")
+                                                             *default-pathname-defaults*)
+					    name)))
+
+	      ))))
+#+end_src
+** Example
+
+#+BEGIN_EXAMPLE
+(setq cb (add-proof-here consistent-base
+	   :formula-key :ropaper
+	   :kind :check-sat
+	   :assumptions (:o1 :o2 :o3 :o4 :TDR :tt :ta :be1 :be2 :BT :BIW :BIB :BW )
+	   :theorem-text "The theory comprising $assumptions is consistent"
+	   :proof-text "There is a consistent model."
+	   ))
+(maybe-cache-proof-for-paper cb)
+(cache-directory cb)
+(write-org-file cb)
+(failed-message cb :bad)
+(write-paper-files cb)
+(do-paper-proofs "~/repos/writing/temporal/mungall-critique-test-paper-support.org")
+#+END_EXAMPLE
+
+** Old notes
+
+A proof is uniqely determined by the assumption formulas, the goal formula (if applicable), the reasoner, and the kind of proof.
+
+We will have a local cache directory (so it can be archived with the paper)
+The time-consuming thing is the proofs - other work can be redone if necessary. That means we
+need to cache the input and output files for the reasoner
+Within the cache directory there will be a directory to hold the various artifacts.
+Directory will be named with hash of determining information.
+Fields in the object, and whether they are part of identifing information:
+
+name - not essential
+formula-key - not essential - used to look up formulas
+kind - essential sat, unsat, checkmodel, prove 
+assumptions - essential
+goal - essential
+reasoner - essential 
+theorem-text - not essential. It's cheap to regenerate
+proof-text - not essential. It's cheap to regenerate
+;; directories don't need to be cached.
+
+
+Algorithm:
+When checking if we already have it:
+1. Gather list of assumptions and goals.
+2. sort them?
+3. compute hash/directory
+4. do the reasoning
+5. save input and output files
+6. save the invocation 
+7. Save time and other bits
+
+
