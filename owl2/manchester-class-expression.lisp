@@ -1,3 +1,4 @@
+(in-package :cl-user)
 ;; start of manchester syntax reader
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
