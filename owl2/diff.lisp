@@ -1,3 +1,4 @@
+(in-package :cl-user)
 (defun get-ontology-annotations (ont)
   (jss::j2list (#"getAnnotations" (v3kb-ont ont))))
 
