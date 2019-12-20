@@ -1,3 +1,5 @@
+(in-package :cl-user)
+
 ;; New implementation of to-owl-syntax taking advantage of latest OWLAPI
 
 (defparameter *owlapi-io-classes*

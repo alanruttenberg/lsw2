@@ -1,3 +1,4 @@
+(in-package :cl-user)
 (defvar *treeview-depth* 3)
 (defvar *want-hrule* t)
 (defvar *uri-name-is-uri-hack* nil)
