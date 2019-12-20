@@ -8,6 +8,27 @@
 ;; On the relative expressiveness of description logics and predicate logics https://core.ac.uk/download/pdf/82134362.pdf
 ;; http://owl.man.ac.uk/hoolet/
 
+;; Handling of owl:Thing, owl:Nothing
+;; We need the following, which separates the classes from the instances. When running OWL proofs, this needs to be taken as a premise.
+
+;; (:forall (?x__x ?y__y)
+;;  (:and (:not (:= ?x__x ?y__y))
+;;        (:or (rdf-type ?x__x ?y__y) (rdf-type ?y__y ?x__x))))
+;; This should (almost) be a theorem in BFO, since we have universal/particular cover/disjoint CHECKME
+;; With that, we can also translate away !owl:Thing and !owl:Nothing
+;; They both appear only in o-class-expression.
+;; Then:
+;; (class-expression !owl:Thing) -> `(:exists (?x) (rdf-type ?x ,*classinstancevar*))
+;; (class-expression !owl:Thing) -> `(:not (:exists (?x) (rdf-type ?x ,*classinstancevar*)))
+
+(def-logic-axiom rdf-type-separation
+  (:forall (?x__x ?y__y)
+    (:and (:not (:= ?x__x ?y__y))
+          (:or (rdf-type ?x__x ?y__y) (rdf-type ?y__y ?x__x))))
+  "The domain and range of rdf-type are disjoint, and together the domain and range cover the domain of discourse."
+  )
+
+
 (defvar *classinstancevar* )
 
 ;; If :rdf-type o-class-expression expands to (rdf-type c *classinstancevar*)
@@ -25,7 +46,11 @@
   (if (atom expression)
       (ecase *owl-fol-class-handling*
 	(:predicate (pred-class expression *classinstancevar*))
-	(:rdf-type (o-pred-property 'rdf-type expression *classinstancevar*))) 
+	(:rdf-type (if (eq expression 'owl-thing)
+                       `(:exists (?x) (rdf-type ?x ,*classinstancevar*))
+                       (if (eq expression  'owl-nothing)
+                           `(:not (:exists (?x) (rdf-type ?x ,*classinstancevar*)))
+                           (o-pred-property 'rdf-type expression *classinstancevar*))))) 
       (macroexpand expression)))
 
 
@@ -65,7 +90,7 @@
   (with-logic-var e
     (l-exists (list e)
               (apply 'l-and (o-pred-property property-expression *classinstancevar* e)
-                     (if (and class-expression (not (eq class-expression 'owl-thing)))
+                     (if class-expression
                          (let ((*classinstancevar* e))
                            (list (o-class-expression class-expression))))))))
 
@@ -244,14 +269,15 @@
                   (apply 'l-and
                          (macroexpand `(o-differentindividuals ,@is))
                          (loop for i in is
-                               if (and class (not (eq class 'owl-thing)))
+                               if class
                                  collect (let ((*classinstancevar* i)) (o-class-expression class))
                                collect 
                                (o-pred-property property *classinstancevar* i)) )))))
 
 (defmacro o-objectexactcardinality (number property class)
   (if (eql number 0)
-      (o-pred-property 'rdf-type 'owl-nothing *classinstancevar*)
+      (with-logic-var x
+        (l-not (l-exists (list x) (o-pred-property property *classinstancevar* x))))
       (with-logic-vars (is number)
         (l-exists is 
                   (apply 'l-and
@@ -264,14 +290,15 @@
                                                         (apply 'l-or
                                                                (loop for i in is collect (l-= i other)))))
                                    )
-                                 (append (when (and class (not (eq class 'owl-thing)))
+                                 (append (when class 
                                            (loop for i in is collect (let ((*classinstancevar* i)) (o-class-expression class))))
                                          (loop for i in is collect (o-pred-property property *classinstancevar* i)))
                           )))))))
 
 (defmacro o-objectmaxcardinality (number property class)
   (if (eql number 0)
-      (o-pred-property 'rdf-type 'owl-nothing *classinstancevar*)
+      (with-logic-var x
+        (l-not (l-exists (list x) (o-pred-property property *classinstancevar* x))))
       (with-logic-vars (is number)
         (l-exists is
                   (apply 'l-and
@@ -281,7 +308,7 @@
                                                        (apply 'l-or
                                                               (loop for i in is collect (l-= i other)))))
                                   )
-                                (append (when (and class (not (eq class 'owl-thing)))
+                                (append (when class
                                           (loop for i in is collect (let ((*classinstancevar* i)) (o-class-expression class))))
                                         (loop for i in is collect (o-pred-property property *classinstancevar* i)))
                                 ))
@@ -339,7 +366,7 @@
 		   ((uri-p expression) expression)
 		   ((numberp expression) expression)
 		   (t (mapcar #'o-rewrite expression)))))
-    (maybe-define-nothing/something  (replace-blank-nodes (o-rewrite (mapcar 'cl-user::rewrite-owl-canonical-functional expression))))))
+     (replace-blank-nodes (o-rewrite (mapcar 'cl-user::rewrite-owl-canonical-functional expression)))))
 
 (defun replace-blank-nodes (expression &aux bvars)
   (flet ((blankvar-for (n)
@@ -358,14 +385,8 @@
           (l-exists (mapcar #'blankvar-for bvars) (macroexpand replaced))
           (macroexpand replaced)))))
 
-(defun maybe-define-nothing/something (expression)
-  (if (or (tree-find 'owl-nothing expression)
-          (tree-find 'owl-thing expression))
-      (with-logic-var x
-        `(:and (:forall (,x) (:iff (rdf-type owl-nothing ,x) (:not (rdf-type owl-thing ,x))))
-               (:forall (,x) (:iff (rdf-type owl-thing ,x) (:= ,x ,x)))
-               ,expression))
-      expression))
+
+
 
 
 #|
