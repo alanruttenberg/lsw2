@@ -84,6 +84,7 @@
 
   (prove:finalize)
 
+;; 66 RDF-Based aren't listed here - easy to filter out by name
   (defparameter *skip-owl-tests* 
     '(("New-Feature-Keys-001" :data)
       ("New-Feature-Keys-003" :data)
@@ -158,8 +159,11 @@
       ("TestCase:WebOnt-I5.24-002" :not-dl)
       ("TestCase:WebOnt-I5.26-009" :cant-parse)
       ("TestCase:WebOnt-I4.6-005-Direct" :empty-consequent)
-      ("TestCase:WebOnt-AnnotationProperty-002" :huh?) ; I think this test is wrong.
+      ("TestCase:WebOnt-AnnotationProperty-002" :huh?)   ; I think this test is wrong.
       ("TestCase:WebOnt-description-logic-903" :too-big) ; uses cardinality 200
+      ("New-Feature-DataQCR-001"  :data)
+      ("New-Feature-DisjointDataProperties-002"  data)
+      ("TestCase:WebOnt-description-logic-903"  :too-big)
       ))
 
   (defparameter *all-owl-tests*
@@ -297,9 +301,17 @@
       "TestCase:WebOnt-I5.8-017"
       "TestCase:WebOnt-InverseFunctionalProperty-001"
       "TestCase:WebOnt-InverseFunctionalProperty-002"
+      "New-Feature-DisjointObjectProperties-001" 
+      "New-Feature-DisjointObjectProperties-002" 
+      "New-Feature-DataQCR-001"  
+      "New-Feature-DisjointDataProperties-002" 
+      "New-Feature-DisjointObjectProperties-001" 
+      "New-Feature-DisjointObjectProperties-002" 
+      "TestCase:WebOnt-description-logic-903" 
+
       ))
 
-  (prove:plan 54)
+  (prove:plan 58)
   (loop for test in *all-owl-tests*
         for url = (format nil "http://owl.semanticweb.org/page/~a.html" test)
         unless (find test *skip-owl-tests* :key 'car :test 'equalp)
