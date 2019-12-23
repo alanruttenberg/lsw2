@@ -11,7 +11,12 @@
 
 (defun trc (expression)
   (cond ((symbolp expression)
-         (lambda(c) `(,expression ,c)))
+	 (cond ((eq expression 'owl-thing)
+		(lambda(c) (:= c c)))
+	       ((eq expression 'owl-nothing)
+		(lambda(c) (:not (:= c c))))
+	       (t 
+		(lambda(c) `(,expression ,c)))))
         (t (trf expression))))
 
 (defun trf (expression)
