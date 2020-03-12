@@ -98,17 +98,23 @@
 							,(loop repeat arity collect (domain-sort g)) |Bool|))))))))
 
   
-(defmethod render-axiom ((g z3-logic-generator) (a axiom))
+(defmethod mangle-label ((g z3-logic-generator) label)
   (flet ((replace-angle (name)
 	   (#"replaceAll" (#"replaceAll"  (string name) "<" ".lt.") ">" ".gt.")))
-    (let ((bare (call-next-method)))
-      (if (with-declarations g)
-	  (concatenate 'string 
-		       (generate-declarations g (list a))
-		       (to-string g `(assert ,(normalize-names g bare))))
-	  (if (and (with-names g) (axiom-name a))
-	      (to-string g `(assert (|!| ,(normalize-names g bare) |:named| ,(replace-angle (replace-all (string (axiom-name a)) "(\\d+)" (lambda(e) (camelCase (format nil ".~r" (read-from-string e)))) 1)))))
-	      (to-string g `(assert ,(normalize-names g bare))))))))
+    (let ((new (replace-angle (replace-all (string label) "(\\d+)" (lambda(e) (camelCase (format nil ".~r" (read-from-string e)))) 1))))
+      (pushnew (cons label new) (mangled-labels g) :test 'equalp)
+      new
+      )))
+    
+(defmethod render-axiom ((g z3-logic-generator) (a axiom))
+  (let ((bare (call-next-method)))
+    (if (with-declarations g)
+	(concatenate 'string 
+		     (generate-declarations g (list a))
+		     (to-string g `(assert ,(normalize-names g bare))))
+	(if (and (with-names g) (axiom-name a))
+	    (to-string g `(assert (|!| ,(normalize-names g bare) |:named| ,(mangle-label g (axiom-name a)))))
+	    (to-string g `(assert ,(normalize-names g bare)))))))
 
 (defmethod render-axioms ((g z3-logic-generator) (a list))
   (apply 'concatenate 'string
