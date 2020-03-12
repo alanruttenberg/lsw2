@@ -133,6 +133,10 @@
 	 (progn ,@(print-db-aux forms))
 	 (terpri *trace-output*))))
 
+;; Define :print-db, which can be used anywhere without worrying about package!
+(defmacro :print-db (&rest forms)
+  `(print-db ,@forms))
+
 (defvar *print-db-hooks* nil)
 
 (defun print-db-aux (forms)
