@@ -44,15 +44,36 @@
 	 (progn
 	   (when (search "jdbc:sqlite" jdbc-url) 
 	     (#"forName" 'Class "org.sqlite.JDBC"))
-	   (if (equal (car *default-connection*) jdbc-url)
-	       (progn (funcall fn (cdr *default-connection*)))
-	       (let ((*default-connection* (cons jdbc-url (setq connection (#"getConnection" 'java.sql.DriverManager jdbc-url)))))
-		 (funcall fn (cdr *default-connection*)))))
+	   (handler-case
+	       (if (equal (car *default-connection*) jdbc-url)
+		   (progn (funcall fn (cdr *default-connection*)))
+		   (let ((*default-connection* (cons jdbc-url (setq connection (#"getConnection" 'java.sql.DriverManager jdbc-url)))))
+		     (funcall fn (cdr *default-connection*))
+		     ))
+	   (java::java-exception (c) (maybe-handle-sql-exception c (cdr *default-connection*)))))
       (when (and connection (not (equal (car *default-connection*) jdbc-url)))
 	(#"close" connection)))))
 
+(defun maybe-handle-sql-exception (exception connection)
+  (let ((jexception (java:java-exception-cause exception)))
+    (if (equalp (java::jobject-class jexception) (find-java-class 'java.sql.SQLRecoverableException))
+	(let ((message (#"getMessage" jexception)))
+	  (if (member message '("IO Error: Connection reset" "Closed Connection") :test 'equalp)
+	      (if (equalp (#"getURL" connection) (car cl-user::*default-connection*))
+		  (progn 
+		    (cerror "Reset default connection" "There was a sql error: ~a" (#"getMessage" jexception))
+		    (set-default-jdbc-connection (#"getURL" connection)))
+		  (error exception))
+	      (error exception)))
+	(error exception))))
+
 (defun set-default-jdbc-connection (jdbc-url)
   (setq *default-connection* (cons jdbc-url (#"getConnection" 'java.sql.DriverManager jdbc-url))))
+
+(defun close-default-jdbc-connection ()
+  (when *default-connection*
+    (#"close" (cdr *default-connection*))
+    (setq *default-connection* nil)))
 
 (defgeneric with-jdbc-connection-named (keyword function)
   (:documentation "if a sql query is executed with a connection that is a keyword instead of a connection object, the sql is wrapped in a lambda and passed to this function, which calls the lambda with a single argument which is the connection. Clients of this functionality need to define eql methods on the first argument to implement the necessary setup of the connection"
@@ -106,13 +127,13 @@
 (defvar *last-sql-query-results* nil)
 (defvar *always-cache-sql* nil)
 
-(defun sql-query (query &rest args &key (connection (cdr *default-connection*)) with-headers print format-args trace (dwim-capitalized t) cache save-to)
+(defun sql-query (query &rest args &key (connection (cdr *default-connection*)) with-headers print format-args trace (dwim-capitalized t) cache save-to (format t) (timeout *jdbc-timeout* ))
   (if (keywordp connection) 
       (return-from sql-query 
 	(with-jdbc-connection-named connection
 	  (lambda(c) (apply 'sql-query query c args))))
       (setq connection (maybe-default-connection connection)))
-  (setq query (maybe-format-sql query format-args))
+  (when format (setq query (maybe-format-sql query format-args)))
   (when (or trace *jdbc-trace*) (print query))
   (check-if-known-database connection)
   (if (and dwim-capitalized (equal "oracle.jdbc.driver.T4CConnection" (jclass-name (jobject-class connection))))
@@ -136,46 +157,140 @@
   (if save-to
       (with-open-file (f save-to :if-exists :supersede :if-does-not-exist :create :direction :output)
 	(let ((*standard-output* f))
-	  (print-or-return-query-results query connection t with-headers (or cache *always-cache-sql*))))
-      (print-or-return-query-results query connection print with-headers (or cache *always-cache-sql*)))
+	  (print-or-return-query-results query connection t with-headers (or cache *always-cache-sql*) :timeout timeout)))
+      (print-or-return-query-results query connection print with-headers (or cache *always-cache-sql*) :timeout timeout))
   )
 
-(defun print-or-return-query-results (query connection print with-headers cache &optional file)
+(defun get-sql-array (resultset index)
+  (#"getArray" resultset index))
+
+(defun get-sql-blob (resultset index kind)
+  (ecase kind
+    (:block (#"getBlob" resultset index))
+    (:clob  (#"getCLOB" resultset index))
+    (:nclob (#"getNClob" resultset index))))
+
+(defun get-sql-date (resultset index kind)
+  (#"getString" resultset index) ; consider #'getDate, getTime
+  )
+
+(defun get-sql-nchar (resultset index)
+  (#"getString" resultset index) ;  consider getNCharacterStream
+  )
+
+(defun get-sql-bytes (resultset index)
+  (jarray-to-list (#"getBytes" resultset index)))
+
+(defun get-sql-timestamp (resultset index)
+  (#"getString" resultset index) ; consider  getTimestamp
+)
+
+(defun dont-understand-sql-type (resultset index type)
+  (error "Don't currently know how to handle sql type ~a in column #~a" type i))
+    
+;; https://docs.oracle.com/javase/7/docs/api/java/sql/Types.html
+;; https://docs.oracle.com/javase/7/docs/api/constant-values.html#java.sql.Types.DISTINCT
+;; https://www.cs.mun.ca/java-api-1.5/guide/jdbc/getstart/mapping.html
+
+;; (symbol number getter)
+(defparameter *sql-types* 
+  '((Array 2003 get-sql-array)
+    (Bigint -5 #'"getLong")
+    (Binary -2 get-sql-binary)		;
+    (Bit -7 #"getInt")
+    (Blob 2004 get-sql-blob :blob) 
+    (Boolean 16 #'"getBoolean")
+    (Char 1 #"getString")
+    (Clob 2005 get-sql-blob :clob)
+    (Date 91 get-sql-date :date)
+    (Datalink f #"getString") 
+    (Decimal 3 #"getDouble")
+    (Distinct 2001 dont-understand-sql-type :distinct) ;https://www.geeksforgeeks.org/stream-distinct-java/
+    (Double 8 #"getDouble")
+    (Float 6 #"getFloat")
+    (Integer 4 #"getNUMBER")
+    (JavaObject 2000 dont-understand-sql-type :java-object)
+    (Long-var-char -16 #"getString")
+    (Nchar -15 get-sql-nchar)
+    (NClob 2011 'get-sql-blob :nclob)
+    (Varchar 12 #"getString")
+    (VarBinary -3 get-sql-bytes)
+    (Tiny-int -6 #"getInt")
+    (Timestamp-with-timezone 2014 'get-sql-date :Timestamp-with-timezone)
+    (Timestamp 93 get-sql-timestamp)
+    (Time 92 'get-sql-date :time) 
+    (Struct 2002 #"getSTRUCT")
+    (SqlXml 2009 #"getString")		; getSQLXML
+    (Rowid -8 dont-understand-sql-type :rowid)
+    (Refcursor 2012 dont-understand-sql-type :refcursor); getCursor?
+    (Ref 2006 dont-understand-sql-type) ;getRef
+    (Real 7 #"getFloat")
+    (Nvarchar -9 #"getString")
+    (Numeric 2 #"getInt")
+    (Null 0  dont-understand-sql-type :null)
+    (Smallint 5 #"getInt")))
+
+(defvar *jdbc-timeout* 15)
+
+(defmacro with-query-timeout (seconds &body body)
+  `(let ((*jdbc-timeout* ,seconds))
+    ,@body))
+
+(defun print-or-return-query-results (query connection print with-headers cache &key timeout)
   (let ((statement :s)
 	(results :r))
     (unwind-protect 
 	 (progn
 	   (setq statement (#"createStatement" connection))
+	   (unless (eq timeout  :no-timeout)
+	     (#"setQueryTimeout" statement (or timeout *jdbc-timeout*)))
 	   (setq results (#"executeQuery" statement query))
-	   (let ((field-names
-		   (loop 
-		     for i from 1 to (#"getColumnCount" (#"getMetaData" results))
-		     collect (#"getColumnName" (#"getMetaData" results) i))))
-	     (when print 
-	       (format t "~{~a~^	~}~%" field-names))
+	   (let* ((types 
+		   (loop with meta = (#"getMetaData" results)
+			 for i from 1 to (#"getColumnCount" meta)
+			 collect (find (#"getColumnType" meta i) *sql-types* :key 'second :test 'eql)))
+		 (getters (loop for type in types
+
+				for (nil nil getter) = type
+				collect getter))
+		 (field-names
+		   (loop with meta = (#"getMetaData" results)
+			 for i from 1 to (#"getColumnCount" meta)
+			 do  (#"getColumnType" meta i)
+		     collect (#"getColumnName" (setq @ meta) i)
+			 )))
+;	     (print-db (mapcar 'sys::keywordify (mapcar 'car types)))
+	     ;; (when print 
+	     ;;   (format t "~{~a~^	~}~%" field-names))
 	     (loop
 	       while (#"next" results) 
 	       collect
 	       (loop 
 		 for field in field-names
+		 for getter in getters
 		 for index from 1
+		 for value = (setq @ (funcall getter results index))
 		 if with-headers
-		   collect (cons field (#"getString" results index)) into columns 
-		 else collect (#"getString" results index) into columns
-						
+		   collect (cons field value) into columns 
+		 else collect value into columns
 		 finally (progn
-			   (when print
-			     (format t "~{~a~^	~}~%"
-				     (if with-headers
-					 (mapcar 'cdr columns)
-					 columns 
-					 )
-				     ))
+			   ;; (when print
+			   ;;   (format t "~{~a~^	~}~%"
+			   ;; 	     (if with-headers
+			   ;; 		 (mapcar 'cdr columns)
+			   ;; 		 columns 
+			   ;; 		 )
+			   ;; 	     ))
 			   (return columns)
 			   ))
 		 into rows
 	       finally
 		  (progn
+
+		    (when print
+		      (format-as-table (cons field-names rows))
+		      )
+
 		    (setq *last-sql-query-results* rows)
 		    (when cache (setf (gethash (cons (#"getURL" connection) query) *jdbc-query-cache*) (list rows field-names)))
 		    (return (if print
@@ -195,7 +310,7 @@
 	(let* ((replacements nil)
 	       (count 0)
 	       (protected 
-		 (replace-all string "('\\S+')" (lambda(quoted)
+		 (replace-all string "(('\\S+')|(\\S+[(]))" (lambda(quoted)
 						  (let ((token (format nil "'@@~a@@'" (incf count))))
 						    (push (list token quoted) replacements)
 						    token))
@@ -335,3 +450,4 @@ ORDER BY schema_name, table_name;" table-match  column-match) :connection connec
 	       collect column collect doc))))
 
 ;; http://dev.mysql.com/doc/refman/5.0/en/fulltext-search.html#function_match
+(provide 'jdbc)
