@@ -79,10 +79,21 @@
        ,@body)))
 
 (defmacro with-logic-var (var &body body)
-  (let ((vars (gensym)))
-    `(with-logic-vars (,vars 1)
-       (let ((,var (car ,vars)))
-	 ,@body))))
+  (if (and (listp var) (second var))
+      `(with-logic-var ,(car var)
+         (with-logic-var ,(cdr var)
+           ,@body))
+      (progn
+        (when (listp var) (setq var (car var)))
+        (let ((vars (gensym)))
+          `(with-logic-vars (,vars 1)
+             (let ((,var (car ,vars)))
+               ,@body))))))
+
+(eval-when (:load-toplevel :execute)
+  (xp::set-pprint-dispatch+
+   '(cons (member with-logic-var)) 'xp::let-print
+   '(0) *print-pprint-dispatch*))
 
 (defun logic-var-p (thing)
   (and (symbolp thing) (char= (char (string thing) 0) #\?) (> (length (string thing)) 1)))
