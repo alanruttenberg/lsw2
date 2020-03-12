@@ -43,6 +43,8 @@
 ;	     (:file "backtrace-trim")
 	     (:file "obo")
 	     (:file "jdbc")
+;	     (:file "sexp-sql")
+	     (:file "format-as-table")
 	     (:file "collections-misc")
 	     (:file "print-java-object-by-class")
 	     (:file "jargrep")
