@@ -7,6 +7,8 @@
 ;; - The kb object - loaded from a temp file the raw was written to
 ;; - A list of FOL formulas translated from the OWL
 
+(defvar *owl-translation-function* 'owl-sexp-to-fol)
+
 (defun get-owl-test-case (url)
   (let* ((it (cl-user::get-url url))
          ;; Which OWL profiles is this valid for. We're not interested in tests that are solely OWL Full.
@@ -75,8 +77,8 @@
                   (warn "skipping ~a - not OWL direct semantics" url)
                   (return-from check-positive-entailment-test-case t))
                 ;; We need to rename variables since our standard set commonly used in the ontologies
-                (let ((ant `((:and ,@(rename-variables (mapcar 'owl-sexp-to-fol (remove-if 'axiom-has-no-logical-consequence  o1axs))))))
-                      (cons (when o2axs `(:and ,@(rename-variables (mapcar 'owl-sexp-to-fol (remove-if 'axiom-has-no-logical-consequence  o2axs)))))))
+                (let ((ant `((:and ,@(rename-variables (mapcar *owl-translation-function* (remove-if 'axiom-has-no-logical-consequence  o1axs))))))
+                      (cons (when o2axs `(:and ,@(rename-variables (mapcar *owl-translation-function* (remove-if 'axiom-has-no-logical-consequence  o2axs)))))))
                   (when (or (null cons) (equal cons '(:and)))
                     (warn "Empty consequent. Skipping")
                     (return-from check-positive-entailment-test-case o2 ))
@@ -92,6 +94,33 @@
                                        (fix-conflicting-symbols cons)) :proved))
                       )))))))
 
+(defun check-inconsistency-test-case  (url &optional debug (reasoner 'vampire-check-unsatisfiable))
+  (when (not (eql 0 (search "http" url)))
+      (setq url (format nil "http://owl.semanticweb.org/page/~a.html" url)))
+  (destructuring-bind (profiles ((raw1 o1 o1axs))) (get-owl-test-case url)
+    (when debug
+      (setf (symbol-value 'o1) o1))
+    (if (member "Data" profiles :test 'equalp)
+        (progn (warn "skipping ~a - uses data" url)
+               (return-from check-inconsistency-test-case t))
+        (if (member "Imports" profiles :test 'equalp)
+            (progn (warn "skipping ~a - imports other ontologies" url)
+                   (return-from check-inconsistency-test-case t))
+            (if (not (intersection profiles '("Test:DL" "Test:EL" "Test:QL" "Test:RL") :test 'equalp))
+                (progn
+                  (warn "skipping ~a - not OWL direct semantics" url)
+                  (return-from check-inconsistency-test-case t))
+                ;; We need to rename variables since our standard set commonly used in the ontologies
+                (let ((ant `((:and ,@(rename-variables (mapcar *owl-translation-function* (remove-if 'axiom-has-no-logical-consequence  o1axs)))))))
+                  (when (and debug (equalp ant '((:and))))
+                    (warn "Empty antecedent, consistent")
+                    (return-from check-inconsistency-test-case nil))
+                  (if debug
+                      (print-db profiles raw1 o1 ant)
+                      (eq (funcall reasoner `(:rdf-type-separation
+                                              ,@(fix-conflicting-symbols ant))) :unsat)
+                      )))))))
+
 (defun fix-conflicting-symbols (form)
   (jss::tree-replace (lambda(e)
                        (or (second (assoc e '((fp fp_x))))
@@ -101,7 +130,7 @@
 ;; Needs more logic - WIP
 (defun check-satisfiability-test-case  (url)
   (let ((axs  (car (get-owl-test-case url))))
-    (eq (z3-check-satisfiability `((:and ,@(mapcar 'owl-sexp-to-fol axs)))) :sat)))
+    (eq (z3-check-satisfiability `((:and ,@(mapcar *owl-translation-function* axs)))) :sat)))
 
 ;; Helper. Renames all variable to ones with the suffix _x
 (defun rename-variables (form)
@@ -117,12 +146,15 @@
 ;; *all-owl-tests* is a list of names of tests, almost verbatim from the wiki
 ;; *skip-owl-tests* is a list of pairs a names and keywords explaining why we won't use this test.
 ;; Current reasons :not-dl, :empty-consequent, :data, :imports
+
 (defun run-owl-tests (&optional (tests *all-owl-tests*))
-  (loop with count = 0
-        for test in tests
-        for url = (format nil "http://owl.semanticweb.org/page/~a.html" test)
-        unless (or (consp test) (find test *skip-owl-tests* :key 'car :test 'equalp))
-          do (print test)
-             (incf count)
-             (print-db (check-positive-entailment-test-case url))
-        finally (return count)))
+  (let ((todo (loop for test in tests
+                    for url = (format nil "http://owl.semanticweb.org/page/~a.html" test)
+                    unless (cl::or (consp test) (find test *skip-owl-tests* :key 'car :test 'equalp))
+                      collect url)))
+    (prove:plan (length todo))
+    (loop for url in todo
+          do (prove:is (check-positive-entailment-test-case url) t (format nil "~s" `(check-positive-entailment-test-case ,url))))
+    (prove:finalize)))
+
+
