@@ -4,19 +4,21 @@
 (defvar *proof-notifications* nil)
 
 (defclass expected-proof ()
-  ((assumptions :accessor assumptions :initarg :assumptions)
-   (goal :accessor goal :initarg :goal)
-   (options :accessor options :initarg :options)
-   (expected-result :accessor expected-result  :initarg :expected-result)
-   (timeout :accessor timeout :initarg :timeout :initform 10)
-   (with :accessor with :initarg :with)
-   (name :accessor name :initarg :name :initform "unnamed")
-   (counterexample :accessor counterexample :initarg :counterexample :initform nil)
-   (prover-input :accessor prover-input  :initform nil)
-   (prover-output :accessor prover-output :initform nil)
-   (prover-model :accessor prover-model  :initform nil)
-   (prover-unsat-explanation :accessor prover-unsat-explanation  :initform nil)
-   (result :accessor result :initform nil)
+  ((assumptions :accessor assumptions :initarg :assumptions) ; spec 
+   (goal :accessor goal :initarg :goal) ; formula or axiom name
+   (options :accessor options :initarg :options) ; options passed to prove function
+   (expected-result :accessor expected-result  :initarg :expected-result)  ; :sat :unsat :proved :not-entailed
+   (timeout :accessor timeout :initarg :timeout :initform 10) ; in seconds 
+   (with :accessor with :initarg :with) ; prove function 
+   (name :accessor name :initarg :name :initform "unnamed") ; label for this expected proof
+   (counterexample :accessor counterexample :initarg :counterexample :initform nil) ; generate if necessary WIP
+   (prover-input :accessor prover-input  :initform nil) ; as rendered text input to prover
+   (prover-output :accessor prover-output :initform nil) ; text output of prover
+   (prover-model :accessor prover-model  :initform nil) ; if the proof is instead a model build attempt, then the model
+   (prover-unsat-explanation :accessor prover-unsat-explanation  :initform nil) ; list of axiom names / formulas - z3 specific proof support
+   (proof-support :accessor proof-support) ;; list of axiom names / formulas
+   (result :accessor result :initform nil) ;; proof answer: :proved :sat :unsat :timeout ...
+   (proof-worker :accessor proof-worker) ;; thread, if running
    ))
 
 (defmethod initialize-instance ((e expected-proof) &rest rest &key &allow-other-keys )
@@ -326,3 +328,27 @@
 
 
     
+;; ****************************************************************
+
+(defun proof-function-from-key (key)
+  (ecase key
+    (:prover9 'prover9-prove*)
+    (:z3 'z3-prove)
+    (:vampire 'vampire-prove)))
+
+(defvar *default-theorem-prover* :vampire)
+(defvar *default-theorem-prover-timeout* 30)
+
+(defun prove (assumptions goals &rest args &key (timeout *default-theorem-prover-timeout*)
+					     (with *default-theorem-prover*) label)
+  (let ((reasoner-options (remf :timeout (remf :with  (remf :label args)))))
+    (let ((expected-proof  
+	    (make-instance 'logic::expected-proof  :name label 
+						 :assumptions (list (list 'quote assumptions))
+						   :timeout timeout
+						   :options reasoner-options
+						   :goal goals
+						   :expected-result :proved
+						   :with (proof-function-from-key with))))
+      (setq @ expected-proof)
+      (run-proof expected-proof))))
