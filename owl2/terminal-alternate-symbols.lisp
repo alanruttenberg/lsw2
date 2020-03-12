@@ -23,7 +23,16 @@
 	  expression)
       (mapcar 'rewrite-owl-canonical-functional expression)))
   
-	 
+(defun owl-vocabulary-terms ()
+  (let ((terms (remove-if 'keywordp (remove-if 'stringp (alexandria::hash-table-keys *owl2-vocabulary-forms*)))))
+    (loop for entry in (alexandria::hash-table-values *owl2-vocabulary-forms*)
+	  do (loop for el in entry
+		   when (and (symbolp el) (not (keywordp el)))
+		     do (pushnew el terms)))
+    terms))
+
+						  
+	       
 	 
   
 
