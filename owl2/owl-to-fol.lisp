@@ -245,7 +245,7 @@
   (o-pred-property prop x y))
 
 (defmacro o-negativeobjectpropertyassertion (prop x y)
-  (l-not (o-objectpropertyassertion prop x y)))
+  (l-not (o-pred-property prop x y)))
 
 (defmacro o-sameindividual (&rest individuals)
   (apply 'l-and
