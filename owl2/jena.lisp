@@ -27,11 +27,14 @@
     (loop while (#"hasNext" iterator)
 	  do  (funcall fn (#"next" iterator)))))
 
-(defun write-jena-model (model to)
+(defun write-jena-model (model to &optional prefixes)
   (let ((jfile (new 'java.io.file (namestring (translate-logical-pathname to)))))
     (if (#"exists" jfile)
 	(delete-file to))
     (#"createNewFile" jfile)
+    (loop for (uri-string prefix-colon) in prefixes
+	  for prefix = (#"replaceFirst" prefix-colon ":$" "")
+	  do (#"setNsPrefix" model prefix uri-string))
     (let ((stream (new 'java.io.fileoutputstream jfile)))
       (#"write" stream (#"getBytes" (format nil "<?xml version=\"1.0\" encoding=\"UTF-8\"?>~%")))
       (#"write" model stream "RDF/XML-ABBREV"))))
@@ -40,7 +43,7 @@
   (let ((w (new 'filewriter (namestring (translate-logical-pathname to)))))
     (loop for (uri-string prefix-colon) in prefixes
 	  for prefix = (#"replaceFirst" prefix-colon ":$" "")
-	  do (#"setNsPrefix" *jena-model* prefix uri-string))
+	  do (#"setNsPrefix" model prefix uri-string))
     (#"write" 'RDFDataMgr w model (get-java-field 'riot.rdfformat "TURTLE_BLOCKS"))))
 
 
