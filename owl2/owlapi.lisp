@@ -115,7 +115,7 @@
 								       (if (keywordp (car source))
 									   (#0"toString" (second source))
 									   (let ((model (apply 't-jena (maybe-reorder-assertions source) nil)))
-									     (let ((sw (new 'StringWriter)))
+									     (let ((sw (new 'java.io.StringWriter)))
 									       (setq *last-jena-model*  model)
 									       (#"write" model sw "RDF/XML" "urn:lsw:")
 									       (#0"getBytes" (#0"toString" sw) "UTF-8"))))
@@ -212,7 +212,7 @@
 	 ,@body))))
 
 (defmacro with-ontology (name (&key base ontology-properties about includes rules eval (collecting t) also-return-axioms only-return-axioms
-				 ontology-iri version-iri) definitions &body body)
+				 ontology-iri version-iri) definitions  &body body)
   (declare (ignore rules includes))
   (let ((axioms-var (make-symbol "AXIOMS"))
 	(oiri (make-symbol "ONTOLOGY-IRI"))
@@ -241,8 +241,10 @@
 	 (let ((*default-kb* ,name))
 	   (declare (special *default-kb*))
 ;	   (declare (ignorable *default-kb* ))
-	   (flet ((write-ontology (&optional (pathname (make-pathname  :name (string-downcase (string (v3kb-name *default-kb*))) :type "owl" :directory (pathname-directory "~/Desktop/"))))
-		    (write-jena-model *last-jena-model* pathname)))
+	   (flet ((write-ontology (&optional (pathname (make-pathname  :name (string-downcase (string (v3kb-name *default-kb*))) :type "owl" :directory (pathname-directory "~/Desktop/"))) &key include-namespaces as-turtle)
+                    (if as-turtle
+                        (write-jena-model-turtle *last-jena-model* pathname include-namespaces)
+                        (write-jena-model *last-jena-model* pathname include-namespaces))))
 	     (declare (ignore-if-unused write-ontology))
 	     (values-list (append
 			   (multiple-value-list (progn ,@body))
@@ -695,7 +697,7 @@
 	 (unless (search "Optional.of" source)
 	   (if (or (search "inputstream" source)
 	       (search "owlapi:" source)) ;; assume the only such one is the kb itself
-	   (#"read" model (new 'stringreader (to-owl-syntax kb :rdfxml))
+	   (#"read" model (new 'java.io.StringReader (to-owl-syntax kb :rdfxml))
 		    source)
 	   (#"read" model source))))
     model))
