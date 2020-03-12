@@ -48,11 +48,22 @@
      (:file "graal")
      (:file "test-theory-with-model-seed")
      (:file "paper-support")
+     (:org "render-ontology-fol")
      (:file "read-clif"))
     :depends-on ("package" "main"
 			   "graal"
 			   )))
   :depends-on (:cl-ansi-text :yacc :paiprolog :util :md5 :cl-unification)
-  )
+  :defsystem-depends-on  ("lilith")
 
+  :in-order-to ((test-op (load-op "logic/test"))))
 
+(defsystem :logic/test
+  :description "Test OWL to FOL translations"
+  :perform  (test-op (o s)
+                     (load uiop:symbol-call :abcl.test.lisp '#:run))
+  :components
+  ((:module "t"
+    :components ((:file "owl-test-cases")
+                 (:file "owl-to-fol"))
+    :serial t)))
