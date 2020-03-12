@@ -1,8 +1,8 @@
 #!/bin/bash
 # r=ram, s=stack, b=bits, j=java, g=verbose gc, c=trace class loading, d=wait for jdi. Environment variables if not command line args.
 ulimit -s 32768
-bits="-d32"
-gc=("-XX:-PrintGCDetails" "-XX:-PrintGCTimeStamps") 
+#bits="-d32"
+#gc=("-XX:-PrintGCDetails" "-XX:-PrintGCTimeStamps") 
 cl=("-XX:-TraceClassLoading" "-XX:-TraceClassUnloading")
 ram="-Xmx1024m"
 stack="-Xss24m"
@@ -17,12 +17,12 @@ while ([ "${#args[@]}" -gt 0 ] ); do
 	#options
         -r) ram="-Xmx$2m"  ; shift ; shift ;;
   	-s) stack="-Xss$2m"  ; shift ; shift ;;
-	-b) bits="-d$2"   ; shift ; shift ;;
+#	-b) bits="-d$2"   ; shift ; shift ;;
 	-j) java="$2"   ; shift ; shift ;;
         -help) usage ; exit 0 ;;
 
 	# switches 
-	-g) gc=("-XX:${OPTARG}\PrintGCDetails" "-XX:${OPTARG}PrintGCTimeStamps")  ; shift  ;;
+#	-g) gc=("-XX:${OPTARG}\PrintGCDetails" "-XX:${OPTARG}PrintGCTimeStamps")  ; shift  ;;
 	-c) cl=("-XX:${OPTARG}\TraceClassLoading" "-XX:${OPTARG}TraceClassUnloading")   ; shift ;;
 	-d) debug=("-Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=8000" "-XX:-OmitStackTraceInFastThrow")  ; shift  ;;
 	-h) usage ; exit 0 ;; 
@@ -46,10 +46,10 @@ while ([ "${#args[@]}" -gt 0 ] ); do
 done
 shopt -u extglob
 
-if [ -z "${ABCL_BITS}" ]
-then
-    bits="-d${ABCL_BITS}"
-fi
+# if [ -z "${ABCL_BITS}" ]
+# then
+#     bits="-d${ABCL_BITS}"
+# fi
 
 if [ -n "${ABCL_JDI}" ]
 then
@@ -66,10 +66,10 @@ else
     here=${ABCL_WD}
 fi
 
-if [ -n "${ABCL_VERBOSEGC}" ]
-then
-    gc=("-XX:${ABCL_VERBOSEGC}PrintGCDetails" "-XX:{ABCL_VERBOSEGC}PrintGCTimeStamps") 
-fi
+# if [ -n "${ABCL_VERBOSEGC}" ]
+# then
+#     gc=("-XX:${ABCL_VERBOSEGC}PrintGCDetails" "-XX:{ABCL_VERBOSEGC}PrintGCTimeStamps") 
+# fi
 
 if [ -n "${ABCL_CLASSLOADING}" ] 
 then
@@ -128,23 +128,23 @@ function complainWrongVersion {
    echo "e.g in Mac OS X:/Library/Java/JavaVirtualMachines/<version>/Contents/Home/bin/java)"
  }
 
-if [ -z $version ]
-then
-    complainCantTellVersion
-elif ! [[ $version  =~ [5-9] ]]
-then
-    complainWrongVersion
-fi
+# if [ -z $version ]
+# then
+#     complainCantTellVersion
+# elif ! [[ $version  =~ [1][1] ]]
+# then
+#     complainWrongVersion
+# fi
 
 if [ $version == 7 ]
 then
     permgen=("-XX:MaxPermSize=128M" "-XX:+CMSClassUnloadingEnabled" )
 fi
 
-if ! [[ $version =~ [56] ]]
-then
-    bits="-d64" 
-fi
+# if ! [[ $version =~ [56] ]]
+# then
+#     bits="-d64" 
+# fi
 		   
    read -r -a libs  <<< `find $here/lib -follow -name \*\.jar`
 

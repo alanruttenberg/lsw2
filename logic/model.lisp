@@ -56,6 +56,21 @@ which defaults to the model tuples.
 
 |#
 
+#|
+Todo, generate dot
+digraph {
+    a -> b[color=red,penwidth=3.0];
+    b -> c;
+    c -> d[color=red,penwidth=3.0];
+    d -> e;
+    e -> f;
+    a -> d;
+    b -> d[color=red,penwidth=3.0];
+    b -> d[color=blue,penwidth=3.0];
+    c -> f[color=red,penwidth=3.0];
+}
+|#
+
 (defclass tuple-model ()
   ((tuples :accessor tuples :initarg :tuples :initform nil)
    (equivalences :accessor equivalences :initarg :equivalences :initform nil)))

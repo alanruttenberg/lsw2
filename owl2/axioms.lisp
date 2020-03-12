@@ -1,3 +1,4 @@
+(in-package :cl-user)
 ;; Call fn on each axiom in the ontology (include-imports-closure -> t to include the imports closure)
 
 (defun each-axiom (ont fn &optional include-imports-closure)

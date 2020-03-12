@@ -10,7 +10,7 @@
 (unless (member 'ql:quickload sys::*module-provider-functions*)
   (setq sys::*module-provider-functions*  (append sys::*module-provider-functions*  '(ql:quickload))))
 
-(push (make-pathname :directory (butlast (pathname-directory *load-pathname*))) asdf/find-system:*central-registry*)
+(push (make-pathname :directory (butlast (pathname-directory *load-pathname*))) asdf::*central-registry*)
 
 ;; (unless (quicklisp-client:where-is-system "winston-forward-chain")
 ;;   (restart-case

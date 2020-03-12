@@ -92,9 +92,9 @@
 
 (defmethod logical-or ((g latex-logic-generator) expressions) 
   (format nil
-	  (format nil "~~{~~a ~~^~a\\lor ~a~~}"
-		  (break-before-operator? g :or)
-		  (break-afer-operator? g :or))
+	  ;; (format nil "~~{~~a ~~^~a\\lor ~a~~}"
+	  ;; 	  (break-before-operator? g :or)
+	  ;; 	  (break-after-operator? g :or))
 	  (if (eql (break-before-operator? g :or) #\newline)
 	      "~{~a ~^~%\\lor ~}"
 	      "~{~a ~^\\lor ~}")

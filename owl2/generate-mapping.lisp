@@ -174,7 +174,8 @@
   (defrdfm-1 name pattern head triples))
 
 (defun defrdfm-1 (name pattern head triples)
-  (let ((classification (classify-subscripting pattern triples)))
+  (let ((classification (classify-subscripting pattern triples))
+	(*print-case* :upcase))
     (cond ((member classification '(:subscript-free :named-variable :sequence :foreach))
 					;(assert (every 'atom pattern) () "Funny arglist: ~a" pattern)
 	   (multiple-value-bind (pattern head triples bindings)

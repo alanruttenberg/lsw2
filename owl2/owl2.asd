@@ -60,6 +60,7 @@
 	     (:file "hermit-debug")
 	     (:file "domain-and-range")
 	     (:file "short-form-providers")
+	     (:file "diff")
 	     (:file "release")
 ;	     (:file "html-description")
 	     (:file "describe")

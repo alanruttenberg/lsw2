@@ -340,7 +340,7 @@
   (if (formula-sexp-p spec)
       (let ((*print-pprint-dispatch* *formula-pprint-dispatch*)
 	    (xp::*pprint-indentation-advance* 2))
-	(pprint spec))
+	(pprint (axiom-sexp spec)))
       (apply 'pprint-spec-axioms spec args)))
 
 (defun ppsn (spec &rest args)
@@ -594,7 +594,7 @@
 			     (not (null (cdr e))))
 			    ((:forall :exists)
 			     (setq explain "quanitified variables need to start with '?'")
-			     (and (consp (second e)) (every 'logic-var-p (second e))))
+			     (or (null (second e)) (and (consp (second e)) (every 'logic-var-p (second e)))))
 			    ((:implies := :not= :iff) 
 			     (setq explain ":if, :iff, and := should have 2 arguments")
 			     (= (length (cdr e)) 2)

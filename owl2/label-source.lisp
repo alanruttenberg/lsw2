@@ -1,3 +1,5 @@
+(in-package :cl-user)
+
 (defparameter *ohd-label-source* nil)
 
 ;; An easier way to choose to make a label source
@@ -289,11 +291,11 @@
 (defun to-labels (uris &optional (kb *default-kb*))
   (loop for label in (replace-with-labels uris kb) do (princ label) (terpri)))
 
-(defun replace-with-labels (sexp &optional (kb *default-kb*))
+(defun replace-with-labels (sexp &optional (kb *default-kb*) (transform-fn 'identity))
   (labels ((one (exp)
 	     (cond ((atom exp)
 		    (if (uri-p exp)
-			(or (uri-label exp kb) exp)
+			(or (funcall transform-fn (uri-label exp kb)) exp)
 			exp))
 		   ((consp exp)
 		    (mapcar #'one exp))

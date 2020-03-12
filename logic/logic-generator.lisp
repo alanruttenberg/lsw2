@@ -79,10 +79,21 @@
        ,@body)))
 
 (defmacro with-logic-var (var &body body)
-  (let ((vars (gensym)))
-    `(with-logic-vars (,vars 1)
-       (let ((,var (car ,vars)))
-	 ,@body))))
+  (if (and (listp var) (second var))
+      `(with-logic-var ,(car var)
+         (with-logic-var ,(cdr var)
+           ,@body))
+      (progn
+        (when (listp var) (setq var (car var)))
+        (let ((vars (gensym)))
+          `(with-logic-vars (,vars 1)
+             (let ((,var (car ,vars)))
+               ,@body))))))
+
+(eval-when (:load-toplevel :execute)
+  (xp::set-pprint-dispatch+
+   '(cons (member with-logic-var)) 'xp::let-print
+   '(0) *print-pprint-dispatch*))
 
 (defun logic-var-p (thing)
   (and (symbolp thing) (char= (char (string thing) 0) #\?) (> (length (string thing)) 1)))
@@ -110,10 +121,12 @@
 (defun l-exists (vars &rest expressions)
   (assert (every 'logic-var-p vars) (vars)
 	  "Anything quantified over needs to be a variable but got exists ~a" vars)
-  (if (> (length expressions) 1)
-      (l-exists vars (apply 'l-and expressions))
-      (let ((*quantifier-scoped* (append vars *quantifier-scoped*)))
-	(logical-exists *logic-generator* vars expressions))))
+  (if (zerop (length vars))
+      (apply 'l-and expressions)
+      (if (> (length expressions) 1)
+          (l-exists vars (apply 'l-and expressions))
+          (let ((*quantifier-scoped* (append vars *quantifier-scoped*)))
+            (logical-exists *logic-generator* vars expressions)))))
 
 (defun l-implies (antecedent consequent)
   (logical-implies *logic-generator* antecedent consequent))

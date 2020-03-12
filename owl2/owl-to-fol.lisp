@@ -6,6 +6,28 @@
 ;;  Chapter 2 Basic Description Logics 54-55
 ;;  Chapter 4 Relationships with other Formalisms, p 161-163
 ;; On the relative expressiveness of description logics and predicate logics https://core.ac.uk/download/pdf/82134362.pdf
+;; http://owl.man.ac.uk/hoolet/
+
+;; Handling of owl:Thing, owl:Nothing
+;; We need the following, which separates the classes from the instances. When running OWL proofs, this needs to be taken as a premise.
+
+;; (:forall (?x__x ?y__y)
+;;  (:and (:not (:= ?x__x ?y__y))
+;;        (:or (rdf-type ?x__x ?y__y) (rdf-type ?y__y ?x__x))))
+;; This should (almost) be a theorem in BFO, since we have universal/particular cover/disjoint CHECKME
+;; With that, we can also translate away !owl:Thing and !owl:Nothing
+;; They both appear only in o-class-expression.
+;; Then:
+;; (class-expression !owl:Thing) -> `(:exists (?x) (rdf-type ?x ,*classinstancevar*))
+;; (class-expression !owl:Thing) -> `(:not (:exists (?x) (rdf-type ?x ,*classinstancevar*)))
+
+(def-logic-axiom rdf-type-separation
+  (:forall (?x__x ?y__y)
+    (:and (:not (:= ?x__x ?y__y))
+          (:or (rdf-type ?x__x ?y__y) (rdf-type ?y__y ?x__x))))
+  "The domain and range of rdf-type are disjoint, and together the domain and range cover the domain of discourse."
+  )
+
 
 (defvar *classinstancevar* )
 
@@ -24,7 +46,11 @@
   (if (atom expression)
       (ecase *owl-fol-class-handling*
 	(:predicate (pred-class expression *classinstancevar*))
-	(:rdf-type (o-pred-property 'rdf-type expression *classinstancevar*))) 
+	(:rdf-type (if (eq expression 'owl-thing)
+                       `(:exists (?x) (rdf-type ?x ,*classinstancevar*))
+                       (if (eq expression  'owl-nothing)
+                           `(:not (:exists (?x) (rdf-type ?x ,*classinstancevar*)))
+                           (o-pred-property 'rdf-type expression *classinstancevar*))))) 
       (macroexpand expression)))
 
 
@@ -43,27 +69,30 @@
 			     )))))
     (if more-class-expressions
 	(l-and equivalence 
-	       (macroexpand `(o-equivalent-classes ,class-expression-2 ,@more-class-expressions)))
+	       (macroexpand `(o-equivalentclasses ,class-expression-2 ,@more-class-expressions)))
 	equivalence)))
 
 (defmacro o-disjointclasses (&rest class-expressions)
-  (apply 'l-and (loop for (c1 . rest) on class-expressions
-		      append
-		      (loop for c2 in rest
-			    collect 
-			    (with-logic-var *classinstancevar*
-			      (l-forall (list *classinstancevar*)
+  (with-logic-var *classinstancevar*
+    (l-forall (list *classinstancevar*)
+	      (apply 'l-and (loop for (c1 . rest) on class-expressions
+				  append
+				  (loop for c2 in rest
+					collect 
 					(l-not (l-and (o-class-expression c1)
 						      (o-class-expression c2)))))))))
+
 (defmacro o-disjointunion (class &rest class-expressions)
-  (l-and (macroexpand `(o-equivalent-classes ,class (o-objectunionof ,@class-expressions)))
+  (l-and (macroexpand `(o-equivalentclasses ,class (o-objectunionof ,@class-expressions)))
 	 (macroexpand `(o-disjointclasses ,@class-expressions))))
 
-(defmacro o-objectsomevaluesfrom (property-expression class-expression)
+(defmacro o-objectsomevaluesfrom (property-expression &optional class-expression)
   (with-logic-var e
-    (l-exists (list e) (l-and (o-pred-property property-expression *classinstancevar* e)
-			      (let ((*classinstancevar* e))
-				(o-class-expression class-expression))))))
+    (l-exists (list e)
+              (apply 'l-and (o-pred-property property-expression *classinstancevar* e)
+                     (if class-expression
+                         (let ((*classinstancevar* e))
+                           (list (o-class-expression class-expression))))))))
 
 (defmacro o-objectallvaluesfrom (property-expression class-expression)
   (with-logic-var e
@@ -184,17 +213,20 @@
 					    (o-pred-property super x y)))))))
 
 (defmacro o-disjointobjectproperties (&rest properties)
-  (apply 'l-and (loop for (p1 . rest) on properties
-		      append
-		      (loop for p2 in rest
-			    collect 
-			    (with-logic-var x
-			      (with-logic-var y
-				(l-forall (list x y)
+  (with-logic-var x
+    (with-logic-var y
+      (l-forall (list x y)
+		(apply 'l-and (loop for (p1 . rest) on properties
+				    append
+				    (loop for p2 in rest
+					  collect 
 					  (l-not (l-and (o-pred-property p1 x y) (o-pred-property p2 x y))))))))))
 						  
 (defmacro o-objectoneof (&rest individuals)
-  (apply 'l-or (loop for i in individuals collect (l-= i *classinstancevar*))))
+  (if (null individuals)
+      (with-logic-var c
+        (l-forall (list c) (l-not (o-pred-property 'rdf-type c *classinstancevar*))))
+      (apply 'l-or (loop for i in individuals collect (l-= i *classinstancevar*)))))
 
 (defmacro o-classassertion (class individual)
   (let ((*classinstancevar* individual))
@@ -210,10 +242,10 @@
   (l-not (o-class-expression class)))
 
 (defmacro o-objectpropertyassertion (prop x y)
-  `(o-pred-property ,prop ,x ,y))
+  (o-pred-property prop x y))
 
 (defmacro o-negativeobjectpropertyassertion (prop x y)
-  (l-not (o-objectpropertyassertion prop x y)))
+  (l-not (o-pred-property prop x y)))
 
 (defmacro o-sameindividual (&rest individuals)
   (apply 'l-and
@@ -221,46 +253,66 @@
 	       collect (l-= a b))))
 
 (defmacro o-differentindividuals (&rest individuals)
-  (apply 'l-and (loop for (a . rest) on individuals
-		      append
-		      (loop for b in rest 
-			    collect (l-not (l-= a b))))))
+  (if (= (length individuals) 1)
+      individuals
+      (apply 'l-and (loop for (a . rest) on individuals
+                          append
+                          (loop for b in rest 
+                                collect (l-not (l-= a b)))))))
 
-(defmacro o-objectmincardinality (number property class)
-  (with-logic-vars (is number)
-    (apply 'l-and
-	   (list*
-	    (macroexpand `(o-differentindividuals ,@is))
-	    (loop for i in is collect 
-			      (l-and (let ((*classinstancevar* i)) (o-class-expression class))
-				     (o-pred-property property *classinstancevar* i)) )))))
+
+(defmacro o-objectmincardinality (number property &optional class)
+  (if (eql number 1)
+      (macroexpand `(o-objectsomevaluesfrom ,property ,class))
+      (with-logic-vars (is number)
+        (l-exists is 
+                  (apply 'l-and
+                         (macroexpand `(o-differentindividuals ,@is))
+                         (loop for i in is
+                               if class
+                                 collect (let ((*classinstancevar* i)) (o-class-expression class))
+                               collect 
+                               (o-pred-property property *classinstancevar* i)) )))))
 
 (defmacro o-objectexactcardinality (number property class)
-  (with-logic-vars (is number)
-    (apply 'l-and
-	   (list*
-	    (macroexpand `(o-differentindividuals ,@is))
-	    (with-logic-var other
-	     (l-forall (list other) 
-		       (l-implies (o-pred-property property *classinstancevar* other)
-				  (apply 'l-or
-					 (loop for i in is collect (l-= i other)))))
-	     )
-	    (loop for i in is collect (l-and (let ((*classinstancevar* i)) (o-class-expression class)) (o-pred-property property *classinstancevar* i))))
-	   )))
+  (if (eql number 0)
+      (with-logic-var x
+        (l-not (l-exists (list x) (o-pred-property property *classinstancevar* x))))
+      (with-logic-vars (is number)
+        (l-exists is 
+                  (apply 'l-and
+                         (append
+                          (if (> number 1)
+                              (list (macroexpand `(o-differentindividuals ,@is))))
+                          (list* (with-logic-var other
+                                   (l-forall (list other) 
+                                             (l-implies (o-pred-property property *classinstancevar* other)
+                                                        (apply 'l-or
+                                                               (loop for i in is collect (l-= i other)))))
+                                   )
+                                 (append (when class 
+                                           (loop for i in is collect (let ((*classinstancevar* i)) (o-class-expression class))))
+                                         (loop for i in is collect (o-pred-property property *classinstancevar* i)))
+                          )))))))
 
 (defmacro o-objectmaxcardinality (number property class)
-  (with-logic-vars (is number)
-    (apply 'l-and
-	   (list*
-	    (with-logic-var other
-	     (l-forall (list other) 
-		       (l-implies (o-pred-property property *classinstancevar* other)
-				  (apply 'l-or
-					 (loop for i in is collect (l-= i other)))))
-	     )
-	    (loop for i in is collect (l-and (let ((*classinstancevar* i)) (o-class-expression class)) (o-pred-property property *classinstancevar* i))))
-	   )))
+  (if (eql number 0)
+      (with-logic-var x
+        (l-not (l-exists (list x) (o-pred-property property *classinstancevar* x))))
+      (with-logic-vars (is number)
+        (l-exists is
+                  (apply 'l-and
+                         (list* (with-logic-var other
+                                  (l-forall (list other) 
+                                            (l-implies (o-pred-property property *classinstancevar* other)
+                                                       (apply 'l-or
+                                                              (loop for i in is collect (l-= i other)))))
+                                  )
+                                (append (when class
+                                          (loop for i in is collect (let ((*classinstancevar* i)) (o-class-expression class))))
+                                        (loop for i in is collect (o-pred-property property *classinstancevar* i)))
+                                ))
+                  ))))
 
 ;HasKey( CE ( OPE1 ... OPEm ) ( DPE1 ... DPEn ) )
 
@@ -273,8 +325,8 @@
       (with-logic-vars (vals (+ (length object-properties) (length data-properties)))
 	(l-forall (list* a b vals)
 		  (l-implies (apply 'l-and
-				    (list* (pred-class class-expression a)
-					   (pred-class class-expression b)
+				    (list* (let ((*classinstancevar* a)) (o-class-expression class-expression))
+					   (let ((*classinstancevar* b)) (o-class-expression class-expression))
 					   (loop for p in (append object-properties data-properties)
 						 for v in vals
 						collect (o-pred-property p a v)
@@ -314,7 +366,27 @@
 		   ((uri-p expression) expression)
 		   ((numberp expression) expression)
 		   (t (mapcar #'o-rewrite expression)))))
-    (macroexpand-1 (o-rewrite (mapcar 'cl-user::rewrite-owl-canonical-functional expression)))))
+     (replace-blank-nodes (o-rewrite (mapcar 'cl-user::rewrite-owl-canonical-functional expression)))))
+
+(defun replace-blank-nodes (expression &aux bvars)
+  (flet ((blankvar-for (n)
+           (pushnew n bvars)
+           (intern (format nil "?_~a" (cond ((stringp n)
+                                             (string-upcase (string n)))
+                                            ((symbolp n) (string n))
+                                            (t n))) 'keyword)))
+    (let ((replaced 
+            (tree-replace (lambda(e)
+                            (if (and (consp e) (eq (car e) :blank))
+                                (blankvar-for (second e))
+                                e))
+                          expression)))
+      (if bvars
+          (l-exists (mapcar #'blankvar-for bvars) (macroexpand replaced))
+          (macroexpand replaced)))))
+
+
+
 
 
 #|

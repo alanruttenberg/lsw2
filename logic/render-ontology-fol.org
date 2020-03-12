@@ -1,0 +1,167 @@
+#+begin_src lisp 
+(in-package :logic)
+#+end_src 
+
+* Rendering an ontology
+
+This file provides two utility functions working with the fol of a whole ontology
+
+We don't output anything for owl axioms that have no logical consequence - axioms of these types:
+- declaration
+- annotation-assertion
+- annotation
+- sub-annotation-property-of
+
+#+begin_src lisp
+(defun axiom-has-no-logical-consequence (ax)
+  (member (car ax) '(declaration annotation-assertion annotation sub-annotation-property-of) :test 'string-equal :key 'string))
+#+end_src
+
+In both cases the optional argument ~dest~ can be a stream (or ~t~ for ~*standard-output*~) or filename, in which case
+the output is to those. If dest is nil then the rendering is returned as a string.
+
+** dump-ontology-and-fol-translation
+
+This function is useful debugging. It reads an OWL file, printing out 
+each axiom in sexp form and the fol-text of the translation to FOL.
+
+A best effort attempt is made to translate URIs to symbols. See ~term-to-symbol~ below.
+
+To aid in readability, the axioms are sorted by the first element of the form that isn't an OWL
+built-in. In many cases it is what one would call the subject of the axiom. Within a given subject
+they are sorted by the length of the owl axiom as string.
+
+~dest~ defaults to ~*standard-output*~ since it's anticipated that this will be browsed within the repl.
+
+#+begin_src lisp
+(defun dump-ontology-and-fol-translation (ont &optional (dest t))
+  (let (axs)
+    (cl-user::each-axiom ont (lambda(ax) 
+		      (let ((l (cl-user::axiom-to-lisp-syntax ax)))
+			(unless (axiom-has-no-logical-consequence l)
+			  (push (replace-with-labels-or-uri-tail-symbol l ont ) axs)))))
+    (flet ((doit (stream)
+	     (map nil (lambda(ax)
+			(terpri stream)
+	       (pprint ax stream)
+			(terpri stream)(terpri stream)
+	       (ppf `(:owl ,ax) :stream stream)
+	       (terpri stream)(terpri stream) (write-string "--" stream))
+		  (sort axs 'subject-or-length-lessp ))))
+      (if (or (streamp dest) (eq dest t))
+	  (progn (doit dest) dest)
+	  (if (stringp dest)
+	      (with-open-file (f dest :if-does-not-exist :create :if-exists :supersede)
+		(progn (doit f) f))
+	      (with-output-to-string (s) (doit s) s))
+	  ))))
+
+#+end_src
+** render-ontology-as
+
+This function outputs the fol translation of an owl file in format,
+which can be one of :clif, :prover9, :vampire, :z3.
+
+For :clif, :prover9, and :lsw there is a comment preceding each formula.
+
+For :vampire there's no format for comments, so we don't include them.
+
+For :z3 we could include comments, but I was lazy.
+
+In the case of :lsw, I compensate for a quirk of the renderer, namely 
+that it renders even a single axiom as a list. It's fixed by taking 
+the substring starting after the first parenthesis and ending before the last.
+
+#+begin_src lisp
+(defun render-ontology-as (ont format &optional (dest t))
+  (let (axs)
+    (cl-user::each-axiom ont (lambda(ax) 
+		      (let ((l (cl-user::axiom-to-lisp-syntax ax)))
+			(unless (axiom-has-no-logical-consequence l)
+			  (push (replace-with-labels-or-uri-tail-symbol l ont ) axs)))))
+    (flet ((doit (stream)
+	     (ecase format
+	       ((:z3 :vampire)
+			(format stream "~a"
+				(render format (mapcar (lambda(e) `(:owl ,e)) axs)  nil :with-names nil)))
+	       (:clif (map nil (lambda(ax)
+				  (format stream "~%(cl:comment '~a')~%~a~%" ax
+					  (render format `(:owl ,ax)  nil :with-names nil)))
+			    (sort axs 'subject-or-length-lessp )))
+	       (:prover9 (map nil (lambda(ax)
+				    (format stream "~%# ~a~%~a~%" ax
+					    (render format `(:owl ,ax)  nil :with-names nil)))
+			   (sort axs 'subject-or-length-lessp )))
+	       (:lsw (map nil (lambda(ax)
+				(let ((rendered (render format `(:owl ,ax)  nil :with-names nil)))
+				    (format stream "~%;; ~a~%~a~%" ax
+					    (subseq rendered 2 (- (length rendered) 1)))))
+			   (sort axs 'subject-or-length-lessp ))))))
+      (if (or (streamp dest) (eq dest t))
+	  (progn (doit dest) dest)
+	  (if (stringp dest)
+	      (with-open-file (f dest :if-does-not-exist :create :if-exists :supersede)
+		(progn (doit f) f))
+	      (with-output-to-string (s) (doit s) s))
+	  ))))
+#+end_src
+
+** Helpers
+
+~subject-of-ax~ uses the heuristic that the first non-owl builtin seen 
+in a depth-first traversal of the assertion is the subject. 
+
+#+begin_src lisp
+(defun subject-of-ax (ax)
+  (if (consp (second ax))
+      (subject-of-ax (second ax))
+      (second ax)))
+#+end_src
+       
+~subject-or-length-lessp~ is the predicate that we use in the sorting of the axioms
+
+#+begin_src lisp
+(defun subject-or-length-lessp (a b)
+  (if (eq (subject-of-ax a) (subject-of-ax b))
+      (< (length (princ-to-string a)) (length (princ-to-string b)))
+      (string-lessp (string (subject-of-ax a)) (string (subject-of-ax b)))))
+#+end_src
+
+~term-to-symbol~ looks at the URI label, and failing that the localpart of the URI.
+In both cases it tries to translate to idiomatic dash-separated symbols.
+The heuristic it uses is that if there are dashes, underscores, or spaces these either stay or become dashs
+and then case is ignored. If not, if there's both an upper and lower case character, then it's 
+assumed to be camelcase and the words are separated, case-ignored, and dashes added between
+transitions of between upper and lower case.
+
+#+begin_src lisp
+(defun term-to-symbol (string)
+  (when string
+    (if (and (#"matches" string ".*[a-z].*")  (#"matches" string ".*[A-Z].*")
+	     (not (find #\- string)) (not (find #\_ string)) (not (find #\space string)))
+	(intern (de-camel-case string))
+	(intern (string-upcase (#"replaceAll" string "[ _] " "-"))))))
+#+end_src
+
+~replace-with-labels-or-uri-tail-symbol~ takes a form which has URIs and and replaces
+all the URIs with a symbol determined by ~term-to-symbol~
+
+#+begin_src lisp
+(defun replace-with-labels-or-uri-tail-symbol (sexp &optional (kb *default-kb*))
+  (labels ((one (exp)
+	     (cond ((atom exp)
+		    (if (uri-p exp)
+                        (if (member exp `(,!owl:Nothing ,!owl:Thing nothing))
+                            (term-to-symbol (concatenate 'string "OWL-" (#"replaceAll" (uri-full exp) ".*[/#]" "")))
+                            (or (let ((lab (uri-label exp kb)))
+                                  (if lab
+                                      (intern (string-upcase (#"replaceAll" (#"replaceAll" lab "[ _]" "-") "'" "-prime")))
+                                      (term-to-symbol (#"replaceAll" (uri-full exp) ".*[;/#]" ""))))
+                                exp))
+                        exp))
+		   ((consp exp)
+		    (mapcar #'one exp))
+		   (t exp))))
+    (one (cl-user::eval-uri-reader-macro sexp))))
+#+end_src
+
