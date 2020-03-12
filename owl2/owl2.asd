@@ -42,7 +42,7 @@
 	     (:file "graph")
 	     (:file "axioms")
 	     (:file "weaken")
-	     (:file "materialize-restrictions-for-triplestore")
+;	     (:file "materialize-restrictions-for-triplestore")
 	     (:file "explanation")
 	     (:file "local")
 	     (:file "module")
