@@ -288,7 +288,7 @@
   (setq foltext (#"replaceAll" foltext s-iff "\\$\\\\leftrightarrow\\$"))
   (setq foltext (#"replaceAll" foltext s-not "\\$\\\\neg\\$"))
   ;;      (setq foltext (#"replaceAll" foltext s-= "\\$=\\$"))
-  (setq foltext (#"replaceAll" foltext "([a-z])(prime)\\b" "$1\\\\textprime"))
+  (setq foltext (#"replaceAll" foltext "([a-z])(prime)(\\b|[ℶℵ])" "$1\\\\textprime"))
   (setq foltext (#"replaceAll" foltext s-not= "\\$\\\\neq\\$"))
   (setq foltext (#"replaceAll" foltext t-aleph "{\\\\hskip .1em}"))
   (setq foltext (#"replaceAll" foltext "ℶ\\(" "{\\\\hskip .1em}\\("))
@@ -314,7 +314,7 @@
       (cond ((and label center?)
 	     (format nil "~&~%\\centeredformulalabel{~a}{~a}" label tabbed))
 	    ((and label (not center?))
-	     (format nil "~&~%\\leftflushformulalabel{~a}{~a}" label tabbed))
+	     (format nil "~&~%\\leftformulalabel{~a}{~a}" label tabbed))
 	    ((and (not label) center?)
 	     (format nil "~&~%\\centerformula{~a}" tabbed))
 	    ((and (not label) (not center?))
@@ -328,10 +328,15 @@
    ))
 
 (defmethod render-axiom-labeled ((g latex-logic-generator-2) (a axiom) label)
-  (formula-in-tabbed-latex-environment g
-   (foltext-to-latex g
-		     (insert-leading-tabs g (render-axiom (text-generator g) a)))
-   label))
+  (if (assoc :latex-alternative (axiom-plist a))
+      (format nil "~&~%\\vspace{.6em}~a\\par~%~%" (second (assoc :latex-alternative (axiom-plist a))))
+      (format nil "\\small{~a}"
+	      (formula-in-tabbed-latex-environment
+	       g
+	       (foltext-to-latex
+		g
+		(insert-leading-tabs g (render-axiom (text-generator g) a)))
+	       label))))
 
 ;; pretty-print latex
 (defun ppl (sexp &key (right-margin 70) (centered t) label generator)
@@ -370,8 +375,12 @@
 	  (let ((*standard-output* f))
 	    (doit f))))))
 
-(defmethod required-latex-packages ((c (eql 'latex-logic-generator-2)))
-  '("amsmath" "flexisym" "xcolor" "tabularx" "trimclip"))
+(defmethod latex-packages ((c (eql 'latex-logic-generator-2)))
+  '("amsmath" "flexisym" "xcolor" "tabularx" "trimclip" "scrextend" "needspace" "parskip" 
+    "fancyhdr" ))
+
+(defmethod latex-preamble ((c (eql 'latex-logic-generator-2)))
+  nil)
 
 ;; Provides 4 macros for layout of a formula within a paper
 ;; - \centeredformula{formula}
@@ -379,16 +388,16 @@
 ;; - \centeredformulalabel{label}{formula}
 ;; - \leftformulalabel{label}{formula}
 
-(defmethod required-latex-macros ((c (eql 'latex-logic-generator-2)))
+(defmethod latex-preamble ((c (eql 'latex-logic-generator-2)))
   '("\\newcolumntype{Y}{>{\\centering\\arraybackslash}X}"
     ("\\newcommand{"
      "  \\formulalabel}[3]{\\begin{myformulafont}"
      "      \\begin{tabularx}{\\linewidth}[c]{ #1  p{7mm} @{} }\\trimbox{0pt .5em 0pt .5em}{#3} & \\textbf{#2}"
      "      \\end{tabularx}\\end{myformulafont}}")
     "\\newcommand{\\centeredformulalabel}[2]{\\formulalabel{Y}{#1}{#2}}"
-     "\\newcommand{\\leftformulalabel}[2]{\\formulalabel{X}{#1}{#2}}"
-     "\\newcommand{\\centerformula}[1]{\\begin{ppl}\\begin{center}{\\trimbox{0pt 1em 0pt 1em}{#1}} \\end{center}\\end{ppl}}"
-     "\\newcommand{\\leftformula}[1]{\\begin{ppl}\\trimbox{0pt 1em 0pt 1em}{#1}\\end{center}\\end{ppl}}"
+    "\\newcommand{\\leftformulalabel}[2]{\\vspace{.2em}\\hspace{1em}\\formulalabel{X}{#1}{#2}\\vspace{.2em}}"
+    "\\newcommand{\\centerformula}[1]{\\begin{myformulafont}\\begin{center}{\\trimbox{0pt 1em 0pt 1em}{#1}} \\end{center}\\end{myformulafont}}"
+    "\\newcommand{\\leftformula}[1]{\\begin{myformulafont}\\trimbox{0pt 1em 0pt 1em}{#1}\\end{center}\\end{myformulafont}}"
     ("\\usepackage[activate={true,nocompatibility},final,tracking=true,kerning=true,spacing=true,factor=1100,stretch=10,shrink=10]{microtype}"
      "% activate={true,nocompatibility} - activate protrusion and expansion"
      "% final - enable microtype; use \"draft\" to disable"
@@ -396,7 +405,7 @@
      "% factor=1100 - add 10% to the protrusion amount (default is 1000)"
      "% stretch=10, shrink=10 - reduce stretchability/shrinkability (default is 20/20)"
      )
-))
+    ))
 
 ;; Either need to include an empty one, or create it with a family if the
 ;; formulas are going to use a different family.
@@ -404,12 +413,14 @@
 ;; second line is any macros that need to be defined 
 ;; e.g. `(("\\usepackage{mathpazo}") (,(make-font-macro)))
 
-(defun make-font-macro (&optional family)
-  (format nil "\\newenvironment{myformulafont}{~a}{\\par}"
-	  (if family (format nil "\\fontfamily{~a}\\selectfont" family) "")))
+(defun make-font-macro (&optional family small)
+  (format nil "\\newenvironment{myformulafont}{~a~a}{~a\\par}"
+	  (if small "\\begin{small}")
+	  (if family (format nil "\\fontfamily{~a}\\selectfont" family) "")
+	  (if small "\\end{small}")))
 
 ;; default is that we do nothing. Can change either by subclassing latex-logic-gener
-(defmethod required-latex-fonts ((c (eql 'latex-logic-generator-2)))
+(defmethod latex-fonts ((c (eql 'latex-logic-generator-2)))
   (list `(nil (,(make-font-macro)))))
 
 
