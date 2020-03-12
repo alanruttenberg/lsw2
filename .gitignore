@@ -14,3 +14,4 @@ logic/macosx/*
 *.save
 site.retry
 libnot
+*~
