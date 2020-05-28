@@ -57,6 +57,7 @@
 	     (:file "vagrant")
 	     (:file "exit-hook")
 	     (:file "tree")
+	     (:file "print-time-interval")
 	     (:file "background")
 	     (:file "slime-extras")
 	     (:file "threads")))))

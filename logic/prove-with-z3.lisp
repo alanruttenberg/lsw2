@@ -234,8 +234,9 @@
 				   (let ((ite (intern "ite" *z3-model-symbol-package*))
 					 (and (intern "and" *z3-model-symbol-package*))
 					 (or (intern "or"  *z3-model-symbol-package*))
-					 (not (intern "not"  *z3-model-symbol-package*)))
-				     (push `(,name ,(mapcar 'car args) ,@(subst 'or  or (subst 'not not (subst 'and  and (subst 'if ite body))))) forms)
+					 (not (intern "not"  *z3-model-symbol-package*))
+					 (lets (intern "let" *z3-model-symbol-package*)))
+				     (push `(,name ,(mapcar 'car args) ,@(subst 'let lets (subst 'or  or (subst 'not not (subst 'and  and (subst 'if ite body)))))) forms)
 				     )))))
 		(loop for el in (set-difference ints (alexandria::hash-table-keys named))
 		      with count = 0
