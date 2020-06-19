@@ -1,3 +1,4 @@
+(in-package :cl-user)
 (defun icds-for-cui (cui)
   (mapcan (lambda(e) (let ((found (cdr (assoc :code e))))
 		       (if found

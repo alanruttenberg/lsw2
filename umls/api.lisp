@@ -1,3 +1,5 @@
+(in-package :cl-user)
+
 ;; see https://documentation.uts.nlm.nih.gov/rest/home.html
 
 (define-umls-api-function
