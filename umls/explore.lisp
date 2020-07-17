@@ -1,3 +1,5 @@
+(in-package :cl-user)
+
 ;; review https://www.nlm.nih.gov/research/umls/META3_current_semantic_types.html
 ;; and https://www.nlm.nih.gov/research/umls/META3_current_relations.html
 ;; and https://www.nlm.nih.gov/research/umls/sourcereleasedocs/index.html
@@ -130,3 +132,6 @@
 					(remove-if-not (lambda(a) (equal (cdr (assoc :root-source a)) "SNOMEDCT_US")) atoms))
 				:test 'equalp))))
 
+
+(defun umls-cui-for-atom (source id)
+  (cdr (assoc :ui (car (cdr (assoc :results (umls-search :string id :sabs source :searchtype "exact" :inputtype "sourceUi")))))))

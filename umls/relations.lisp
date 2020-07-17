@@ -1,4 +1,6 @@
-; from https://www.nlm.nih.gov/research/umls/knowledge_sources/metathesaurus/release/abbreviations.html
+(in-package :cl-user)
+
+;; from https://www.nlm.nih.gov/research/umls/knowledge_sources/metathesaurus/release/abbreviations.html
 
 (defconstant *umls-relations*
     '(("AQ" "Allowed qualifier")

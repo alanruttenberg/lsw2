@@ -1,3 +1,5 @@
+(in-package :cl-user)
+
 ;; from https://www.nlm.nih.gov/research/umls/knowledge_sources/metathesaurus/release/updated_sources.html
 ;; Columns re-arranged
 ;; 1. as coded in UMLS API

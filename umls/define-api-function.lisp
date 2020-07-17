@@ -1,3 +1,5 @@
+(in-package :cl-user)
+
 (require 'cl-json) ; must do (ql:quickload "cl-json") once to install
 
 ;;; YOU, yes YOU, need to set up the user and password

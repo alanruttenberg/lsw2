@@ -1,3 +1,4 @@
+(in-package :cl-user)
 ;; https://rxnav.nlm.nih.gov/SnomedCTAPI.html
 
 (defun get-snomed-id-status (id)

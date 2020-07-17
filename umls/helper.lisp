@@ -1,4 +1,6 @@
-; https://www.nlm.nih.gov/research/umls/knowledge_sources/metathesaurus/release/abbreviations.html
+(in-package :cl-user)
+
+;; https://www.nlm.nih.gov/research/umls/knowledge_sources/metathesaurus/release/abbreviations.html
 
 (defun get-parent-hierarchy-for-concept (cui)
   "For the give CUI get the atoms, and from those get the parents, recursively.
