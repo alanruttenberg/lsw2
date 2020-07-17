@@ -94,3 +94,14 @@
 		(lambda(e) (print (#"toString" e))))
     ))
 
+;; Returns a list of inferred axioms of the given types
+(defun get-inferred-axioms (ont  &key (types *all-inferred-axiom-types*))
+  (loop for type in types
+	for found = (second (assoc type *inferred-axiom-types*))
+	unless found do (error "don't know inferred axiom type ~a?")
+	  append (set-to-list (#"createAxioms" (new found) (v3kb-datafactory ont) (v3kb-reasoner ont)))))
+
+;; Returns a list of inferred axioms  of the given types as sexps
+;; e.g. (get-inferred-axioms-as-sexps f :types '(:property-assertions ))
+(defun get-inferred-axioms-as-sexps (ont &key (types *all-inferred-axiom-types*))
+  (mapcar 'axiom-to-lisp-syntax (get-inferred-axioms ont :types types)))

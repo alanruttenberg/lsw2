@@ -1,3 +1,5 @@
+(in-package lsw2/dlquery)
+
 (defun children (class &optional (kb *default-kb*))
   (class-query class kb (lambda(ce reasoner) (#"getSubClasses" reasoner ce t))))
 
@@ -17,7 +19,7 @@
   (property-query property kb (lambda(pe reasoner)  (#"getSuperObjectProperties" reasoner pe t))))
 
 (defun ancestors (class &optional (kb *default-kb*))
-  (class-query class kb (lambda(ce reasoner) (setq @ reasoner)(#"getSuperClasses" reasoner ce nil))))
+  (class-query class kb (lambda(ce reasoner) (#"getSuperClasses" reasoner ce nil))))
 
 (defun property-ancestors (property &optional (kb *default-kb*))
   (property-query property kb (lambda(pe reasoner)  (#"getSuperObjectProperties" reasoner pe nil))))
@@ -40,6 +42,16 @@
 			(#"getEquivalentObjectProperties" reasoner pe)))
 		  nil))
 
+(defun individual-properties (instance &optional (kb *default-kb*))
+  (let ((ind (car (find :individual (gethash instance (v3kb-uri2entity kb)) :key 'second)))
+	(dpa-class (jclass "org.semanticweb.owlapi.model.OWLDataPropertyAssertionAxiom")))
+    (loop for assertion in (get-inferred-axioms kb :types '(:property-assertions))
+	  when (jequal (#"getSubject" assertion) ind)
+	    collect (list (make-uri (#"toString" (#"getIRI" (#"getProperty" assertion))))
+			  (if (jinstance-of-p assertion dpa-class)
+			      (get-owl-literal-value (#"getObject" assertion))
+			      (make-uri (#"toString" (#"getIRI"  (#"getObject" assertion)))))))))
+
 (defun equivalents (class &optional (kb *default-kb*))
   (class-query class kb (lambda(ce reasoner) (#"getEquivalentClasses" reasoner ce)) nil t))
 
@@ -50,14 +62,15 @@
 		 )))
 	       
 (defun same-individuals (individual &optional (kb *default-kb*))
-  (loop for e in (jss::set-to-list
+  (loop for e in (set-to-list
 		  (#"getSameIndividuals" (v3kb-reasoner kb)
 		     (#"getOWLNamedIndividual" (v3kb-datafactory kb) (to-iri individual))))
        collecting (make-uri (#"toString" (#"getIRI" e)))))
 
+;; FIXME to-axiom-expression is not defined
 (defun entailed? (axiom-expression &optional (kb *default-kb*))
   (error "todo")
-  (#"isEntailed" (list-to-java-set (list (to-axiom-expression class-expression kb))) kb)) ;not yet implemented
+  (#"isEntailed" (list-to-java-set (list (to-axiom-expression axiom-expression kb))) kb)) ;not yet implemented
 
 (defun satisfiable? (class-expression &optional (kb *default-kb*))
   (instantiate-reasoner kb)
