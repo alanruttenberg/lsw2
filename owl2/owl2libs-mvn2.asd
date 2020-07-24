@@ -17,6 +17,7 @@
 	     "org.semanticweb.owlapi.util" "org.semanticweb.owlapi.util.*"
 	      "org.semanticweb.owlapi.vocab" "org.semanticweb.owlapi.vocab.*"))))
 
+(defvar cl-user::*before-osgi-starting-hooks* nil)
 (pushnew 'open-osgi-for-lsw cl-user::*before-osgi-starting-hooks*)
 
 (asdf:defsystem owl2libs-mvn2
@@ -26,6 +27,7 @@
 		:dependencies 
 		("net.sourceforge.owlapi/pellet-cli-ignazio1977/2.4.0-ignazio1977"
 		  "org.semanticweb.elk/elk-owlapi/0.4.3"
+		  "javax.xml.bind:jaxb-api:LATEST"
 		  "net.sourceforge.owlapi/org.semanticweb.hermit/1.3.8.413"
 		  "net.sourceforge.owlapi/owlapi-distribution/4.2.6"
 		  "net.sourceforge.owlapi/owlexplanation/2.0.0"

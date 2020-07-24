@@ -12,6 +12,7 @@
 	     "org.semanticweb.owlapi.util" "org.semanticweb.owlapi.util.*"
 	     "org.semanticweb.owlapi.vocab" "org.semanticweb.owlapi.vocab.*"))))
 
+(defvar cl-user::*before-osgi-starting-hooks* nil)
 (pushnew 'open-osgi-for-lsw cl-user::*before-osgi-starting-hooks*)
 
 (asdf:defsystem owl2libs-bundle
