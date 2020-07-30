@@ -89,6 +89,7 @@
   (let ((mapper nil)
 	(uri nil))
     (setq source (if (java-object-p source) (#"toString" source) source))
+    (setq source (if (pathnamep source) (namestring (truename source)) source))
     (when (or (stringp source) (uri-p source) )
       (setq uri source)
       (when (and (not (consp (pathname-host uri))) (probe-file uri))
@@ -520,7 +521,16 @@
 	(make-uri (#"toString" (#"getIRI" ob))))))
 
 (defun annotation-properties (kb)
-  (mapcar 'make-uri (mapcar #"toString" (mapcar #"getIRI"  (set-to-list (#"getAnnotationPropertiesInSignature" (v3kb-ont o)))))))
+  (mapcar 'make-uri (mapcar #"toString" (mapcar #"getIRI"  (set-to-list (#"getAnnotationPropertiesInSignature" (v3kb-ont kb)))))))
+
+(defun object-properties (kb)
+  (mapcar 'make-uri (mapcar #"toString" (mapcar #"getIRI"  (set-to-list (#"getObjectPropertiesInSignature" (v3kb-ont kb)))))))
+
+(defun data-properties (kb)
+  (mapcar 'make-uri (mapcar #"toString" (mapcar #"getIRI"  (set-to-list (#"getDataPropertiesInSignature" (v3kb-ont kb)))))))
+
+(defun kb-classes (kb)
+  (mapcar 'make-uri (mapcar #"toString" (mapcar #"getIRI"  (set-to-list (#"getClassesInSignature" (v3kb-ont kb)))))))
 
 
 (defun get-owl-literal (value)
@@ -533,6 +543,20 @@
 	((or (#"isFloat" value) (#"isInteger" value) (#"isDouble" value))
 	 `(:literal ,(#"getLiteral" value) ,(make-uri (#"toString" (#"getIRI" (#"getDatatype" value))))))
 	(t value)))
+
+;; a little more than get-owl-literal in that if a number then return as a number
+(defun get-owl-literal-value (value)
+  (cond ((#"isRDFPlainLiteral" value) (#"getLiteral" value))
+	((#"isBoolean" value) (let ((string (#"getLiteral" value)))
+				(if (equal string "true") :true :false)))
+	((member (#"toString" (#"getDatatype" value))
+		 '("http://www.w3.org/2001/XMLSchema#string" "xsd:string") :test 'equal)
+	 (#"getLiteral" value))
+	((or (#"isFloat" value) (#"isDouble" value))
+	 (read-from-string (#"getLiteral" value)))
+	((#"isInteger" value)
+	 (read-from-string (#"getLiteral" value)))
+	(t `(:literal ,(#"getLiteral" value) ,(make-uri (#"toString" (#"getIRI" (#"getDatatype" value))))))))
 		 
 (defun entity-annotations (uri  &optional (kb *default-kb*) prop)
   (loop for ont in (set-to-list (#"getImportsClosure" (v3kb-ont kb)))
@@ -595,9 +619,18 @@
 
 (defun unsatisfiable-properties (kb)
   (check-ontology kb)
-  (loop for p in (remove-if #"isAnonymous" (set-to-list (#"getEquivalentObjectProperties" (v3kb-reasoner kb) (#"getOWLObjectProperty" (v3kb-datafactory kb) (to-iri !owl:bottomObjectProperty)))))
-     for uri = (make-uri (#"toString" (#"getIRI" p)))
-	unless (eq uri !owl:bottomObjectProperty) collect uri))
+  (loop for p in (remove-if #"isAnonymous" 
+			    (union 
+			     (set-to-list
+			      (#"getEquivalentObjectProperties"
+			       (v3kb-reasoner kb)
+			       (#"getOWLObjectProperty" (v3kb-datafactory kb) (to-iri !owl:bottomObjectProperty))))
+			     (set-to-list
+			      (#"getEquivalentDataProperties"
+			       (v3kb-reasoner kb)
+			       (#"getOWLDataProperty" (v3kb-datafactory kb) (to-iri !owl:bottomDataProperty))))))
+	for uri = (make-uri (#"toString" (#"getIRI" p)))
+	unless (or (eq uri !owl:bottomObjectProperty) (eq uri !owl:bottomDataProperty)) collect uri))
 
 (defun get-ontology-iri (kb)
   (let ((ontology (if (v3kb-p kb) (v3kb-ont kb) kb)))

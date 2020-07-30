@@ -20,8 +20,8 @@
   (let* ((a-props (new 'java.util.arraylist)) 
 	 (langs (new 'java.util.arraylist))
 	 (langs-none (new 'java.util.arraylist))
-	 (prop->lang (new 'hashmap))
-	 (prop->lang-none (new 'hashmap))
+	 (prop->lang (new 'util.hashmap))
+	 (prop->lang-none (new 'util.hashmap))
 	 (ontset (new 'owlapi.util.owlontologyimportsclosuresetprovider
 		      (v3kb-manager kb) (v3kb-ont kb))))
     (dolist (lang language-preferences)

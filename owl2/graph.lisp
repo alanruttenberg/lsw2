@@ -102,7 +102,7 @@
 
     ;; accessors for subclasses and instances of a node. Take care here if we are using inferred or uninferred
     (flet ((satisfiable-children (node)
-	     (set-difference (children node treekb) unsatisfiable :test 'eq))
+	     (set-difference (lsw2/dlquery::children node treekb) unsatisfiable :test 'eq))
 	   (direct-instances-1 (node)
 	     (direct-instances node treekb))
 	   (maybe-tooltip (kb node)
@@ -125,7 +125,7 @@
 		   ;; unless we don't want to see this node, or we've already included it somewhere in the graph
 		   (unless (or (gethash node equivalents-seen) (member node dont-show))
 
-		     (let ((children (satisfiable-children node)))
+		     (let ((lsw2/dlquery::children (satisfiable-children node)))
 		       (when sort-function (setq children (funcall sort-function children)))
 
 		       ;; put unsatisfiable classes below !owl:Nothing
