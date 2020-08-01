@@ -520,17 +520,27 @@
 	`(object-inverse-of ,(make-uri (#"toString" (#"getIRI" (#"getInverseProperty" ob)))))
 	(make-uri (#"toString" (#"getIRI" ob))))))
 
-(defun annotation-properties (kb)
-  (mapcar 'make-uri (mapcar #"toString" (mapcar #"getIRI"  (set-to-list (#"getAnnotationPropertiesInSignature" (v3kb-ont kb)))))))
+(defun signature-query (kb method &optional (include-imports? t))
+  (mapcar 'make-uri (mapcar #"toString" (mapcar #"getIRI"  (set-to-list (funcall method (v3kb-ont kb)
+										 (if include-imports? #1"Imports.INCLUDED" #1"Imports.EXCLUDED")))))))
+  
+(defun annotation-properties (kb &optional (include-imports t))
+  (signature-query #"getAnnotationPropertiesInSignature" include-imports))
 
-(defun object-properties (kb)
-  (mapcar 'make-uri (mapcar #"toString" (mapcar #"getIRI"  (set-to-list (#"getObjectPropertiesInSignature" (v3kb-ont kb)))))))
+(defun object-properties (kb &optional (include-imports t))
+  (signature-query #"getObjectPropertiesInSignature" include-imports))
 
-(defun data-properties (kb)
-  (mapcar 'make-uri (mapcar #"toString" (mapcar #"getIRI"  (set-to-list (#"getDataPropertiesInSignature" (v3kb-ont kb)))))))
+(defun data-properties (kb &optional (include-imports t))
+  (signature-query #"getDataPropertiesInSignature" include-imports))
 
-(defun kb-classes (kb)
-  (mapcar 'make-uri (mapcar #"toString" (mapcar #"getIRI"  (set-to-list (#"getClassesInSignature" (v3kb-ont kb)))))))
+(defun kb-classes (kb &optional (include-imports t))
+  (signature-query #"getClassesInSignature" include-imports))
+
+(defun named-individuals (kb &optional (include-imports t))
+  (signature-query #"getIndividualsInSignature" include-imports))
+
+(defun kb-entities (kb)
+  (alexandria::hash-table-keys (v3kb-uri2entity kb)))
 
 
 (defun get-owl-literal (value)
@@ -747,7 +757,7 @@
 (defun classtree-depth (kb &aux (maxdepth 0))
   (labels ((each-node (c depth)
 	     (setq maxdepth (max maxdepth depth))
-	     (dolist (cc (children c kb))
+	     (dolist (cc (lsw2/dlquery::children c kb))
 	       (unless (eq cc !owl:Nothing)
 		 (each-node cc (1+ depth))))))
     (each-node !owl:Thing 0)
