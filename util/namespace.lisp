@@ -102,6 +102,8 @@
     ("http://www.myexperiment.org/rdf/ontology#" "myexp:")
     ("http://purl.org/obo/owl/OBO_REL#" "roproposed:")
     ("http://snomed.info/id/" "snomed:")
+    ("http://opensextant.org/ontology/" "osex:") ; https://github.com/orgs/OpenSextant
+    ("http://www.ontologyrepository.com/CommonCoreOntologies/" "cco:") ;https://github.com/CommonCoreOntology/
     (,*blankprefix* "blank:")
     ))
 
