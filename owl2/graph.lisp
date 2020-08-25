@@ -125,7 +125,7 @@
 		   ;; unless we don't want to see this node, or we've already included it somewhere in the graph
 		   (unless (or (gethash node equivalents-seen) (member node dont-show))
 
-		     (let ((lsw2/dlquery::children (satisfiable-children node)))
+		     (let ((children (satisfiable-children node)))
 		       (when sort-function (setq children (funcall sort-function children)))
 
 		       ;; put unsatisfiable classes below !owl:Nothing
