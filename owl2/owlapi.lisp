@@ -77,7 +77,7 @@
 	((jinstance-of-p thing (find-java-class "org.semanticweb.owlapi.model.IRI")) thing)
 	(t (error "don't know how to coerce ~s to IRI" thing))))
 
-(defun load-ontology (source &key name reasoner (silent-missing t))
+(defun load-ontology (source &key name reasoner (silent-missing t) mapper)
 ;  (set-java-field 'OWLRDFConsumer "includeDublinCoreEvenThoughNotInSpec" nil)
 ;  (set-java-field 'ManchesterOWLSyntaxEditorParser "includeDublinCoreEvenThoughNotInSpec" nil)
   (if (uri-p source) (setq source (uri-full source)))
@@ -86,15 +86,14 @@
   (#"setProperty" 'system "entityExpansionLimit" "100000000") ; avoid low limit as we are not worried about security
   (when (boundp '*factpp-natives*)
     (#"setProperty" 'system "factpp.jni.path" *factpp-jni-path*))
-  (let ((mapper nil)
-	(uri nil))
+  (let ((uri nil))
     (setq source (if (java-object-p source) (#"toString" source) source))
     (setq source (if (pathnamep source) (namestring (truename source)) source))
     (when (or (stringp source) (uri-p source) )
       (setq uri source)
       (when (and (not (consp (pathname-host uri))) (probe-file uri))
 	(let ((dir (make-pathname :directory (pathname-directory uri))))
-	  (setq mapper (uri-mapper-for-source source))
+	  (unless mapper (setq mapper (uri-mapper-for-source source)))
 	  ;(setq uri (format nil "file://~a" (truename uri)))
 	  ;(list (length (set-to-list (#"getOntologyIRIs" mapper))) uri)
 	  )))
@@ -201,7 +200,7 @@
 (defmacro with-label-vars-from (ont &body body)
   (let ((ontvar (make-symbol "ONT"))
 	(classes (make-symbol "CLASSES")))
-    `(let* ((,ontvar (load-ontology ,ont))
+    `(let* ((,ontvar (load-ontology ,ont)) 
 	   (,classes (mapcar (lambda(e) 
 			       (list (intern (string-upcase (substitute #\- #\space (second e))))
 				     (first e)))
@@ -213,7 +212,7 @@
 	 ,@body))))
 
 (defmacro with-ontology (name (&key base ontology-properties about includes rules eval (collecting t) also-return-axioms only-return-axioms
-				 ontology-iri version-iri) definitions  &body body)
+				 ontology-iri version-iri load-ontology-args) definitions &body body)
   (declare (ignore rules includes))
   (let ((axioms-var (make-symbol "AXIOMS"))
 	(oiri (make-symbol "ONTOLOGY-IRI"))
@@ -237,8 +236,9 @@
 										)))
 			      (t (list 'quote definitions)))
 		       )
-	       :name ',name
-	       )))
+		       :name ',name
+		       ,@load-ontology-args
+		       )))
 	 (let ((*default-kb* ,name))
 	   (declare (special *default-kb*))
 ;	   (declare (ignorable *default-kb* ))
@@ -520,28 +520,68 @@
 	`(object-inverse-of ,(make-uri (#"toString" (#"getIRI" (#"getInverseProperty" ob)))))
 	(make-uri (#"toString" (#"getIRI" ob))))))
 
+;; kb can be either the java ontology object or a v3kb object
 (defun signature-query (kb method &optional (include-imports? t))
-  (mapcar 'make-uri (mapcar #"toString" (mapcar #"getIRI"  (set-to-list (funcall method (v3kb-ont kb)
-										 (if include-imports? #1"Imports.INCLUDED" #1"Imports.EXCLUDED")))))))
+  (let ((ont (if (java-object-p kb) kb (v3kb-ont kb))))
+    (mapcar 'make-uri
+	    (mapcar #"toString"
+		    (mapcar #"getIRI"
+			    (set-to-list (funcall method ont
+						  (if include-imports? #1"Imports.INCLUDED" #1"Imports.EXCLUDED"))))))))
   
 (defun annotation-properties (kb &optional (include-imports t))
-  (signature-query #"getAnnotationPropertiesInSignature" include-imports))
+  (signature-query kb #"getAnnotationPropertiesInSignature" include-imports))
 
 (defun object-properties (kb &optional (include-imports t))
-  (signature-query #"getObjectPropertiesInSignature" include-imports))
+  (signature-query kb #"getObjectPropertiesInSignature" include-imports))
 
 (defun data-properties (kb &optional (include-imports t))
-  (signature-query #"getDataPropertiesInSignature" include-imports))
+  (signature-query kb #"getDataPropertiesInSignature" include-imports))
 
 (defun kb-classes (kb &optional (include-imports t))
-  (signature-query #"getClassesInSignature" include-imports))
+  (signature-query kb #"getClassesInSignature" include-imports))
 
 (defun named-individuals (kb &optional (include-imports t))
-  (signature-query #"getIndividualsInSignature" include-imports))
+  (signature-query kb #"getIndividualsInSignature" include-imports))
 
 (defun kb-entities (kb)
   (alexandria::hash-table-keys (v3kb-uri2entity kb)))
 
+;; The assertion types that associate properties with transitivity etc.
+(defparameter *property-properties-from-axioms-sexps*
+  (loop for el in
+	'(asymmetric-object-property
+	  irreflexive-object-property
+	  reflexive-object-property
+	  transitive-object-property
+	  functional-object-property
+	  inverse-functional-object-property
+	  symmetric-object-property
+	  functional-data-property)
+	collect (intern (string el) 'keyword)))
+
+;; The global restrictions disallow any property to have any of these pairs 
+(defparameter *disallowed-property-property-pairs*
+  '((:asymmetric-object-property :transitive-object-property) 
+    (:asymmetric-object-property :reflexive-object-property) 
+    (:irreflexive-object-property :transitive-object-property) 
+    (:irreflexive-object-property :reflexive-object-property) 
+    (:transitive-object-property :functional-data-property) 
+    (:transitive-object-property :inverse-functional-object-property) ))
+
+;; given a property, without reasoning, look for whether it's transitive, asymmetric etc
+;; return a list of axiom heads.
+
+(defun get-asserted-property-characteristics (entity ont)
+  (let ((axs (union (get-referencing-axioms entity :object-property ont t)
+		    (get-referencing-axioms entity :data-property ont t))))
+    (remove-duplicates (loop for ax in  axs
+			     for prop = (system::keywordify (car ax))
+			     when (member prop *property-properties-from-axioms-sexps*) collect prop)))))
+
+(defun are-property-characteristic-allowed (properties)
+  (not (some (lambda(e) (= 2 (length (intersection e properties))))
+	*disallowed-property-property-pairs*)))
 
 (defun get-owl-literal (value)
   (cond ((#"isRDFPlainLiteral" value) (#"getLiteral" value))
@@ -763,12 +803,14 @@
     (each-node !owl:Thing 0)
     maxdepth))
 
+;; direct-only t means definitional, e.g. for properties domain,range, transitivity but not object-property-assertions using the property
+;; direct-only nil means any axiom that mentions the term
 (defun get-referencing-axioms (entity type ont &optional direct-only)
   (mapcar 'axiom-to-lisp-syntax 
 	  (loop for (entity etype eont) in (gethash entity (v3kb-uri2entity ont))
 		when (eq etype type)
-		  append (set-to-list (#"getAxioms" eont entity))
-		unless direct-only append (set-to-list (#"getReferencingAxioms" eont entity)))))
+		  append (set-to-list (#"getAxioms" eont entity t))
+		unless direct-only append (set-to-list (#"getReferencingAxioms" eont entity t)))))
 
 (defun get-rendered-referencing-axioms (entity type ont &optional direct-only)
   (loop for (entity etype eont) in (gethash entity (v3kb-uri2entity ont))
