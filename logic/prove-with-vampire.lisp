@@ -5,7 +5,7 @@
 
 ;; On OSX
 ;; cp vampire.rb /usr/local/Homebrew/Library/Taps/homebrew/homebrew-core/Formula/
-;; brew install vampire
+;; brew install --HEAD vampire
 
 (defvar *vampire-executable* "vampire_rel")
 
