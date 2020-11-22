@@ -577,7 +577,7 @@
 		    (get-referencing-axioms entity :data-property ont t))))
     (remove-duplicates (loop for ax in  axs
 			     for prop = (system::keywordify (car ax))
-			     when (member prop *property-properties-from-axioms-sexps*) collect prop)))))
+			     when (member prop *property-properties-from-axioms-sexps*) collect prop))))
 
 (defun are-property-characteristic-allowed (properties)
   (not (some (lambda(e) (= 2 (length (intersection e properties))))
