@@ -122,13 +122,13 @@
 
 (defun t-jena-serialize (input format &rest prefixes)
   (let ((model (apply 't-jena input prefixes)))
-    (let ((sw (new 'StringWriter)))
+    (let ((sw (new 'io.StringWriter)))
       (#"write" model sw format "http://example.com/")
       (values (#"toString" sw) model))))
 
 (defun t-owlapi (input name)
   (let ((model (apply 't-jena input nil)))
-    (let ((sw (new 'StringWriter)))
+    (let ((sw (new 'io.StringWriter)))
       (#"write" model sw "RDF/XML")
       (load-ontology sw :name name))))
 
