@@ -288,7 +288,7 @@
   (setq foltext (#"replaceAll" foltext s-iff "\\$\\\\leftrightarrow\\$"))
   (setq foltext (#"replaceAll" foltext s-not "\\$\\\\neg\\$"))
   ;;      (setq foltext (#"replaceAll" foltext s-= "\\$=\\$"))
-  (setq foltext (#"replaceAll" foltext "([a-z])(prime)(\\b|[ℶℵ])" "$1\\\\textprime"))
+  (setq foltext (#"replaceAll" foltext "([a-z])(prime)(\\b|[ℶℵ])" "$1\\$'\\$"))
   (setq foltext (#"replaceAll" foltext s-not= "\\$\\\\neq\\$"))
   (setq foltext (#"replaceAll" foltext t-aleph "{\\\\hskip .1em}"))
   (setq foltext (#"replaceAll" foltext "ℶ\\(" "{\\\\hskip .1em}\\("))
