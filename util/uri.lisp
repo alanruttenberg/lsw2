@@ -101,6 +101,7 @@ Which can then be used as !material-entity
 (defvar *print-uri-with-labels-from*)
 (defvar *print-uri-with-labels-show-source* t)
 (defvar *print-uri-full* nil)
+(defvar *inhibit-read-uri* nil)
 
 (defun print-uri (object stream depth)
   (when (boundp '*print-uri-with-labels-from*)
@@ -136,13 +137,14 @@ Which can then be used as !material-entity
 (eval-when (compile load eval)
   (defvar *read-time-uri* nil))
 
-(defun read-uri (stream char) 
+(defun read-uri (stream char)
   (let ((form 
 	  ;; kludge to get around issue with function names starting with "!" in slime/swank-match.lisp
 	  (if (or (and (boundp '*compile-file-pathname*) 
 		       (search "swank-match" (when *compile-file-pathname* (namestring *compile-file-pathname*)) :test #'char-equal))
 		  (and (boundp '*load-pathname*) 
-		       (search "swank-match" (when *load-pathname* (namestring *load-pathname*)) :test #'char-equal)))
+		       (search "swank-match" (when *load-pathname* (namestring *load-pathname*)) :test #'char-equal))
+		  *inhibit-read-uri*)
 	      (progn 
 		(unread-char #\! stream)
 		(let ((*readtable* *saved-readtable*))
@@ -161,22 +163,22 @@ Which can then be used as !material-entity
 				       for the-char-first-part = (read-char stream)
 				       collect the-char-first-part into first-chars
 				       finally (progn  
-						      (if (eql char :eof)
-							  (error "Unterminated URI by name missing source")
-							  (progn (read-char stream) ;; the '
-							  (if (not (eql (peek-char t stream nil :eof) #\@))
-							      (return
-								(progn 
-								  (return  (coerce (append '(#\') first-chars '(#\' #\@ #\@) ) 'string))))
-							      (return
-								(progn
-								  (read-char stream) ;; the @
-								  (loop for char = (peek-char nil stream nil :eof)
-									while (not (or (eq char :eof)
-										       (system::whitespacep char)
-										       (char= char #\))))
-									collect (read-char stream) into second-chars
-									finally (return  (coerce (append '(#\') first-chars '(#\') (list #\@) second-chars) 'string)))))))))))
+						 (if (eql char :eof)
+						     (error "Unterminated URI by name missing source")
+						     (progn (read-char stream) ;; the '
+							    (if (not (eql (peek-char t stream nil :eof) #\@))
+								(return
+								  (progn 
+								    (return  (coerce (append '(#\') first-chars '(#\' #\@ #\@) ) 'string))))
+								(return
+								  (progn
+								    (read-char stream) ;; the @
+								    (loop for char = (peek-char nil stream nil :eof)
+									  while (not (or (eq char :eof)
+											 (system::whitespacep char)
+											 (char= char #\))))
+									  collect (read-char stream) into second-chars
+									  finally (return  (coerce (append '(#\') first-chars '(#\') (list #\@) second-chars) 'string)))))))))))
 				((eql peek #\<)
 				 (read-char stream)
 				 (return-from read-uri
@@ -221,8 +223,11 @@ Which can then be used as !material-entity
 ;; *saved-readtable* used in read-uri when we run into a !
 (eval-when (:load-toplevel :execute :compile-toplevel)  
   (defparameter *saved-readtable* (copy-readtable nil)))
-(set-macro-character #\! 'read-uri t)
 
+(set-macro-character #\! 'read-uri t)
+(defun use-uri-readtable ()
+  (set-macro-character #\! 'read-uri t)
+  )
 
 (defun get-uri-alias (string)
   (gethash string *interned-uris*))
