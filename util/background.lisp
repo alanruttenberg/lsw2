@@ -7,7 +7,7 @@
 ;; (% number) returns results of job and empties its slot
 ;; (kill number) tries to abort the thread
 
-(defvar *default-lparallel-worker-count* 10)
+(defvar *default-lparallel-worker-count* (+ 2 (#"availableProcessors" (#"getRuntime"  'java.lang.runtime))))
 
 (defclass job ()
   ((future :accessor job-future :initarg :future)
