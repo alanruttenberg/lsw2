@@ -1,0 +1,1315 @@
+# -*- Mode: POLY-ORG;  -*- ---
+#+PROPERTY: literate-lang lisp
+#+PROPERTY: literate-load yes
+#+header: :package logic :results :none
+
+* Preliminaries
+
+Set the package
+
+#+BEGIN_SRC lisp
+(in-package :logic)
+#+END_SRC
+
+
+* Introduction
+
+I write papers in org mode, with generation to latex. The papers involve both
+written prose and generated content. This code is intended to help orchestrate
+how the two types of content work together. In the text below I'll /lisp/ means
+Common Lisp, and /elisp/ means Emacs Lisp.
+
+** Previous implementation
+
+This is a re-implementation of exploratory code to support typesetting of
+formulas, proofs, class and relation names. 
+
+The specific functionalities were:
+
+1. To allow a code in a lisp source block to specify a formula, either in LSW syntax, or by spec
+   and to have the results of the source block be latex code that nicely typeset the formula, which 
+   was included in line.
+
+2. In other source blocks, specify a proof attempt, with assumptions and goal named by
+   reference to formulas in the file. Executing the source block would generate some
+   text for the proof indicating success or failure, as well as generate supplementary materials
+   such as the input and output files for the prover.
+
+3. To, given a list of relation and class names as an elisp variable, arrange 
+   for mentions of them in the body of the text to be typeset. This was implemented
+   as a filter operating in the generation of latex code.
+
+Unfortunately, the implementation landed up creating a tangle of dependencies
+among the various artifacts used, which included latex macros in an included
+file, support packages from the latex distribution, lisp code that generated
+latex that relied on those, elisp specifications, elisp support code, and shell
+scripts.
+
+Although lisp-generated code depended on the packages and macros, specifying
+those macros and packages and including them wasn't the responsibility of lisp.
+Instead these were define in included files and latex preambles. 
+Support files were expected to be in known places relative to the main paper.org.
+It became difficult to ensure that the parts were coordinated, particularly 
+in the face of evolving both the lisp and latex code and because of slightly
+different needs across projects.
+
+For typesetting class and relation names, I first used org macros to surround each name, 
+with the macros generating latex calls to macros. However, it was too easy to forget
+to do that consistently, leading to some names being typeset, and others not. 
+A second implementation let you write the names in text without (for the most part) 
+worrying about the typesetting. Then, during the transformation of the org file
+to latex, a step was inserted that did search and replace of names specified
+in two elisp variables, one for relations, and one for classes. 
+
+Even this is mildly problematic - the relevant relations and classes can be computed
+from the theory - the set of formulas under discussion. Having to specify them 
+indpendently introduced potential errors.
+
+* Rethinking the strategy
+
+In order to enable coordination of the emacs and lisp sides, a first goal is to
+make it so that when executing a command in emacs it is equally reasonable to
+implement the method in elisp or commonlisp. The lisp side should be able to
+understand what's in the emacs buffer. We want to be able to achieve the
+functions in the previous implementations as well as others, such as checking
+that the paper includes all the formulas in a theory (spec) or keeping
+cross-references organized.
+
+** Requirements
+
+1. The paper should be editable as well as be able to be typeset without lisp
+   running, as long as I don't execute a command that requires lisp.  That means
+   that any contributions of lisp-generated contents should be written to static
+   files, available when working without lisp.
+
+2. If some of the work is computationally expensive, it shouldn't have to be done
+   unless necessary. For example, running a proof can be time consuming. The
+   request for proof is typically done when a source block is executed by babel.
+   However, we don't want to worry about when or how many times we choose to
+   evaluate a source block.  This is accomplished by having a cache of proof
+   content keyed to the md5 of the assumptions and goals, and avoiding redoing work
+   for proofs already in the cache. It's not sufficient to only have an in-memory
+   cache as that gets lost when lisp restarts.
+
+3. It shouldn't be onerous to initialize the lisp side when editing a paper. Ideally
+   it gets done when the paper opens, automatically. However, a paper might have
+   specific needs for systems to be loaded, so we need to be able to specify those
+   requirements in the paper and have them passed to lisp.
+
+4. There should be a clear division of labor between what's needed and expected on
+   the emacs side vs the lisp side. One area of concern is latex preambles and
+   support filess.   Each side should do what it does best. On the emacs side, babel manages source
+   blocks well, and babel-execute-src-block manages how results of the evaluation
+   impact the paper. Oppose this to using slime-eval-defun, which doesn't know
+   about results.  While it would be possible to have the lisp side manage results
+   by instructing elisp what to insert and where, that would be re-implementing
+   what babel does well. 
+
+Something else done on the elisp side is the recognizing of class and relation
+terms and then having latex set them without me having to bother with the
+details. The initial implementation uses a couple of elisp variables to list
+what relations and classes are in the text, and then uses that list in a filter 
+used when the latex is generated, insertng the extra latex code at that time.
+OTOH, the elisp variable have content that the lisp side knows more about, as 
+it keeps track of the spec the paper is writing about. The relations and classes
+are easily derivable from the spec, and so lisp should set the elements in the 
+elisp variables.
+
+** Implementation strategy
+
+For each paper being edited, there will be an instance of the class ~latex-paper~ (or subclass) that corresponds to it.
+
+The lisp latex-paper instance doesn't know how to do everything. For 
+in a logic paper, the typesetting of formulas is delegated to the ~latex-logic-generator~.
+
+Virtually all latex support is generated on the lisp side. No defs.tex. latex support
+means packages, settings, macros. The only case I'm considered for the Emacs side is
+the typesetting of relations and classes, which uses a macro defined locally.
+
+Assume we are working in a folder with the org file(s) at root. 
+Lisp will create subdirectories with related content or caches.
+
+** File organization
+There will be a folder where all the files for the paper go. Files include, for
+example, the org-mode , any nonstandard latex styles or macros, supplementary
+materials such as figures, latex formulas, proof records, etc.
+We'll expect there to be a main org file for the paper, a parallel tex file,
+and possibly some scripts.
+* Implementation
+** Communicating with Emacs
+Emacs communicates with Lisp using slime using slime-eval.
+
+#+begin_src lisp load no
+(slime-eval SEXP &optional PACKAGE)
+#+end_src
+
+Lisp communicates with Emacs using ~swank::eval-in-emacs~. Swank typically loads
+after LSW does, so don't name it directly so the reader doesn't barf.
+
+#+begin_src lisp
+(defun eval-in-emacs (form)
+  (funcall (intern "EVAL-IN-EMACS" 'swank) form))
+#+end_src
+
+Typically we will want to make sure that when we're evaluating in emacs we do so
+within the right buffer. ~eval-in-emacs-buffer~ does that. If serial is passed
+then it evaluates in the buffer with paper-serial = serial. Otherwise it
+evaluates in the top buffer. If attempting to evaluate using a serial that 
+doesn't correspond to a buffer, either error, or :if-not-found is passed,
+return that.
+
+#+begin_src lisp
+(defun eval-in-emacs-buffer (form &key serial if-not-found)
+  (let ((result
+	  (eval-in-emacs
+	   (if serial
+	       `(block found
+		  (mapcar (lambda(b)
+			    (with-current-buffer b
+			      (when (equal (eval 'paper-serial)  ,serial)
+				(return-from found
+				  ,form))))
+			  (buffer-list))
+		  :not-found)
+	       `(with-current-buffer (car (buffer-list (selected-frame)))
+		  ,form)))))
+    (or (and (eq result :not-found) if-not-found)
+	(assert (not (eq result :not-found))
+		() "Couldn't find buffer with serial ~a" serial)
+	result)))
+
+(defun emacs-buffer-name (&optional serial)
+  (eval-in-emacs-buffer '(buffer-name) :serial serial))
+
+(defun emacs-buffer-contents (&optional serial)
+  (eval-in-emacs-buffer
+   '(buffer-substring-no-properties
+     (point-min) (point-max))
+   :serial serial))
+
+;(emacs-buffer-name 345249022)
+;(eval-in-emacs-buffer 'buffer-file-name :serial 345249022)
+;(eval-in-emacs-buffer 'buffer-file-name :serial 1)
+#+end_src
+
+#+name: example-top-buffer-file
+#+begin_src lisp :results org :package logic :load no
+  (pathname-name (eval-in-emacs-buffer 'buffer-file-name))
+#+end_src
+
+#+RESULTS: example-top-buffer-file
+#+BEGIN_SRC org
+"paper-support" 
+#+END_SRC
+
+** Connecting a buffer in Emacs to an object in Lisp
+
+We will use /serial number/ to mean a unique identifier for a buffer. On the Emacs 
+side we'll set a buffer-local variable ~paper-serial~ to hold the serial number.
+On the Emacs side we'll have one or more hashes mapping, at least, serial number 
+to Lisp object representing the buffer.
+
+Initiation will be done from the Emacs side. In a a source block call ~register-paper~. 
+~Register-paper~ takes a class name as its first argument, and then a list of keyword arguments
+used to initialize the instance.
+
+When register-paper runs on the lisp side it will assume that the top emacs buffer is the 
+caller. It will then checks if the buffer local ~paper-serial~ is bound.  If it isn't
+then it's the first time Lisp has seen the buffer. The hash mapping buffer serial number to 
+instance is accessed using ~to-paper-instance~, and set using ~set-paper-instance~. 
+
+#+begin_src lisp
+(defvar *serial-to-paper-instance* (make-hash-table :test 'equalp))
+    
+(defun get-paper-instance (serial)
+  (gethash serial *serial-to-paper-instance*))
+
+(defun set-paper-instance (serial instance)
+  (setf (gethash serial *serial-to-paper-instance*) instance))
+
+(defun get-top-buffer-paper-instance ()
+  (get-paper-instance (eval-in-emacs-buffer 'paper-serial)))
+
+#+end_src
+
+To allocated a unique id we first try to make one based on the file name and buffer name. 
+
+ generate a large random numbers. Just to be sure it is unique 
+we check if there's already an instance mapped to it, and if so, try again.
+
+#+begin_src lisp
+(defun generate-paper-serial ()
+  (let ((maybe-stable (eval-in-emacs-buffer '(ignore-errors (list buffer-file-name (buffer-name))))))
+    (if  (some 'identify maybe-stable)
+      (destructuring-bind (file-name buffer-name) maybe-stable
+	(setq buffer-name (#"replaceFirst" buffer-name "\\[lisp\\]" ""))
+	(md5 (concatenate 'string file-name "-" buffer-name)))
+      (loop for try = (random most-positive-fixnum)
+	    until (not (get-paper-instance try))
+	    finally (return try)))))
+#+end_src
+
+As a sanity check, when registering, make sure the buffer, which is the top
+buffer, is named as an org mode buffer, and is in org-mode or poly-org-mode.
+
+#+begin_src lisp
+(defun check-registering-buffer-is-org ()
+  (and (#"matches" (eval-in-emacs-buffer '(buffer-name)) ".*\\.org(\\[.*\\])$")
+       (eval-in-emacs-buffer `(or
+			       (and (boundp 'poly-org-mode) poly-org-mode)
+			       (and (boundp 'org-mode) org-mode)))))
+#+end_src
+
+Finally the implementation of ~register-paper~. register-paper is expected to 
+be called from a lisp src block in your org file. At the time that's done, 
+your org file is the active buffer. First we check that the buffer is 
+an org file. 
+
+Then we check whether the buffer already has a serial number. If it does,
+then all we do is use the passed initargs to (re)set the corresponding slots
+on the paper instance. Otherwise we call make-instance to create an instance
+of the class, initializing it using initargs, and save it in our table 
+mapping serial numbers to instances.
+
+#+begin_src lisp
+(defun register-paper (class &rest initargs &key force)
+  (when (keywordp class)
+    (setq class (intern (string class) 'logic)))
+  (assert (check-registering-buffer-is-org) () "Trying to register a paper from a buffer that isn't in org mode")
+  (let ((serial (eval-in-emacs-buffer '(if (boundp 'paper-serial) paper-serial))))
+    (if (and serial (get-paper-instance serial)
+             (eq class (class-name (class-of (get-paper-instance serial))))
+             (not force))
+        (apply 'initialize-instance (get-paper-instance serial) initargs)
+	(let ((instance (apply 'make-instance class :paper-folder
+                               (make-pathname :directory (pathname-directory (eval-in-emacs-buffer 'buffer-file-name)))
+                               initargs)))
+	  (unless serial		; we might have restarted slime
+	    (eval-in-emacs-buffer '(make-variable-buffer-local 'paper-serial))
+	    (setq serial (generate-paper-serial))
+	    (eval-in-emacs-buffer `(setq paper-serial ,serial)))
+	  (set-paper-instance serial instance)))))
+#+end_src    
+
+
+* The latex-paper class
+
+This class represents a paper. Associated information includes a list of
+things that might have something to say about the latex content.  Each
+latex-generator is asked to contribute packages, fonts (also
+packages + macros), macros, possibly directives to be included after
+~\begin{document}~
+
+#+BEGIN_SRC lisp
+(defclass latex-paper ()
+  ((latex-generators :accessor latex-generators :initform nil :initarg :latex-generators)
+   (document-class :accessor document-class :initform "article" :initarg :document-class )
+   (hmargin :accessor hmargin :initform ".75in" :initarg :hmargin )
+   (vmargin :accessor vmargin :initform "{.75in,.25in}" :initarg :vmargin )
+   (input-filename :accessor input-filename :initform nil :initarg :input-filename )
+   (latex-packages :accessor latex-packages :initform nil :initarg :latex-packages )
+   (latex-fonts :accessor latex-fonts :initform nil :initarg :latex-fonts )
+   (latex-preamble :accessor latex-preamble :initform nil :initarg :latex-preamble)
+   (latex-after-document-begins :accessor latex-after-document-begins :initform nil :initarg :latex-after-document-begins )
+   (paper-folder :accessor paper-folder :initform nil :initarg :paper-folder)
+   (license :accessor license :initform nil :initarg :license)
+   (buffer-serial-number :accessor buffer-serial-number)
+   (depends-on-systems :accessor depends-on-systems :initform nil :initarg :depends-on-systems)
+   (depends-on-files :accessor depends-on-files :initform nil :initarg :depends-on-files)
+   (satisfied-dependencies :accessor satisfied-dependencies :initform nil :initarg :satisfied-dependencies)
+   ))
+#+end_src
+
+** Dependencies
+
+When registering a file we want to be able to specify that certain systems or files should be loaded.
+
+#+begin_src lisp
+(defmethod ensure-paper-lisp-requirements-loaded ((p latex-paper) &optional force)
+  (loop for system in (depends-on-systems p)
+        unless (or force (not (member system (satisfied-dependencies p))))
+          do (asdf::load-system system)
+             (pushnew system (satisfied-dependencies p)))
+  (loop for file in (depends-on-files p)
+        unless (or force (not (member (truename file) (satisfied-dependencies p))))
+          do (load file)
+             (pushnew file (satisfied-dependencies p))))
+#+end_src
+
+** Initialization
+
+The initalization method adds self as the first generator, and we load any requirements.
+
+#+BEGIN_SRC lisp
+(defmethod initialize-instance ((p latex-paper) &rest args )
+  (declare (ignore args))
+  (call-next-method)
+  (push p (latex-generators p))
+  (ensure-paper-lisp-requirements-loaded p))
+#+END_SRC
+   
+** Generators
+
+Generators are classes or instances responsible for creating, as source block results, latex source
+that will be used in the paper. The prototypical generator is the latex-logic-generator, which accepts 
+formulas and generates latex to typeset them in a presentable manner. 
+
+Let's take the latex-logic-generator as an example. The generator is called to render each formula. However 
+the latex that is generated has dependencies: it may use different fonts, or have dependencies on other packages.
+We don't want to have to worry about these for every formula, so we have an API to ask it (the class, in this case)
+about dependencies, and we include the class as one of the latex-generators for the paper.
+
+Generators can be anything that has the required methods. For classes I've been using the class 
+name, defining the methods as eql specialized. The paper instance is typically a generator as well.
+
+*** Generator method: latex-packages
+
+Returns a list of package names and optionally arguments for the
+package. A package is referenced either as a string naming it, or as a
+list with the first element being the package name and subsequent elements
+being the strings defining options. If there is more than one option they
+are joined with ",". For example
+
+#+begin_src lisp :load no
+(defmethod latex-packages ((c (eql 'latex-logic-generator)))
+  '("amsmath" "flexisym" "xcolor" "tabularx" "trimclip"))
+#+end_src
+
+#+begin_example
+#+begin_latex
+\include{amsmath}
+\include{flexisym}
+\include{xcolor}
+\include{tabularx}
+\include{trimclip}
+#+end_latex
+#+end_example
+
+*** Generator method: latex-fonts
+
+Returns a list with two elements. The first element is a list of any
+packages that need to be included, in the same format as
+latex-packages. The second element is a list of any macros that
+need to be defined to use them in specific contexts, for example in math
+mode, or when typesetting formulas.
+
+*** Generator method: latex-preamble
+
+Each element of this list is either a string or a list of strings comprising one macro, command, environment, 
+or other directive. For example, the logic generator needs a custom column type to be used inside ~\tabularx~,
+so we would include that definition as one of the preamble strings. The strings are all included in the 
+latex before ~\begin{document}~.
+
+*** Generator method: document-class 
+Used as the argument(s) for ~\documentclass~. e.g. "article". Either a string, or a list with the
+first element being the document class and the second being the options.
+
+*** Generator method: latex-after-document-begins
+Some material may need to be included after ~\begin{document}~. This method should write the
+~\begin{document}~ as well as any latex needed.  Adding \end{document} is the responsibility 
+of the author.
+
+** The other slots
+
+*** margin
+  if given then a length, like "1in". TODO allow specification of all margins. Default "1in"
+
+*** input-filename
+The method prepare-latex-to-include generates a tex file to include. This is relative to the paper folder.
+
+*** latex-packages, latex-fonts, latex-preamble
+  Described above. If supplied, packages and macros are added to those from other generators
+  The fonts behave differently - if supplied they override the other generators.
+
+Then 'latex-logic-generator is one of the elements of latex-generators. This instance of latex-paper
+would typically also be a generator, as we'll see below. 
+
+** Latex-paper methods
+
+*** prepare-latex-to-include
+
+Generate a latex file which can either be the start of a standalone document, or \input into another one.
+The method collects packages, macros, and the fonts from the first generator that supplies it.
+It then writes out fonts, then packages, then macros. If latex-after-document-begins is passed it also writes \begin{document} and then whatever latex-after-document-begins is.
+
+#+BEGIN_SRC lisp
+(defmethod prepare-latex-to-include ((p latex-paper))
+  (with-open-file (f (merge-pathnames (input-filename p) (paper-folder p)) :direction :output :if-exists :supersede)
+    (when (document-class p) (format f "\\documentclass~a{~a}~%" 
+				     (if (stringp (document-class p))
+					 ""
+					 (format nil "[~a]" (second (document-class p))))
+				     (if (stringp (document-class p)) (document-class p))))
+    (when (or (hmargin p) (vmargin p))
+      (format f "\\usepackage[hmargin=~a,vmargin=~a]{geometry}~%" (hmargin p) (vmargin p)))
+    ;; packages written first, then fonts, then macros
+    (loop for generator in (latex-generators p)
+	  for (fonts font-macros) = (unless (or fonts macros) (latex-fonts generator))
+	  for use-fonts = (or use-fonts fonts)
+	  append (latex-packages generator) into packages
+	  append font-macros into macros
+	  append (latex-preamble generator) into macros
+	  finally
+	     (progn
+;	       (inspect p)
+	       (format f  "~{~a~%~}" use-fonts)
+	       (format f "~{\\usepackage{~a}~%~}" packages)
+	       (format f  "~{~a~%~}" 
+		       (mapcan (lambda(e) (if (stringp e) (list e) (copy-list e))) macros))))
+    (when (latex-after-document-begins p)
+      (format f "\\begin{document}~%")
+      (format f  "~{~a~%~}" 
+      (mapcan (lambda(e) (if (stringp e) (list e) (copy-list e))) (latex-after-document-begins p))))))
+#+END_SRC
+
+* Demo
+** Class demo-latex-paper 
+#+begin_src lisp
+(defclass demo-latex-paper (latex-paper)
+  ())
+#+end_src
+
+*** latex-preamble
+#+begin_src lisp
+(defmethod latex-preamble ((p  demo-latex-paper))
+  (if (license p)
+      '("\\usepackage[type={CC},modifier={by},version={4.0},]{doclicense}"
+	( ;; for license
+	 "\\fancyhf{}"
+	 "\\pagestyle{fancy}"
+	 "% https://tex.stackexchange.com/questions/220800/how-i-can-typeset-a-footer-on-only-one-page"
+	 "\\renewcommand{\\footrulewidth}{0pt}\\renewcommand{\\headrulewidth}{0pt}"
+	 "\\fancypagestyle{licenseAtBottom}{\\fancyhf{}\\fancyfoot[L]{Alan Ruttenberg, \\today \\doclicenseThis}}"
+	 "% prevents the license logo from being cit off on the bottom"
+	 "\\setlength\\voffset{-0.5in}"
+	 ))))
+#+end_src
+
+*** function dump-a-bunch-of-axioms-to-latex
+
+This function is useful and serves as base functionality. It will produce a
+latex file that lists a bunch of formula.  Some of this should probably move
+into the base class.
+
+*Arguments*
+- ~:paper-margin~ default "1in"
+- ~:right-margin~ default 80 - this is a parameter to the latex logic generator
+- ~:spec~ specifies the axioms to included
+- ~:fonts~ - as the format for latex-preamble
+- ~:dest~ - pathname where the file should be created, default ~/desktop/debug.tex
+- ~:textfn~ - called on an axiom, returns text to be displayed before the formula
+- ~:labelfn~ - called on an axiom, returns text to be displayed as an identifier for the axiom
+- ~:title~ - Title for the document 
+- ~:smaller-formulas~ - if the formulas should be set in a slightly smaller font 
+- ~:paper-horizontal-margin~ - in the format of a latex length or comma-separated latex lengths. Space on left and right side.
+- ~:paper-vertical-margin~ - in the format of a latex length or comma-separated latex lengths. Space on top and bottom side.
+
+#+BEGIN_SRC lisp
+(defun dump-a-bunch-of-formulas-to-latex
+    (&key
+       (paper-horizontal-margin ".75in")
+       (paper-vertical-margin "{.75in,.25in}")
+       (dest "~/desktop/debug.tex")
+       (right-margin 80)
+       (spec (symbol-value (intern "*EVERYTHING-THEORY*" 'bfo) ))
+       fonts
+       (textfn (lambda(ax) (format-axiom-name (axiom-name ax))))
+       (labelfn nil)
+       (smaller-formulas t)
+       title)
+  (when (probe-file dest) (delete-file dest))
+  (let* ((paper (make-instance
+		 'demo-latex-paper
+		 :latex-generators '(latex-logic-generator-2)
+		 :paper-folder (namestring (make-pathname :directory (pathname-directory dest)))
+		 :latex-after-document-begins '("\\setlength{\\parindent}{0pt}")
+		 :hmargin paper-horizontal-margin
+		 :vmargin paper-vertical-margin
+		 :input-filename (concatenate 'string (pathname-name  dest) "." (pathname-type  dest))
+;		 :latex-fonts (list nil (list (make-font-macro "ppl")))
+		 :latex-fonts (or fonts (list (list "\\usepackage{mathpazo}") (list (make-font-macro nil smaller-formulas))))
+		 :license t
+		 )))
+    (prepare-latex-to-include paper)
+    (with-open-file (f  dest :if-does-not-exist :error :if-exists :append :direction :output)
+      (let ((*standard-output* f))
+	(when title (format f "{\\bf \\Large{~a}}\\vspace{.6cm}~%~%" title))
+	(loop with generator = (make-instance 'latex-logic-generator-2 :centered nil :right-margin right-margin)
+	      for count from 1
+	      for lab = (if labelfn (funcall labelfn ax) (format nil "~a" count))
+	      for ax in (collect-axioms-from-spec spec)
+	      if (null  (render-axiom-labeled generator ax lab))
+		do (warn "error in ~a" (axiom-name ax))
+	      else	    do
+		
+		;;(format f (format t "~%\\message{~a}~%" (axiom-name ax)))
+		(format f "~%~a\\par~%~a\\par" 
+			(funcall textfn ax)
+			(render-axiom-labeled generator ax (if labelfn (funcall labelfn ax) (format nil "~a" count)))))
+	(when (license paper)
+	  (write-string "\\setlength\\voffset{-0.5in}\\thispagestyle{licenseAtBottom}" f)
+	  (terpri f))
+	(format f "\\end{document}~%")))))
+
+;format an axiom name into latex - for debugging, generally 
+
+(defun format-axiom-name (axiom-name)
+  (labels ((transform (what replacements)
+	     (if (null replacements) what
+		 (destructuring-bind (match replace) (pop replacements)
+		   (transform (#"replaceAll" what match replace) replacements)))))
+    (format nil "\\textbf{~a}"
+	    (transform
+	     (string-downcase (string axiom-name))
+	     `(("<->" " \\$\\\\leftrightarrow\\$ " )
+	       ("->" " \\$\\\\rightarrow\\$ ")
+	       ("-" " ")
+	       ("\\+" " and ")
+	       ("\\." " is ")
+	       (">" "{\\\\textgreater}")
+	       ("<" "{\\\\textless}"))))))
+#+END_SRC
+
+* Class logic paper
+
+~logic-paper~ is a class for writing papers about logic, using LSW resources. It
+generates two kinds of content: formulas and proofs. Other helpers are expected
+to be added over time. The assumption as with latex papers is that a paper is 
+put in a folder. Relative to this folder, the following folders may be added
+
+Generated files are put in one of three places relative to org paper file. By default these are 
+as below, but can be changed by setting instance variables.
+- i/formulas - tex to be included for formulas 
+- i/proofs - tex to be included for proofs
+- supplemental/ - files intended to be distributed with the paper as supplemental material
+- supplemental/formulas.cl - the formulas in the paper, in CLIF format
+- supplemental/proofs - the supplemental files for proofs - native inputs and outputs
+- proof-cache/ - cache files so that proofs don't have to be re-evaluated unless they have changed
+
+The workflow is that you define what you want in lisp source blocks. When the
+source block is executed files in the paper folder are created, and the result
+of the block are instructions to load those files.
+
+#+BEGIN_SRC lisp
+(defclass logic-paper (latex-paper)
+  ((formulas :accessor formulas :initform nil :initarg :formulas)
+   (proofs :accessor proofs :initform (make-hash-table) :initarg :proofs) 
+   (includes-folder :accessor includes-folder :initform "i" :initarg :includes-folder )
+   (supplemental-folder :accessor supplemental-folder :initform  "supplemental" :initarg :supplemental-folder)
+   (formulas-folder :accessor formulas-folder :initform  "formulas" :initarg :formulas-folder)
+   (proofs-folder :accessor proofs-folder :initform  "proofs" :initarg :proofs-folder)
+   (proof-cache-folder :accessor proof-cache-folder :initform "proof-cache" :initarg :proof-cache-folder )))
+#+END_SRC
+
+** Pathname constructors
+
+#+begin_src lisp
+(defmethod formula-path ((p logic-paper) formula-name)
+  (merge-pathnames (make-pathname :name formula-name :type "tex")
+                   (merge-pathnames 
+                    (make-pathname :directory `(:relative ,(formulas-folder p)))
+                    (merge-pathnames
+                     (make-pathname :directory `(:relative ,(supplemental-folder p)))
+                     (paper-folder p)))))
+
+(defmethod proof-cache-path ((p logic-paper) md5)
+  (merge-pathnames (make-pathname :directory `(:relative ,md5))
+                   (merge-pathnames 
+                    (make-pathname :directory `(:relative ,(proof-cache-folder p)))
+                    (make-pathname (paper-folder p)))))
+
+(defmethod proofs-folder-path ((p logic-paper) )
+  (merge-pathnames 
+   (make-pathname :directory `(:relative ,(proofs-folder p)))
+   (merge-pathnames
+    (make-pathname :directory `(:relative ,(supplemental-folder p)))
+    (pathname (paper-folder p)))))
+
+#+end_src
+
+** Support for formulas
+
+#+begin_src lisp
+(defmethod register-paper-formula ((p logic-paper) formula)
+  (pushnew formula (formulas p) :key 'name))
+#+end_src
+
+Here is an example of the specification of an inline formula to be rendered by lisp 
+
+#+BEGIN_EXAMPLE
+  #+NAME: symmetric-f
+  #+BEGIN_SRCL lisp
+  (add-formulas-here
+     (symmetric-f
+	(:forall (?x ?y) (:implies (my-relation ?x ?y) (my-relation ?y ?x)))
+	 :howtopaper :symf)
+     (:exists-at-domain-range :label :edf))
+  #+END_SRC 
+#+END_EXAMPLE
+
+The first line provides an optional name. The name is carried to the results block, and named result blocks can be anywhere in the file. Recommended.
+Immediately after we expect a series of forms denoting formulas.
+
+The formula can either be a name followed by an LSW formula followed by keywords,
+as in symmetric-f below. Or it can be the name of a formula in the lisp environment,
+followed by keywords, in which case the actual formula is retrieved with get-axiom. If :label is passed then 
+then the formula will have that label, and you'll be able to cross-reference it.
+
+Keywords:
+ The paper key (:howtopaper below) can be used to give a formula identifiers in the typeset version.
+ This is useful if there might be different labels for different papers, all in the same lisp source.
+Alternatively :label can be given
+
+
+When you execute the block a results block is added.
+
+#+BEGIN_EXAMPLE
+ #+BEGIN_LaTeX
+\insertFormulaPath{./i/formulas/symmetric-f.tex}\vspace*{-\baselineskip}\vspace*{-\baselineskip}
+\insertFormulaPath{./i/formulas/exists-at-domain-range.tex}\vspace*{-\baselineskip}
+#+END_LaTeX
+#+END_EXAMPLE
+
+The function (write-formulas-clif) will write all formulas to supplemental directory formulas.cl
+
+** Support for proofs
+
+A proof request specifies a name for the proof, a kind of proof, assumptions (formulas or names)
+an optional reasoner, and a text template to provide the text describing the proof. 
+
+First provide a way to register a proof request
+
+#+begin_src lisp
+(defmethod register-paper-proof ((p logic-paper) proof)
+  (pushnew proof (proofs p) :key 'name))
+#+end_src
+
+*** Kinds of proofs
+
+Currently four kinds of proofs are supported
+
+| :check-sat   | Checks whether the assumptions are satisfiable                |
+| :check-unsat | Checks whether the assumptions are unsatisfiable              |
+| :check-model | Checks whether the provided model is satisfied by assumptions |
+| :prove       | Checks if goal can be proven from assumptions                 |
+
+*** Specifying the assumption and goal formulas 
+
+Formulas can be retrieved from the lisp environment, or sourced from formulas defined in the file.
+Typically you will want to have formulas mentioned in a proof have labels. However, the
+labels might not be what the formulas are called in the lisp environment. In order to support this,
+there's the concept of a paper-key. The paper key is a keyword with a value on the axiom-plist.
+If we specify that a proof needs :a1 and :a2, and that the paper key is :mykey, then the
+formula retrieved will be the one which has key/value :mykey/:a1.
+
+TODO - should make it easy to either add labels in this file, or use labels solely defined in this file.
+
+Here's an example of a proof request.
+
+The first line is an optional name. With name the results block can be put anywhere. Recommended.
+Immediately after we expect a lisp form that describes the proofs inside a source block
+
+The add-proof-here form first argument is a label, used to form filenames of supplementary material.
+
+:formula-key says which key to use when finding axioms. Here we use :ropaper.
+
+:kind is :check-sat, so we will be trying to prove the assumptions are consistent.
+
+:reasoner choose the reasoner to use. Sat can be checked only by z3 and mace4
+
+:assumptions gives the list of antecendents. Remember paper key. :o1 means the formula
+with keyword :ropaper and value :o1
+
+:theorem-text is a template for how to say what the proof is. Special token $assumptions 
+is replaces with the list of labels in :assumptions.
+
+:proof-text is what to say if the proof succeeds. We generally expect them to succeed so
+when they don't they get boxed in red in the typeset paper.
+
+#+BEGIN_EXAMPLE
+  #+NAME: proof-consistent-base
+  ,#+BEGIN_SRC lisp 
+  (add-proof-here consistent-base
+    :formula-key :ropaper
+    :kind :check-sat
+    :reasoner :z3
+    :assumptions (:o1 :o2 :o3 :o4 :TDR :tt :ta :be1 :be2 :BT :BIW :BIB :BW :BIW)
+    :theorem-text "The theory comprising $assumptions is consistent"
+    :proof-text "There is a consistent model."
+  )     
+  ,#+END_SRC
+#+END_EXAMPLE
+
+
+When you execute the block using org-babel, a results block is added, which is latex
+formatted text that presents the results and refers to supplementary material with the
+proof input/output, etc.
+
+#+BEGIN_EXAMPLE
+#+RESULTS: proof-consistent-base
+#+BEGIN_LaTeX
+\input{i/proofs/consistent-base}
+#+END_LaTeX
+#+END_EXAMPLE
+
+To execute a block you can do M-x org-babel-execute-src-block.
+C-c C-c in the body of the lisp source, if you are using poly-mode, won't work - it just side-effects the lisp.
+Use "M-x org-babel-execute-buffer" to execute all source blocks
+
+*** Orphan
+How implemented:
+Org mode is set to not evaluate blocks on export, but to export results, and for results to be
+interpreted as latex.
+
+For add-proof here and add-formulas-here one or more auxilliary tex files are generated and put in the "i/"
+directory relative to the org source file. These are only generated when explicitly evaluating the source
+block, so that the text of the paper can be edited without having lisp running.
+
+Other forms are recognized as well: add-formulas-here, define-model, paper-defaults
+
+(paper-defaults &rest key-values) lets you default one or more of the initialization arguments in add-proof-here
+You need at least something like (paper-defaults :formula-key :ropaper). 
+
+(define-model name &body tuples) sets the variable name to the list of tuples.
+
+Note that the local variables section needs:
+
+#+BEGIN_EXAMPLE
+# eval: (setq org-babel-default-header-args:lisp '((:package . "LOGIC") (:exports . "results") (:results . "replace value latex")))
+# eval: (setq org-export-babel-evaluate nil)
+#+END_EXAMPLE
+
+which defaults that no code is run during export of the org file,
+that the package evaluated in is 'logic, and that results of
+interactive evaluation are put into the document as latex
+
+TODO: Write a function that creates a templated paper.org 
+
+Formulas: The formula-key is used to look up what the formula should be labeled in the paper.
+Make sure that add-formulas-here has a key/value like :ropaper :ot 
+References to formulas are assumed to be named "f:" then the formula name.
+When the block is executed the latex is generated and saved in ./i/formulas/
+
+Proofs: Assumptions and goals are a list of the formula-keys (e.g. (:ot) above)
+In the theorem text for $assumptions is substituted the formula-keys of the
+formula, as references. Proof associated files are cached in "./proof-cache"
+
+#+BEGIN_EXAMPLE
+(do-paper-proofs org-file)
+#+END_EXAMPLE
+
+* Proof implementation
+Collects the proof specification 
+Runs the proof, erroring if there's a problem
+Writes the supplemental files
+Writes the text that will be incorporated for the #INCLUDE:
+
+#+BEGIN_SRC lisp
+(defvar *proofs-noninteractive* nil "Set to t if you don't want proof requests from the paper actually evaluated when you babel eval a block")
+(defvar *org-paper-supplemental-directory* "supplemental")
+(defvar *org-paper-includes-directory* "i")
+#+END_SRC 
+
+
+
+(:foo) -> if paper key
+           then spec is '((key foo)) and label is key.
+          otherwise names a formula in which case
+            :label <label> 
+            <paperkey> <label>
+(foo (:forall ...) &rest keys ->
+          if paper key then if keys has 
+             <paperkey> <label> 
+            :label <label> 
+            otherwise foo 
+;;
+Return either (<label> spec) or (<label> <formula>)
+
+(defun get-add-formulas-formula (e)
+  (flet ((explicit-label ()
+	   (second (member :label e)))
+	 (keyed-name ()
+	   (second (member (getf *org-paper-defaults* :formula-key) e))))
+    (cond ((keywordp (car e))
+	   (let ((spec (if (getf *org-paper-defaults* :formula-key)
+			   (list (getf *org-paper-defaults* :formula-key) (car e))
+			   (car e)))
+		 (name (or (explicit-label) (keyed-name) (car e))))
+	     (let ((matching-formulas (collect-axioms-from-spec (list spec))))
+	       (assert (= (length matching-formulas) 1) ()
+		       "Formula key ~a is ambiguous" spec)
+	       (list name (keywordify (axiom-name (car matching-formulas)))))))
+	  (t (list (or (explicit-label) (keyed-name) (car e))
+		    (second e))))))
+
+* Class paper-proof
+
+#+BEGIN_SRC lisp
+(defclass paper-proof ()
+  ((name :accessor name :initform nil :initarg :name)
+   (paper :accessor paper :initform nil :initarg :paper)
+   (formula-key :accessor formula-key :initform nil :initarg :formula-key)
+   (kind :accessor kind :initform nil :initarg :kind)
+   (assumptions :accessor assumptions :initform nil :initarg :assumptions)
+   (goal :accessor goal :initarg :goal :initform nil)
+   (model :accessor model :initarg :model :initform nil) ; model will be specified by a symbol whose value is the model
+   (reasoner :accessor reasoner :initform nil :initarg :reasoner)
+   (theorem-text :accessor theorem-text :initform nil :initarg :theorem-text)
+   (proof-text :accessor proof-text :initform nil :initarg :proof-text)
+   (org-directory :accessor org-directory) 
+   (succeeded :accessor succeeded :initarg :succeeded :initform nil)
+   (invocation :accessor invocation :initarg :invocation :initform nil)
+   (reasoner-arguments :accessor reasoner-arguments :initform nil :initarg :reasoner-arguments)
+   ))
+
+
+(defmethod initialize-instance ((p paper-proof) &rest initargs)
+  (apply #'call-next-method p  (append initargs *org-paper-defaults*))
+  ;; Default name of file to be included, directory where those are kept, and directory for proof supplemental files
+  (setf (org-directory p) *default-pathname-defaults*)
+  ;; default the reasoner if not supplied
+  (unless (reasoner p)
+    (setf (reasoner p) 
+	  (ecase (kind p)
+	    (:check-sat :z3)
+	    (:check-unsat :z3)
+	    (:check-model :clausetester)
+	    (:prove :prover9)))))
+
+
+	     
+(defmacro add-proof-here (name &rest initargs) ; from kind assumptions theorem-text proof-text goal reasoner model)
+  `(let ((paper (get-top-buffer-paper-instance))) 
+     (let ((proof (apply 'make-instance 'paper-proof :name ',name ',initargs :paper paper)))
+       (register-paper-proof paper proof)
+       (unless *proofs-noninteractive*
+	 (maybe-cache-proof-for-paper proof)
+	 (write-paper-files proof))
+       (format nil "\\input{i/proofs/~a}~%" ,(string-downcase (string name)))
+     )))
+#+end_src
+
+
+
+(defmethod formula-name-to-reference ((p paper-proof) name)
+  (format nil "\\\\ref*{f:~a}" (string-upcase (string name))))
+    
+(defmethod do-proof-substitutions ((p paper-proof) text)
+  (setq text (#"replaceAll" text "[$]assumptions" (format nil "~{~a~^, ~}" 
+							  (mapcar (lambda(e) (formula-name-to-reference p e))
+								  (assumptions p)))))
+  (#"replaceAll" text "[$]goal" (formula-name-to-reference p (goal p)))) 
+
+(defmethod write-tex-file ((proof paper-proof))
+  (let ((path 
+	  (merge-pathnames (make-pathname :name (string-downcase (string (name proof)))
+					  :type "tex" :directory '(:relative "i" "proofs"))
+			   (org-directory proof))))
+    (ensure-directories-exist path)
+    (with-open-file (f path :direction :output :if-does-not-exist :create :if-exists :supersede)
+      (write-proof-tex proof f)
+      )))
+
+(defmethod write-proof-tex ((proof paper-proof) stream)
+  (let ((raw 
+	  (with-output-to-string (s)
+	    (format s "\\begin{theorem}~%\\label{~a}~%~a~%\\end{theorem}~%" 
+		    (name proof)
+		    (do-proof-substitutions proof (theorem-text proof)))
+	    (format s "\\begin{proof}~%~a (proof by ~a; supplemental files ~a.* ~a) ~%\\end{proof}"
+		    (do-proof-substitutions proof (proof-text proof))
+		    (string-downcase (string (reasoner proof)))
+		    (name proof)
+		    (if (not (succeeded proof))
+			" FAILED! " ""))
+	    )))
+    (if (succeeded proof)
+	(write-string raw stream)
+	(format stream "{\\color{red}~%~a~&}~%" raw))))
+
+(defun md5 (string)
+  (format nil "~(~{~2,'0X~}~)"
+	(map 'list #'identity (md5::md5sum-string string))))
+
+(defmethod get-formulas ((p paper-proof) formulas)
+  (mapcar 'axiom-sexp 
+	  (if (formula-key p)
+	      (collect-axioms-from-spec `((,(formula-key p) (:or ,@formulas))))
+	      (collect-axioms-from-spec `(,@formulas)))))
+
+(defmethod get-formula ((p paper-proof) formula)
+  (axiom-sexp (car (get-formulas p (list formula)))))
+#+END_SRC
+
+  
+The file names are: input, output, interpretation, model, result, and form
+The file extensions are either
+  the reasoner name for input, output, interpretation
+  "cl" for model
+  "lisp" for invocation
+  "txt" for result of the invocation
+
+#+BEGIN_SRC lisp
+(defmethod write-proof-results ((p paper-proof) &key input output model interpretation result form)
+  (ensure-directories-exist (cache-directory p))
+  (labels ((the-path (name reasoner)
+	     (format nil "~a~a.~a" (cache-directory p) name (string-downcase (string reasoner ))))
+	   (write-it (filename reasoner string)
+	     (when (keywordp string)
+	       (setq string (prin1-to-string string)))
+	     (with-open-file (f (the-path filename reasoner) :direction :output :if-exists :supersede :if-does-not-exist :create)
+	       (write-string string f))))
+    (if input (write-it "input" (if (eq (reasoner p) :clausetester) :prover9 (reasoner p))  input))
+    (if output (write-it  "output" (reasoner p) output))
+    (if interpretation (write-it "interpretation" (reasoner p) interpretation))
+    (if model  (write-it  "model" "cl"  (with-output-to-string (s) (loop for tuple in model do (princ tuple s) (terpri)))))
+    (if result (if model (write-it  "result" "txt" :sat) (write-it  "result" "txt" result)))
+    (when form
+      (write-it "invocation" "lisp" (with-output-to-string (s) (pprint form s)))
+      (setf (invocation p) form)
+      )
+    (write-it "passfail" "lisp" (string (succeeded p)))
+    ))
+	
+(defmethod must-be-reasoner ((p paper-proof) &rest possible)
+  (assert (member (reasoner p) possible) ()
+	  "incompatible reasoner for ~a" (name p)))
+#+END_SRC
+
+  
+check if we've got a cached result.
+the cache key is a string comprised of all the formulas, the kind of check, the reasoner, and model if relevant.
+We don't use the names as the formulas may change.
+
+#+BEGIN_SRC lisp
+(defmethod is-cached ((p paper-proof))
+  (let ((*package* (find-package 'logic)))
+    (let ((elements `(,@(if (goal p) (list `(:goal ,(get-formula p (goal p)))))
+		      (:assumptions ,(get-formulas p (assumptions p)))
+		      (:kind ,(kind p))
+		      (:reasoner ,(reasoner p))
+		      ,@(if (model p) (list `(:model ,(if (symbolp (model p)) (symbol-value (model p)) (model p))))))
+		    ))
+      (let ((md5 (md5 (with-output-to-string (s)
+			(loop for (nil what) in elements
+			      do (princ what s))
+			))))
+	(setf (cache-directory p) (proof-cache-path (paper p) md5))
+	(ensure-directories-exist (cache-directory p))
+	(and (probe-file (cache-directory p))
+	     (probe-file (merge-pathnames "passfail.lisp"  (cache-directory p)))
+	     (with-open-file (f (merge-pathnames "passfail.lisp"  (cache-directory p)))
+	       (setf (invocation p) (with-open-file (f (merge-pathnames "invocation.lisp"  (cache-directory p))) (read f)))
+	       (setf (succeeded p) (read f))))))))
+
+(defmethod failed-message ((p paper-proof) result)
+  (ecase (kind p)
+    (:check-unsat (format nil "~a was expected to be unsatisfiable but we got ~s instead." (name p) result))
+    (:check-sat (format nil "~a was expected to be satisfiable but we got ~s instead." (name p) result))
+    (:prove  (format nil "~a was expected to be proved but wasn't. Got ~s." (name p) result))
+    (:check-model (format nil "in ~a the model was not satisfying. Got ~s." (name p) result))))
+
+(defmethod maybe-cache-proof-for-paper ((p paper-proof))
+  (flet ((keyed (names)
+	   (if (formula-key p)
+	       `((,(formula-key p) (:or ,@names)))
+	       names))
+	 (expect (result what)
+	   (if (if (functionp what)
+		   (not (funcall what result))
+		   (not (eq result what)))
+	       (warn (failed-message p result))
+	       (setf (succeeded p) t))))
+    (let ((reasoner-args (reasoner-arguments p)))
+      (if (is-cached p)
+	  (format *debug-io* "Getting cached results for ~a~%" (name p))
+	  (progn
+	    (format *debug-io* "Recomputing ~a ~a~%" (kind p) (name p))
+	    (ecase (kind p)
+	      (:check-sat
+	       (must-be-reasoner p :check-sat :z3)
+	       (let* ((form `(z3-find-model ',(keyed (assumptions p)) ,@reasoner-args))
+		      (result (eval form)))
+		 (expect result (lambda(e) (typep e 'z3-model)))
+		 (write-proof-results p :input *last-z3-input* :output *last-z3-output* :result result :form form
+					:model (tuples result))
+		 ))
+	      (:check-unsat 
+	       (must-be-reasoner p :check-unsat :z3 :prover9 :vampire)
+	       (let* ((form (ecase (reasoner p)
+			      (:z3 `(z3-check-satisfiability ',(keyed (assumptions p)) ,@reasoner-args))
+			      (:prover9 `(prover9-check-unsatisfiable ',(keyed (assumptions p))))
+			      (:vampire `(vampire-check-unsatisfiable ',(keyed (assumptions p))))))
+		      (result (eval form)))
+		 (expect  result :unsat)
+		 (ecase (reasoner p)
+		   (:z3 (write-proof-results p :input *last-z3-input* :output *last-z3-output* :result result :form form))
+		   (:prover9 (write-proof-results p :input *last-prover9-input* :output *last-prover9-output* :result result :form form))
+		   (:vampire (write-proof-results p :input *last-vampire-input* :output *last-vampire-output* :result result :form form)))
+		 ))
+	      (:prove
+	       (must-be-reasoner p :prove :z3 :prover9 :vampire)
+	       (let* ((form (ecase (reasoner p)
+			      (:z3 `(z3-prove ',(keyed (assumptions p)) ',(keyed (list (goal p))) ,@reasoner-args))
+			      (:prover9 `(prover9-prove ',(keyed (assumptions p)) ',(keyed (list (goal p))) ,@reasoner-args))
+			      (:vampire `(vampire-prove ',(keyed (assumptions p)) ',(keyed (list (goal p))) ,@reasoner-args))))
+		      (result (eval form)))
+		 (expect result :proved)
+		 (ecase (reasoner p)
+		   (:z3 (write-proof-results p :input *last-z3-input* :output *last-z3-output* :result result  :form form))
+		   (:prover9 (write-proof-results p :input *last-prover9-input* :output *last-prover9-output* :result result :form form))
+		   (:vampire (write-proof-results p :input *last-vampire-input* :output *last-vampire-output* :result result :form form)))
+		 ))
+	      (:check-model
+	       (must-be-reasoner p :check-model :clausetester)
+	       (let* ((form `(clausetester-check-model ,(model p) ',(keyed (assumptions p)) ,@reasoner-args))
+		      (result (eval form)))
+		 (expect result :satisfying-model)
+		 (write-proof-results p :interpretation (first *last-clausetester-input*)
+					:input (second *last-clausetester-input*)
+					:output *last-clausetester-output*
+					:model (symbol-value (model p))
+					:form form))
+	       )
+	      ))))))
+
+(defmethod write-paper-files ((p paper-proof))
+  (write-tex-file p)
+  (flet ((cache-file-named (name)
+	   (car (directory (merge-pathnames (make-pathname :name name :type :wild) (cache-directory p)))))) 
+    (flet ((copy-one (which &key type (suffix ""))
+	     (let* ((file (cache-file-named which)))
+	       (when file
+		 (let ((new-name (merge-pathnames (make-pathname :name (concatenate 'string (string-downcase (string (name p))) suffix)
+								 :type (or type (pathname-type file))
+								 :directory `(:relative ,*org-paper-supplemental-directory* "proofs"))
+						  (org-directory p))))
+		   (ensure-directories-exist new-name)
+		   (uiop/stream:copy-file (cache-file-named which) new-name)
+		   (delete-file (format nil "~a.bak" (namestring new-name)))
+		   ) ))))
+      (copy-one "input")
+      (copy-one "output" :type "out")
+      (copy-one "model" :suffix "-model")
+      (copy-one "interpretation" :type "interp")
+      )))
+  
+(defmacro define-model (name &body tuples)
+  `(setq ,name ',tuples))
+
+(defun do-paper-proofs (org-file)
+  (collect-paper-proofs org-file)
+  (maphash (lambda(k v)
+	     (declare (ignore k))
+	     (maybe-cache-proof-for-paper v)
+	     (write-paper-files v))
+	   *paper-proofs*))
+#+END_SRC
+
+No global for the paper.
+#+BEGIN_SRC rlisp
+(defun flush-proof-cache (sys)
+  '(map nil (lambda(e) (uiop/filesystem:delete-directory-tree e :validate t))
+       (directory (merge-pathnames "*" (paper-directory-relative "proofcache/")))))
+
+
+v(defun write-formula-tex (spec dest-dir &optional name)
+  (ensure-directories-exist dest-dir)
+  (let ((g (make-instance 'logic::latex-logic-generator
+			  :formula-format "~a"
+			  :insert-line-breaks t
+			  :with-names nil
+			  :prettify-names nil
+			  :numbered nil 
+			  :write-descriptions nil)))
+      (let ((formulas (collect-axioms-from-spec spec)))
+	(loop for formula in formulas
+	      for path = (merge-pathnames (format nil "~a.tex" (string-downcase (or name (string (axiom-name formula))))) dest-dir)
+	      for tex-string = (render-axiom g formula)
+	      do
+		 (with-open-file (f path :direction :output :if-exists :supersede)
+		   (format f "~a~%" tex-string))))))
+#+END_SRC
+
+  
+* Class paper-formula
+
+#+begin_src lisp
+(defclass paper-formula ()
+  ((name :accessor name :initform nil :initarg :name)
+   (formula :accessor formula :initform nil :initarg :formula)
+   (paper :accessor paper :initform nil :initarg :paper)))
+#+end_src
+
+
+#+begin_src lisp
+(defmacro add-formulas-here (&rest formula-descs)
+  (let ((names (gensym)))
+;    (assert (getf *org-paper-defaults* :formula-key) () "Need to default :formula-key so we know where to get the label formula-key")
+    `(progn (ensure-paper-lisp-requirements-loaded)
+	    (let ((,names nil))
+	      ,@(loop for formula-desc in formula-descs
+		      for name = (car formula-desc)
+		      for formula-here = (and (consp (second formula-desc)) (second formula-desc))
+		      for properties = (if formula-here (cddr formula-desc) (cdr formula-desc))
+		      for label = (or (getf properties (getf *org-paper-defaults* :formula-key))
+				      (getf properties :label)
+				      (and (getf *org-paper-defaults* :formula-key) name)
+				      (and (get-axiom name nil)
+					   (or 
+					    (second (assoc (getf *org-paper-defaults* :formula-key) (axiom-plist (get-axiom name))))
+					    (second (assoc :label (axiom-plist (get-axiom name))))
+					    )))
+		      when formula-here 
+			collect
+		      `(def-logic-axiom ,@formula-desc)
+		      collect `(push (list ',name ',label) ,names))
+	      ;;	      \insertFormulaPathTagged{./binary/example-mem-t}{MEMT}
+	      (with-output-to-string (s)
+		(loop for rnames on (reverse ,names)
+		      for (name short) = (car rnames)
+		      for skip = (if (null (cdr rnames))
+				     "\\vspace*{-\\baselineskip}"
+				     "\\vspace*{-\\baselineskip}\\vspace*{-\\baselineskip}")
+		      if short
+			do (format s "\\insertFormulaPathTagged{./i/formulas/~a.tex}{~a}~a~%" name (string-upcase (string short)) skip)
+		      else
+			do
+			   (format s "\\insertFormulaPath{./i/formulas/~a.tex}~a~%" name skip)
+		      do
+		      (write-formula-tex (list 
+					  (if (getf *org-paper-defaults* :formula-key)
+					      (get-axiom-by-key (getf *org-paper-defaults* :formula-key) name)
+					      (keywordify name)))
+					 (merge-pathnames (make-pathname :directory `(:relative ,*org-paper-includes-directory* "formulas")
+									 :type "tex")
+							  *default-pathname-defaults*)
+					    name)))
+
+	      ))))
+#+end_src
+** Example
+
+#+BEGIN_EXAMPLE
+(setq cb (add-proof-here consistent-base
+	   :formula-key :ropaper
+	   :kind :check-sat
+	   :assumptions (:o1 :o2 :o3 :o4 :TDR :tt :ta :be1 :be2 :BT :BIW :BIB :BW )
+	   :theorem-text "The theory comprising $assumptions is consistent"
+	   :proof-text "There is a consistent model."
+	   ))
+(maybe-cache-proof-for-paper cb)
+(cache-directory cb)
+(write-org-file cb)
+(failed-message cb :bad)
+(write-paper-files cb)
+(do-paper-proofs "~/repos/writing/temporal/mungall-critique-test-paper-support.org")
+#+END_EXAMPLE
+
+** Old notes
+
+A proof is uniqely determined by the assumption formulas, the goal formula (if applicable), the reasoner, and the kind of proof.
+
+We will have a local cache directory (so it can be archived with the paper)
+The time-consuming thing is the proofs - other work can be redone if necessary. That means we
+need to cache the input and output files for the reasoner
+Within the cache directory there will be a directory to hold the various artifacts.
+Directory will be named with hash of determining information.
+Fields in the object, and whether they are part of identifing information:
+
+name - not essential
+formula-key - not essential - used to look up formulas
+kind - essential sat, unsat, checkmodel, prove 
+assumptions - essential
+goal - essential
+reasoner - essential 
+theorem-text - not essential. It's cheap to regenerate
+proof-text - not essential. It's cheap to regenerate
+;; directories don't need to be cached.
+
+
+Algorithm:
+When checking if we already have it:
+1. Gather list of assumptions and goals.
+2. sort them?
+3. compute hash/directory
+4. do the reasoning
+5. save input and output files
+6. save the invocation 
+7. Save time and other bits
+
+
+* Global operations on papers
+#+BEGIN_SRC lisp
+
+(defun collect-paper-proofs (org-file)
+  (setq *paper-proofs* (make-hash-table))
+  (with-open-file (f org-file)
+    (loop for line = (read-line f nil :eof)
+	  until (eq line :eof)
+	  when (#"matches" line "#\\+BEGIN_SRC lisp.*")
+	    do (let ((*package* (find-package 'logic))
+		     (*proofs-noninteractive* t))
+		 (loop while (not (char= (peek-char t f) #\#))
+		       do 
+			  (let ((form (read f)))
+			    (when (and (consp form) (member (car form) '(add-proof-here def-logic-axiom define-model paper-defaults)))
+			      (eval form))))))))
+#+END_SRC
+
+org-file-path-or-string is a string then understand as file name
+if a list then car is org mode source as string
+read through and pick up pairs of names and formulas
+formula can either be a formula-sexp or a formula name
+
+#+BEGIN_SRC lisp
+(defun paper-formulas-and-names (org-file-path-or-string &aux key)
+  (let ((paper-formulas nil))
+    (flet ((doit (stream)
+	     (loop for line = (read-line stream nil :eof)
+		   until (eq line :eof)
+		   when (#"matches" line "#\\+BEGIN_SRC lisp.*")
+		     do (let ((*package* (find-package 'logic))
+			      (*proofs-noninteractive* t))
+			  (loop while (not (char= (peek-char t stream) #\#))
+				do 
+				   (let ((form (read stream)))
+				     (when (and (consp form) (eq (car form) 'paper-defaults)
+						(setq key (or (second (member :formula-key form)) key))
+						))
+				     (when (and (consp form) (member (car form) '(add-formulas-here)))
+				       (setq paper-formulas (append  paper-formulas
+								     (let ((*org-paper-defaults* (list :formula-key key)))
+								       (mapcar 'get-add-formulas-formula
+									       (cdr form)))))
+				       )))))))
+      (if (consp org-file-path-or-string)
+	  (with-input-from-string (s (car org-file-path-or-string))
+	    (doit s))
+	  (with-open-file (f org-file-path-or-string)
+	    (doit f)))
+	    paper-formulas)))
+#+END_SRC
+
+if org-file is passed, then the formulas are read from that file and saved
+to i/formulas.cl
+Otherwise assume the top buffer is our org file and ask emacs for the current string contents.
+
+#+BEGIN_SRC lisp
+(defun write-formulas-clif (&optional org-file)
+  (with-open-file (f (ensure-directories-exist
+		      (merge-pathnames (make-pathname :directory `(:relative ,*org-paper-supplemental-directory*)
+						      :name "formulas"
+						      :type "cl")
+				       *default-pathname-defaults*)) 
+		     :direction :output
+		     :if-does-not-exist :create
+		     :if-exists :supersede)
+    (let ((name-formulas (paper-formulas-and-names
+			  (Or org-file
+			      (list (emacs-top-buffer-contents))))))
+      (loop for (label formula) in name-formulas
+	    do (format f "(cl:comment 'label:~a')~%" label)
+	       (write-string (render :clif (axiom-sexp formula)) f)
+	       (terpri f)(terpri f)))))
+#+END_SRC
