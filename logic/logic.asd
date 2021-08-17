@@ -47,7 +47,7 @@
      (:file "expand-model")
      (:file "graal")
      (:file "test-theory-with-model-seed")
-     (:file "paper-support")
+     (:org "paper-support")
      (:org "render-ontology-fol")
      (:file "read-clif"))
     :depends-on ("package" "main"
