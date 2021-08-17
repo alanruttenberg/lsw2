@@ -146,7 +146,7 @@
   (let* ((all (collect-axioms-from-spec spec-including-theorems))
 	 (theorems (intersection (collect-axioms-from-spec '((:status :theorem))) all))
 	 (the-rest (set-difference all theorems))
-	 (lparallel:*kernel* (lparallel:make-kernel 8)))
+	 (lparallel:*kernel* (lparallel:make-kernel (#"availableProcessors" (#"getRuntime"  'java.lang.runtime)))))
     (let ((done (lparallel::pmapcar  
 		 (lambda(to-prove &aux res)
 		   (let ((prove-with (intersection (collect-axioms-from-spec (get-axiom-key-value to-prove :check-theorem-with))
