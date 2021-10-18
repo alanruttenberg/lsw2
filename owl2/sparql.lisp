@@ -142,7 +142,13 @@
 						   (make-uri (or (get-uri jval)
 								 (format nil "~a~a" *blankprefix* (#"toString" jval))
 								 ))
-						   (#"getValue" jval)))
+						   (let ((val (#"getValue" jval)))
+						     (if (java-object-p val) ;; handle a wierd case found in EquipmentOntology
+							 (if (and (jss::jtypep  val 'BaseDatatype$TypedValue)
+								  (equal (get-java-field val "datatypeURI") "http://www.w3.org/2000/01/rdf-schema#Literal"))
+							     (get-java-field val "lexicalValue")
+							     (error "Don't know what this sparql value is: ~a" val))
+							 val))))
 				    collect val)))
 			    (when do-trace
 			      (format t "~{~s~^	~}~%" bindings))
