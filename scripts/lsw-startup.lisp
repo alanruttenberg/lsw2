@@ -6,6 +6,7 @@
 				  :defaults *load-pathname*))))
 
 (require :quicklisp-abcl)
+(require 'javaparser)
 
 (unless (member 'ql:quickload sys::*module-provider-functions*)
   (setq sys::*module-provider-functions*  (append sys::*module-provider-functions*  '(ql:quickload))))

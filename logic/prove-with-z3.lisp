@@ -8,16 +8,16 @@
 (defvar *last-z3-error* nil)
 
 (defun does-z3-output-say-sat (output)
-  (if (jss::all-matches output "\\bsat\\b") t nil))
+  (if (cl-user::all-matches output "\\bsat\\b") t nil))
 
 (defun does-z3-output-say-unsat (output)
-  (if (jss::all-matches output "\\bunsat\\b") t nil))
+  (if (cl-user::all-matches output "\\bunsat\\b") t nil))
 
 (defun does-z3-output-say-timeout (output)
-  (if (jss::all-matches output "timeout\\b") t nil))
+  (if (cl-user::all-matches output "timeout\\b") t nil))
 
 (defun z3-output-errors (output)
-  (jss::all-matches output "(?s)\\(error .*" 0))
+  (cl-user::all-matches output "(?s)\\(error .*" 0))
 
 (defvar *extra-z3-switches* nil)
 

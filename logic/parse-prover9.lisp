@@ -520,7 +520,7 @@
 	    (format s "formulas(assumptions).~%~a~%end_of_list." formula)
 	    )))
     (let ((output (cl-user::run-program-string->string (logic::prover-binary "prover9")  '("-p" "-t 0") input)))
-      (caar (jss::all-matches output "(?s).*=+ INPUT =+.*?formulas\\(assumptions\\)\\.\\s*(.*?)\\s*end_of_list.\\s*=+ end of input =+.*" 1)))))
+      (caar (cl-user::all-matches output "(?s).*=+ INPUT =+.*?formulas\\(assumptions\\)\\.\\s*(.*?)\\s*end_of_list.\\s*=+ end of input =+.*" 1)))))
 
 (defun rename-variables (expression)
   (tree-replace (lambda(e) (if (and (symbolp e) (char= (char (string e) 0) #\?))
@@ -597,7 +597,7 @@
 		       (write-string line s)
 		       (terpri s))))))
     (let ((output (cl-user::run-program-string->string (logic::prover-binary "prover9")  '("-p" "-t 0") input)))
-      (caar (jss::all-matches output "(?s).*=+ INPUT =+.*?formulas\\(usable\\).\\s*end_of_list.\\s*(.*?)=+ end of input =+.*" 1)))))
+      (caar (cl-user::all-matches output "(?s).*=+ INPUT =+.*?formulas\\(usable\\).\\s*end_of_list.\\s*(.*?)=+ end of input =+.*" 1)))))
 
 
 #|

@@ -144,8 +144,12 @@ Which can then be used as !material-entity
 		       (search "swank-match" (when *compile-file-pathname* (namestring *compile-file-pathname*)) :test #'char-equal))
 		  (and (boundp '*load-pathname*) 
 		       (search "swank-match" (when *load-pathname* (namestring *load-pathname*)) :test #'char-equal))
-		  *inhibit-read-uri*)
+		  *inhibit-read-uri*
+		  (not (or (alpha-char-p (peek-char nil stream nil :eof))
+			   (member (peek-char nil stream nil :eof) '(#\< #\' #\? #\" #\:) :test 'char=)))
+		  )
 	      (progn 
+		(format t "It's ~c~%"  char)
 		(unread-char #\! stream)
 		(let ((*readtable* *saved-readtable*))
 		  (read stream)))

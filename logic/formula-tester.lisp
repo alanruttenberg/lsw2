@@ -638,7 +638,7 @@ second value is the list of formulas that failed"
 	
     (loop for line in lines
 	  for line2 = (#"replaceAll" line "(:((forall)|(exists)|(implies)|(and)|(or)|(not)|(iff)|(=)))" "<b>$1</b>")
-	  for ((pre sep tval after)) = (jss::all-matches line2 "(.*?)([-:]){0,1}((true)|(false))(.*)" 1 2 3 6)
+	  for ((pre sep tval after)) = (cl-user::all-matches line2 "(.*?)([-:]){0,1}((true)|(false))(.*)" 1 2 3 6)
 	  do 
 	     (cond ((null tval)
 		    (format t "<div class=\"label\"></div><div class=\"value\">~a</div><br>~%" (#"replaceAll" line " " "&nbsp;")))
