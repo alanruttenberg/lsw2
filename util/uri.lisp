@@ -149,7 +149,6 @@ Which can then be used as !material-entity
 			   (member (peek-char nil stream nil :eof) '(#\< #\' #\? #\" #\:) :test 'char=)))
 		  )
 	      (progn 
-		(format t "It's ~c~%"  char)
 		(unread-char #\! stream)
 		(let ((*readtable* *saved-readtable*))
 		  (read stream)))
