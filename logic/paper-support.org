@@ -1137,7 +1137,8 @@ v(defun write-formula-tex (spec dest-dir &optional name)
 #+begin_src lisp
 (defclass paper-formula ()
   ((name :accessor name :initform nil :initarg :name)
-   (formula :accessor formula :initform nil :initarg :formula)
+   ;; change from formula to the-formula to avoid conflict with function of same name in parse-prover9.lisp
+   (formula :accessor the-formula :initform nil :initarg :the-formula)
    (paper :accessor paper :initform nil :initarg :paper)))
 #+end_src
 
