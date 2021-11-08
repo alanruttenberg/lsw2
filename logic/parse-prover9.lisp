@@ -469,7 +469,7 @@
 		     ((eq (car form) :comment)
 		      (format f " #|~a|# " (second form)))
 		     ((eq (car form) :commentnewline)
-		      (loop for line in (jss::split-at-char (second form) #\newline)
+		      (loop for line in (cl-user::split-at-char (second form) #\newline)
 			    do (format f "~&;; ~a~%" line)))
 		     (t (print form)))))
     (merge-pathnames (make-pathname :type "lisp") path)))
