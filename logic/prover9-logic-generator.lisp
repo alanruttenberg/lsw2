@@ -87,7 +87,7 @@
 (defmethod render-axiom ((g prover9-logic-generator) (a axiom))
   (let ((ax (call-next-method)))
     (concatenate 'string
-		 (format nil "~{% ~a~%~}" (and (axiom-description a) (jss::split-at-char (axiom-description a) #\newline)))
+		 (format nil "~{% ~a~%~}" (and (axiom-description a) (cl-user::split-at-char (axiom-description a) #\newline)))
 		 ax
 		 (if (and (axiom-name a) (with-names g))
 		     (if (and (is-ground a) (self-label-ground g))

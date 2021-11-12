@@ -305,7 +305,7 @@ packages + macros), macros, possibly directives to be included after
   ((latex-generators :accessor latex-generators :initform nil :initarg :latex-generators)
    (document-class :accessor document-class :initform "article" :initarg :document-class )
    (hmargin :accessor hmargin :initform ".75in" :initarg :hmargin )
-   (vmargin :accessor vmargin :initform "{.75in,.25in}" :initarg :vmargin )
+   (vmargin :accessor vmargin :initform "{.75in,.5in}" :initarg :vmargin )
    (input-filename :accessor input-filename :initform nil :initarg :input-filename )
    (latex-packages :accessor latex-packages :initform nil :initarg :latex-packages )
    (latex-fonts :accessor latex-fonts :initform nil :initarg :latex-fonts )
@@ -508,17 +508,18 @@ into the base class.
 (defun dump-a-bunch-of-formulas-to-latex
     (&key
        (paper-horizontal-margin ".75in")
-       (paper-vertical-margin "{.75in,.25in}")
+       (paper-vertical-margin "{.75in,.6in}")
        (dest "~/desktop/debug.tex")
        (right-margin 80)
        (spec (symbol-value (intern "*EVERYTHING-THEORY*" 'bfo) ))
        fonts
+       (sorter 'identity)
        (textfn (lambda(ax) (format-axiom-name (axiom-name ax))))
        (labelfn nil)
        (smaller-formulas t)
        title)
   (when (probe-file dest) (delete-file dest))
-  (let* ((paper (make-instance
+  (let* ((paper  (make-instance
 		 'demo-latex-paper
 		 :latex-generators '(latex-logic-generator-2)
 		 :paper-folder (namestring (make-pathname :directory (pathname-directory dest)))
@@ -537,13 +538,13 @@ into the base class.
 	(loop with generator = (make-instance 'latex-logic-generator-2 :centered nil :right-margin right-margin)
 	      for count from 1
 	      for lab = (if labelfn (funcall labelfn ax) (format nil "~a" count))
-	      for ax in (collect-axioms-from-spec spec)
+	      for ax in (funcall sorter (collect-axioms-from-spec spec))
 	      if (null  (render-axiom-labeled generator ax lab))
 		do (warn "error in ~a" (axiom-name ax))
 	      else	    do
 		
 		;;(format f (format t "~%\\message{~a}~%" (axiom-name ax)))
-		(format f "~%~a\\par~%~a\\par" 
+		(format f "~%~a\\par~%~a\\par~%" 
 			(funcall textfn ax)
 			(render-axiom-labeled generator ax (if labelfn (funcall labelfn ax) (format nil "~a" count)))))
 	(when (license paper)

@@ -190,7 +190,7 @@
 (defmethod render-axioms ((g symbol) axs)
   (render-axioms (make-instance g) axs))
 
-(defun render (which assumptions &optional goals &key path at-beginning at-end sort (with-names t) princ)
+(defun render (which assumptions &optional goals &key path at-beginning at-end (sorter 'identity) (with-names t) princ)
   (when (eq goals :princ)
     (setq goals nil princ t))
   (let ((generator-class
@@ -206,13 +206,11 @@
 	    ))
 	(*print-case* :downcase))
     (flet ((doit ()
-	     (let ((axioms (append (if (stringp assumptions) assumptions
-				       (collect-axioms-from-spec assumptions))
-				   (if (stringp goals) goals
-				       (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals)))))
+	     (let ((axioms (funcall sorter (append (if (stringp assumptions) assumptions
+						       (collect-axioms-from-spec assumptions))
+						   (if (stringp goals) goals
+						       (mapcar (lambda(e) (negate-axiom e)) (collect-axioms-from-spec goals))))))
 		   generator)
-	       (when (eq sort :label)
-		   (setq axioms (sort axioms 'cl-user::number-aware-string-lessp :key (cl-user::compose 'string 'axiom-name))))
 	       (values
 		(if (eq which :fol-text)
 		     (render-axioms (make-instance generator-class) axioms )
