@@ -148,7 +148,7 @@ Which can then be used as !material-entity
 		  (not (or (alpha-char-p (peek-char nil stream nil :eof))
 			   (member (peek-char nil stream nil :eof) '(#\< #\' #\? #\" #\:) :test 'char=)))
 		  )
-	      (progn 
+	      (progn
 		(unread-char #\! stream)
 		(let ((*readtable* *saved-readtable*))
 		  (read stream)))
@@ -225,7 +225,7 @@ Which can then be used as !material-entity
 
 ;; *saved-readtable* used in read-uri when we run into a !
 (eval-when (:load-toplevel :execute :compile-toplevel)  
-  (defparameter *saved-readtable* (copy-readtable nil)))
+  (defvar *saved-readtable* (copy-readtable nil)))
 
 (set-macro-character #\! 'read-uri t)
 (defun use-uri-readtable ()
