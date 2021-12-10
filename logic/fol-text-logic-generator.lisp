@@ -215,6 +215,11 @@
       (pprint-logical-block (s (axiom-sexp a))
 	(write (simplify-and-or (eval (rewrite-to-axiom-generation-form (axiom-sexp a)))) :stream s)))))
 
+(defmethod render-axioms ((g fol-text-logic-generator) axioms)
+  (with-output-to-string (s)
+    (loop for axiom in axioms do (write-string (render-axiom g axiom) s) (terpri s))))
+
+
 ;; pretty-print-formula - print indented as (UTF-8) text 
 (defun ppf (sexp &key (right-margin 70) (stream t))
   (let* ((g (make-instance 'fol-text-logic-generator :right-margin right-margin)))
