@@ -84,7 +84,7 @@
     (apply 'concatenate 'string
 	   (append
 	    (and include-constants
-		 (loop for c in constants
+		 (loop for c in (remove-duplicates constants :key 'string :test 'equalp)
 		       collect (to-string g `(declare-const ,(normalize-names g c) ,(domain-sort g)))))
 	    (and include-functions
 		 (loop for (f arity) in functions
