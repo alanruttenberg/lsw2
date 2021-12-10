@@ -1,0 +1,181 @@
+# -*- Mode: POLY-ORG;  -*- ---
+#+PROPERTY: literate-lang lisp
+#+PROPERTY: literate-load yes
+#+header: :package logic :results :none
+
+#+begin_src lisp
+(in-package :logic)
+#+end_src
+
+* Rewrite Common Logic to FOL 
+
+There are 2 or 3 parts to this. The first is the holds/fun transformation.
+
+** Holds/fun transformation
+
+The idea is that predicate names need to be in the domain of discourse. [caveat, unless they are explicitly excluded to be only in domain of reference]. In order to do this we use a new predicate and function and change the predicate or function symbol into a constant. e.g.
+
+In practice we try to avoid having the same symbol for different arities (and some reasoners don't like it either), so 
+we'll actually have a different "holds" relation for each arity and similarly for "funcall". 
+
+In order to avoid user names, document somewhere that underscore prefixed and suffixed names aren't allowed so that we
+don't accidentally use a name used explicitly.
+
+#+begin_src lisp
+(defun make-holds (&rest args) `(,(intern (concatenate 'string "HOLDS" (prin1-to-string (length args))) 'keyword) ,@args))
+(defun make-funcall (&rest args) `(,(intern (concatenate 'string "FUNCALL" (prin1-to-string (length args)) ) 'keyword) ,@args))
+#+end_src
+
+Maybe later revisit whether we want to handle the numbering of the predicates and avoidance of clash with user names
+here or whether we want to do it in the renderers
+
+#+begin_example
+(p x) -> (:_holds2 p x)
+(p (f x)) -> (:_holds2 p (:_funcall_2 f x))
+#+end_example 
+
+
+** Guarding
+
+By guard, I mean have a way to distinguish in the holds/fun transformation which symbols denote names that denote
+elements in the universe of discourse. Do that with with a new predicate we'll call _individual. 
+
+(f x) -> (:and (f x) (:individual x))
+(:forall (?x) (f ?x y)) -> (:and (:individual y) (:individual f) (:forall (?x) (:implies (:individual ?x) (:holds2 f ?x y)))
+
+#+begin_src lisp
+(defparameter +universe-of-discourse-guard+ :individual_)
+#+end_src
+
+Any names that don't denote elements of the domain of discourse are elements of the domain of reference.
+
+The transform:
+For each constants, function, and predicate that aren't unguarded add (:individual_
+2) Need to rewrite quantification
+
+
+#+begin_src lisp
+(defun guard-formula (formula &optional unguarded-names)
+  (labels ((add-implication (formula)
+	     `(,(car formula) ,(second formula) (:implies (:and ,@(guarded-variables (second formula)))
+						    ,(guard-quantifiers (third formula)))))
+	   (add-conjunction (formula)
+	     `(,(car formula) ,(second formula) (:and ,@(guarded-variables (second formula))
+						      ,(guard-quantifimakeers (third formula)))))
+	   (guarded-variables (vars)
+	     (loop for v in vars
+		   if (consp v) collect (maybe-guard (car v))
+		     else collect (maybe-guard v)))
+	   (guard-quantifiers (formula)
+	     (if (consp formula)
+		 (cond ((eq (car formula) :forall)
+			(add-implication formula))
+		       ((eq (car formula) :exists)
+			`(add-conjunction formula))
+		       (t
+			`(,(car formula) ,@(mapcar #'guard-quantifiers (cdr formula)))))
+		 formula))
+	   (maybe-guard (var)
+	     (if (member var unguarded-names)
+		 var
+		 `(,+universe-of-discourse-guard+ ,var))))
+    (multiple-value-bind (predicates constants functions variables) (formula-elements formula)
+      `(:and ,@(loop for c in constants collect (maybe-guard c))
+	     ,@(loop for (c) in functions collect (maybe-guard c))
+	     ,@(loop for (c) in predicates collect (maybe-guard c))
+	     ,(guard-quantifiers formula)
+	     ))))
+#+end_src
+
+#+RESULTS:
+: guard-formula
+
+
+#+begin_src lisp
+(defun rewrite-impredicative (formula &optional unguarded-names)
+  (labels ((walk-terms (form)
+	     (format t "terms: ~{~s~^, ~}~%" form)
+	     (loop for el in form
+		   collect
+		   (if (atom el)
+		       el
+		       (apply 'make-funcall (car el) (walk-terms (cdr el))))))
+	   (walk-form (form)
+	     (format t "form: ~s~%" form)
+	     (if (atom form)
+		 form
+		 (case (car form)
+		   ((:forall :exists) 
+		    `(,(car form) ,(second form) ,(walk-form (third form))))
+		   (:not
+		       `(:not ,@(walk-terms (list (second form)))))
+		   ((:implies :iff :and :or :not)
+		    `(,(car form) ,@(mapcar #'walk-form (rest form))))
+		   ((:distinct := :not=) (walk-terms (rest form))
+		    `(,(car form) ,@(walk-terms (rest form))))
+		   (otherwise
+		    (if (eq (car form) +universe-of-discourse-guard+)
+			form
+			(apply 'make-holds (append (walk-terms (list (car form))) (walk-terms (cdr form)))))
+		    )))))
+    (walk-form (guard-formula formula unguarded-names))))
+#+end_src
+
+
+(rewrite-impredicative '(:forall (?x) ((f ?x) y)))
+(:and (individual. y)
+ (:forall (?x) (:implies (:and (individual. ?x)) (holds. (funcall. f ?x) y))))
+
+Update to Common Logic 2018
+
+There are two issues I'm aware of so far.
+
+1) Syntax differs. e.g. (cl-text example (f x)) would be written, as best I understand it, as
+(cl:text (cl:ttl example (cl:text (f x))))
+
+2) Between 2007 and 2018 the interpretation of functions changed
+
+In 2007, fun_I is from UR[I] to total functions from UD_I* into UD_I
+In 2018, fun_I is from UR[I] to total functions from UR_I* into UR_I
+
+I think that means that, e.g., in the current translation of "(cl-text function-u (forall (x) (f x (g y))))",
+two axioms should be omitted. /sign_op_fun/ because of the change in semantics, and /sign_op_g/ in analogy
+to issue #1925
+
+
+"logic TPTP.FOF
+
+%{
+
+constants:  op_f, op_g, op_y
+
+predicates:  pred_rel: ($i * $i * $i) > $o,
+             sort_individual: $i > $o
+
+functors:  op_fun: ($i * $i) > $i
+
+}%
+
+fof(sign_non_empty_sort_individual, axiom,
+    ? [VAR_X]: (sort_individual(VAR_X))).
+
+fof(sign_op_f, axiom, sort_individual(op_f)).
+
+fof(sign_op_fun, axiom,
+    ! [VAR_X1, VAR_X2]:
+    ((sort_individual(VAR_X1) & sort_individual(VAR_X2)) =>
+     sort_individual(op_fun(VAR_X1, VAR_X2)))).
+
+fof(sign_op_g, axiom, sort_individual(op_g)).
+
+fof(sign_op_y, axiom, sort_individual(op_y)).
+
+fof(ax_functionMINUSu, axiom,
+    ! [VAR_xx]:
+    ((sort_individual(VAR_xx)) =>
+     pred_rel(op_f, VAR_xx, op_fun(op_g, op_y)))).
+"
+
+
+
+
