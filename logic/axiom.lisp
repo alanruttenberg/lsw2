@@ -31,7 +31,7 @@
     (validate-formula-well-formed (axiom-sexp a) (axiom-name a)))
   a)
 
-(defmacro def-logic-axiom (name sexp &optional description &rest key-values)
+(defmacro def-logic-formula (name sexp &optional description &rest key-values)
   (when (keywordp description) (push description key-values) (setq description nil))
   `(progn
      (sys::record-source-information-for-type  ',name 'def-logic-axiom)
@@ -52,6 +52,9 @@
 						     collect (list k (if (symbolp v)
 									 (keywordify v)
 									 v))))))))))
+
+(defmacro def-logic-axiom (name sexp &optional description &rest key-values)
+  `(def-logic-formula ,name ,sexp ,description ,@key-values))
 
 ;; Version that evaluates sexp 
 (defmacro def-logic-axiom+ (name sexp &rest args)
