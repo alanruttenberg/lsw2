@@ -137,6 +137,8 @@
 			constant))))
     
 
+;; FIXME: predicate names with numbers in them are not getting parsed correctly.
+;; ERROR: (mace4-find-model '(:and (p1 x1) (p2 x1)))
 (defun cook-mace4-output (output format model)
   (if (or (eq format :cooked) (eq format :baked))
       (let ((it (reformat-interpretation output :cooked)))
