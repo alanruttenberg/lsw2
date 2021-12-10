@@ -1,0 +1,54 @@
+# -*- Mode: POLY-ORG;  -*- ---
+#+PROPERTY: literate-lang lisp
+#+PROPERTY: literate-load yes
+#+header: :package logic :results :none
+#+OPTIONS: html-postamble:nil
+
+#+Author: Alan Ruttenberg
+#+Title: Parse Tptp
+
+#+begin_src lisp
+(in-package :logic)
+#+end_src 
+
+* Parse TPTP
+
+Use LADR tools and prover9 parser to parse TPTP. First LADR is used to produce prover9 format, then 
+the prover9 parser translates to LSW format.
+
+See https://www.cs.unm.edu/~mccune/prover9/manual/2009-02A/others.html#tptp_to_ladr
+
+The prover9 parser is not extensively tested, but I think it is adequate for TPTP that only has first order formulas.
+
+#+begin_src lisp
+(defun parse-tptp (tptp)
+  (let* ((translated (run-program-string->string
+		      (prover-binary "tptp_to_ladr")
+		      '("-q")
+		      tptp)))
+    (let ((prolog-variables? (find '(:setting (:assign prolog_style_variables t)) translated :test 'equalp)))
+      (loop for (k v) in (parse-prover9 translated :free-variable-mode (if prolog-variables? :prolog-style :u-z))
+	    when (eq k :formula) collect v))))
+#+end_src
+
+* Testing
+
+#+begin_src lisp :load test
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (unless (find-package :fiveam)
+    #+quicklisp (ql:quickload :fiveam)
+    #-quicklisp (asdf:load-system :fiveam)))
+(5am:def-suite tptp-parser-suite :description "Tests for parse-tptp")
+(5am:in-suite tptp-parser-suite)
+#+end_src
+** test groups
+*** test for reading org code block header-arguments
+
+#+begin_src lisp :load test
+(5am:test tptp-parse-test
+	  (5am:is (parse-tptp "fof(sos,axiom,! [X0] : f(X0)).
+
+fof(sos,axiom,! [X0] : f(y)).
+") '((:forall (?x0) (f ?x0)) (:forall (?y) (:forall (?x0) (f ?y)))))
+	  )
+#+end_src
