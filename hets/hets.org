@@ -59,11 +59,12 @@ Then use the [[https://github.com/spechub/Hets/wiki/RESTful-Interface][RESTful I
 (defparameter *hets-host* "127.0.0.1:8000")
 (defparameter *hets-data-directory* "~/Desktop/hets_data/")
 (defparameter *hets-tmp-directory* "~/Desktop/hets_data/tmp/")
+(defparameter *hets-docker-environment* nil)
 #+end_src
 
 #+begin_src lisp
 (defun hets-docker-command ()
-  (format nil "docker run -d -p 8000:8000 --mount source=~a,target=/data/ --name=hets_docker_container --rm spechub2/hets:latest"
+  (format nil "docker run -d -p 8000:8000 --mount type=bind,source=~a,target=/data/ --name=hets_docker_container --rm spechub2/hets:latest"
 	  (namestring (truename *hets-data-directory*))))
 #+end_src
 
@@ -77,6 +78,7 @@ arguments are added to the path, URL encoded. options after the ?
 
 #+begin_src lisp
 (defun hets-api-call (args &optional options &key (refetch t))
+  (maybe-start-hets)
   (let ((url (format nil "http://~a~{/~a~}~a~{~a~^&~}"
 		     *hets-host*
 		     (mapcar (lambda(e)
@@ -92,6 +94,22 @@ arguments are added to the path, URL encoded. options after the ?
 			     options))))
     (values (cl-user::get-url url :force-refetch refetch)
 	    url)))
+
+(defun maybe-start-hets ()
+  (let ((env (or *hets-docker-environment* (make-instance 'lsw-ra::execute-in-persistent-docker-container
+							  :image "spechub2/hets:latest"
+							  :container-name "hets_docker_container"
+							  :arguments
+							  (list "-p" "8000:8000" 
+								"--mount" (format nil "type=bind,source=~a,target=/data/"
+										  (namestring (truename *hets-data-directory*)))
+								"--rm" )))))
+    (setf *hets-docker-environment* env)
+    env
+    ))
+    
+    
+  
 #+end_src
 
 
@@ -143,7 +161,7 @@ If a string, writes a file to hets_data/tmp and returns the file:// URI for that
   (hets-to-lsw
    (remove '$true ;; the CLFull translation includes this
 	   (let ((*package* (find-package 'logic)))
-	   (cl-tptp-parser.parser ::lsw-form
+	   (cl-tptp-parser.parser::lsw-form
 	    (yacc:parse-with-lexer 
 	     (cl-tptp-parser.parser::make-stream-lexer
 	      (make-string-input-stream 
@@ -3779,5 +3797,6 @@ CommonLogicModuleElimination:CLSeq2CFOL:CASL2SubCFOL:CASL2VSEImport
 CommonLogicModuleElimination:CLSeq2CFOL:CASL2SubCFOL:CASL2VSERefine" #\newline))
 
 (defparameter *hets-components*
-  '("THFP_P2HasCASL" "THFP_P2THFP" "CommonLogic2Isabelle" "CLFol2CFOL" "CLFull2CFOL" "CLImp2CFOL" "CoCASL2CoPCFOL" "CoCASL2CoSubCFOL" "CoCASL2Isabelle" "CspCASL2CspCASL_Failure" "CspCASL2CspCASL_Trace" "CspCASL2Modal" "ExtModal2CASL" "ExtModal2ExtModalNoSubsorts" "ExtModal2ExtModalTotal" "ExtModal2HasCASL" "ExtModal2OWL" "HasCASL2HasCASLNoSubtypes" "HasCASL2HasCASLPrograms" "HasCASL2IsabelleDeprecated" "HasCASL2IsabelleOption" "HasCASL2THFP_P" "MonadicTranslation" "NormalisingTranslation" "Hybrid2CASL" "Modal2CASL" "OWL22CASL" "OWL22CommonLogic" "CASL2SubCFOLNoMembershipOrCast" "CASL2SubCFOLSubsortBottoms" "CASL2Skolem" "SoftFOL2CommonLogic" "CASL2CoCASL" "CASL2CspCASL" "CASL2ExtModal" "CASL2HasCASL" "CASL2Hybrid" "CASL2Isabelle" "CASL2Modal" "CASL2NNF" "CASL2OWL" "CASL2PCFOL" "CASL2PCFOLTopSort" "CASL2Prenex" "CASL2SoftFOL" "CASL2SoftFOLInduction" "CASL2SoftFOLInduction2" "CASL2TPTP_FOF" "CASL2VSE" "CASL2VSEImport" "CommonLogicModuleElimination" "CLSeq2CFOL" "CASL2SubCFOL" "CASL2VSERefine")
+  '("THFP_P2HasCASL" "THFP_P2THFP" "CommonLogic2Isabelle" "CLFol2CFOL" "CLFull2CFOL" "CLImp2CFOL" "CoCASL2CoPCFOL" "CoCASL2CoSubCFOL" "CoCASL2Isabelle" "CspCASL2CspCASL_Failure" "CspCASL2CspCASL_Trace" "CspCASL2Modal" "ExtModal2CASL" "ExtModal2ExtModalNoSubsorts" "ExtModal2ExtModalTotal" "ExtModal2HasCASL" "ExtModal2OWL" "HasCASL2HasCASLNoSubtypes" "HasCASL2HasCASLPrograms" "HasCASL2IsabelleDeprecated" "HasCASL2IsabelleOption" "HasCASL2THFP_P" "MonadicTranslation" "NormalisingTranslation" "Hybrid2CASL" "Modal2CASL" "OWL22CASL" "OWL22CommonLogic" "CASL2SubCFOLNoMembershipOrCast" "CASL2SubCFOLSubsortBottoms" "CASL2Skolem" "SoftFOL2CommonLogic" "CASL2CoCASL" "CASL2CspCASL" "CASL2ExtModal" "CASL2HasCASL" "CASL2Hybrid" "CASL2Isabelle" "CASL2Modal" "CASL2NNF" "CASL2OWL" "CASL2PCFOL" "CASL2PCFOLTopSort" "CASL2Prenex" "CASL2SoftFOL" "CASL2SoftFOLInduction" "CASL2SoftFOLInduction2" "CASL2TPTP_FOF" "CASL2VSE" "CASL2VSEImport" "CommonLogicModuleElimination" "CLSeq2CFOL" "CASL2SubCFOL" "CASL2VSERefine"))
+
 #+end_src
