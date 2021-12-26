@@ -1,3 +1,4 @@
+(in-package :cl-user)
 ;; Alan Ruttenberg
 ;; 2013-12-10
 ;;

@@ -1,3 +1,5 @@
+(in-package :cl-user)
+
 (defmethod describe-object ((uri uri) stream &aux direct)
   (if (and *default-kb*
 	   (some (lambda(type) (get-entity uri type *default-kb*))

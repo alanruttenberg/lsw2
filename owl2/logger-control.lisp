@@ -1,3 +1,4 @@
+(in-package :cl-user)
 (defun mute-owlapi-loggers ()
   (loop for loggerkey in (list (get-java-field 'slf4j.logger "ROOT_LOGGER_NAME" t)
 			       'org.semanticweb.owlapi.rdf.rdfxml.parser.OWLRDFConsumer
