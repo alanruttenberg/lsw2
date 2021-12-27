@@ -1,6 +1,8 @@
 ;; see org/semanticweb/HermiT/tableau/ReasoningTaskDescription.java
 ;;     org/semanticweb/HermiT/Configuration.java
 ;; 
+(in-package :cl-user)
+
 (defvar *hermit-reasoning-tasks*
   "These are for profiling - they name 'tasks' that are recorded as
   part of the counting monitoring. For the most part they parallel the

@@ -1,7 +1,8 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (intern "LOAD-ONTOLOGY" 'cl-user)
   (intern "LOADED-DOCUMENTS" 'cl-user)
-  (intern "*USE-CACHE-AWARE-LOAD-ONTOLOGY*" 'cl-user))
+  (intern "*USE-CACHE-AWARE-LOAD-ONTOLOGY*" 'cl-user)
+  (intern "CLASS-QUERY" 'cl-user))
 
 ;; First attempts to isolate something in LSW using packages
 (defpackage lsw2cache

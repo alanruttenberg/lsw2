@@ -1,3 +1,5 @@
+(in-package :cl-user)
+
 (defmethod java::print-java-object-by-class ((class (eql :|java.lang.Class|)) obj stream) 
 	   (format stream "#<~a ~a ~x>" 
 		    (if (jcall "isInterface" obj) "java interface " "java class ")

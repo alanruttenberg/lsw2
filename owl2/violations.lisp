@@ -1,3 +1,4 @@
+(in-package :cl-user)
 (defparameter *owl-profile-violations*
   '("CycleInDatatypeDefinition"
     "DatatypeIRIAlsoUsedAsClassIRI"

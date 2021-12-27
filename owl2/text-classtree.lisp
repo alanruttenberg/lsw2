@@ -1,3 +1,5 @@
+(in-package :cl-user)
+
 ;; Build the structure, print it - indented according to depth in tree
 
 (defclass text-tree-node ()

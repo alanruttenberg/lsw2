@@ -1,3 +1,5 @@
+(in-package cl-user)
+
 (defun necessary-subclass-assertions (kb)
   (let ((table (make-hash-table :test 'equalp)))
     (with-ontology subclass-only (:collecting t)

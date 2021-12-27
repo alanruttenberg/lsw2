@@ -1,4 +1,5 @@
 ;; WIP see https://github.com/matthewhorridge/owlexplanation
+(in-package :cl-user)
 
 (defun explain-inconsistency (ontology &key (max-explanations 2)  (timeout 10000))
   (let* ((egf (new 'InconsistentOntologyExplanationGeneratorFactory (get-reasoner-factory ontology) (new 'Long (prin1-to-string timeout)))) ;; milliseconds

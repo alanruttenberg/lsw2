@@ -1,4 +1,6 @@
-; http://owlapi.svn.sourceforge.net/viewvc/owlapi/v3/trunk/examples/src/main/java/org/coode/owlapi/examples/Example11.java?view=markup
+(in-package :cl-user)
+
+;; http://owlapi.svn.sourceforge.net/viewvc/owlapi/v3/trunk/examples/src/main/java/org/coode/owlapi/examples/Example11.java?view=markup
 
 (defparameter *inferred-axiom-types*
   '((:class-assertions InferredClassAssertionAxiomGenerator)

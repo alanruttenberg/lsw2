@@ -1,3 +1,4 @@
+(in-package :cl-user)
 (defun domains (property  &optional (ont *default-kb*) (direct +true+))
   (let ((reasoner (v3kb-reasoner ont))
 	(expression (to-owlapi-object-property-expression property (v3kb-datafactory ont))))

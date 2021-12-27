@@ -1,3 +1,5 @@
+(in-package cl-user)
+
 ;; http://owlapi.sourceforge.net/javadoc/uk/ac/manchester/cs/owlapi/modularity/SyntacticLocalityModuleExtractor.html
 
 (defun terms-in-ontology (kb uri)
@@ -8,14 +10,14 @@
 	    (set-to-list (#"getImportsClosure" (v3kb-ont kb))))
     ont))
 
-(defun trimmed-imports-module (ontology &key  (module-uri (#"getOntologyIRI" (#"getOntologyID" (v3kb-ont ontology))))
+(defun trimmed-imports-module (ontology &key  (module-uri (#"get" (#"getOntologyIRI" (#"getOntologyID" (v3kb-ont ontology)))))
 			       dest (module-type "STAR")
 			       (include-object-properties t)
 			       (include-data-properties t)
 			       (include-annotation-properties t)
 			       )
   (let* ((manager (#"createOWLOntologyManager" 'org.semanticweb.owlapi.apibinding.OWLManager))
-	 (extractor (new 'SyntacticLocalityModuleExtractor manager (v3kb-ont ontology)   (get-java-field 'moduletype module-type)))
+	 (extractor (new 'SyntacticLocalityModuleExtractor manager (v3kb-ont ontology)   (get-java-field 'modularity.ModuleType module-type)))
 	 (sig (let ((it (#"getClassesInSignature" (v3kb-ont ontology))))
 		(and include-object-properties (#"addAll" it (#"getObjectPropertiesInSignature" (v3kb-ont ontology))))
 		(and include-data-properties (#"addAll" it (#"getDataPropertiesInSignature" (v3kb-ont ontology))))
@@ -40,15 +42,17 @@
 		    (axiom-typecase ax
 		      (:AnnotationAssertion
 		       (when (gethash (#"toString" (#"getSubject" ax)) entities)
-			 (#"addAll" changes (#"addAxiom" manager extracted ax))))
+			 (#"add" changes (#"addAxiom" manager extracted ax))))
 		      (:Declaration
 		       (if (eq (owl-declaration-type ax) :annotation-property)
-			   (#"addAll" changes (#"addAxiom" manager extracted ax))))
+			   (#"add" changes (#"addAxiom" manager extracted ax))))
 		      ))
 		  t)
-      (#"applyChanges"  manager changes)
+;      (inspect changes)
+;      (#"applyChanges"  manager changes)
       (when dest
-	(write-rdfxml extracted dest)))))
+	(write-rdfxml extracted dest))
+      extracted)))
 
 (defun test-make-ndpo-module ()
   ;(save-ontology-and-imports-locally "http://ccdb.ucsd.edu/NDPO/1.0/NDPO.owl" "/Users/alanr/Desktop/save/")

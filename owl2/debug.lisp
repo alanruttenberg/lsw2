@@ -1,3 +1,5 @@
+(in-package :cl-user)
+
 (defun maybe-initialize-appender (logger)
 ;  (when (zerop (length (#"getHandlers" logger)))
 ;    (#"addHandler" logger (new 'consolehandler))

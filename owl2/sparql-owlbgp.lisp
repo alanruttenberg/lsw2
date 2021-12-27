@@ -1,3 +1,5 @@
+(in-package :cl-user)
+
 (defvar *register-terp-once* (progn (load-time-value (and (ignore-errors (find-java-class  'ARQTerpParser)) (#"registerFactory" 'ARQTerpParser))) t))
 
 (defun sparql-with-owlbgp (query   &key (kb (and (boundp '*default-kb*) *default-kb*))

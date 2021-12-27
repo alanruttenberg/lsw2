@@ -1,3 +1,5 @@
+(in-package :cl-user)
+
 (defun weaken-to-only-subclasses (ont &optional new-ontology-name &key (keep-class-assertions t))
   "modify ont or create a new ontology in which only the subclassof axioms are preserved"
   (let ((target (and new-ontology-name

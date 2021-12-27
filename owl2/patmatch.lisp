@@ -11,6 +11,8 @@
 ;;; allow symbol synonyms ; alanr
 ;;; add ??a to segment-match an atom only ; alanr
 
+(in-package :cl-user)
+
 (defun variable-p (x)
   "Is x a variable (a symbol beginning with `?')?"
   (and (symbolp x) (equal (elt (symbol-name x) 0) #\?)))

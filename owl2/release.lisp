@@ -100,6 +100,8 @@
 ;;  - http://obofoundry.org/principles/fp-000-summary.html
 ;;  - https://github.com/ontodev/robot
 
+(in-package :cl-user)
+
 (defclass foundry-release ()
   ((ontology-source-file :accessor ontology-source-file :initarg :ontology-source-file)
    (project-root-directory :accessor project-root-directory :initarg :project-root-directory)

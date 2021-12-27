@@ -1,3 +1,5 @@
+(in-package :cl-user)
+
 ;; helen request - add more importing metadata such as
 ;; date that it was imported
 ;; version number of the ontology from which it came
@@ -9,6 +11,7 @@
 ;;
 ;; output is
 ;; ;; https://infectious-disease-ontology.googlecode.com/svn/trunk/src/ontology/ido-core/ido-external-derived.owl
+(in-package :cl-user)
 
 (defparameter *external-derived-rdf-prefixes*
   '(("xsd" "http://www.w3.org/2001/XMLSchema#")

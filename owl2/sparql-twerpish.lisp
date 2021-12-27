@@ -1,3 +1,5 @@
+(in-package :cl-user)
+
 ;; Allow lisp sparql queries to have clauses that are manchester expressions.
 ;; e.g `(:select (?foo) () (:some !ex:has-part (:and ?clone (:some !ex:has-part ?part))))
 

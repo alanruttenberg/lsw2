@@ -1,3 +1,5 @@
+(in-package :cl-user)
+
 ;;; -*- Mode: Lisp; Syntax: Common-Lisp -*-
 ;;; Code from Paradigms of AI Programming
 ;;; Copyright (c) 1991 Peter Norvig
