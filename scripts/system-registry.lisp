@@ -13,8 +13,6 @@
 
 (defvar *lsw-root* (make-pathname  :directory (butlast (pathname-directory *load-pathname*))))
 
-(asdf:initialize-source-registry `(:source-registry (:tree ,*lsw-root*) :inherit-configuration))
-
 
 (defvar *lsw-configuration* nil)
 

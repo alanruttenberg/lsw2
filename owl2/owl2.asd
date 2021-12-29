@@ -43,7 +43,7 @@
      (:file "owl-to-lisp-syntax")
      (:file "to-owlapi-class-expression")
     ))
-   (:module translate
+   (:module main
 	    :pathname ""
 	    :serial t
 	    :components
@@ -76,7 +76,8 @@
     :components ((:file "dl-query")
 		 (:file "sparql")
 		 (:file "sparql-owlbgp")
-		 (:file "sparql-twerpish"))))
+		 (:file "sparql-twerpish"))
+    :depends-on ("main")))
   :depends-on (util xmls owl2libs-mvn2))
 
 (defun cl-user::test-lsw2-owlapi ()

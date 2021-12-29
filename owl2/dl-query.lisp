@@ -5,7 +5,7 @@
 		cl-user::to-class-expression cl-user::v3kb-reasoner cl-user::*default-kb* cl-user::to-iri cl-user::v3kb-datafactory
 		cl-user::v3kb-uri2entity cl-user::get-inferred-axioms cl-user::get-owl-literal-value 
 		;; used earlier
-		cl-user::children cl-user::parents cl-user::instances
+		cl-user::children cl-user::parents 
 		cl-user::descendants 
 		cl-user::direct-instances 
 		cl-user::equivalents 
@@ -22,6 +22,9 @@
 (use-package :lsw2/dlquery :cl-user)
 
 (in-package lsw2/dlquery)
+
+(import (list (intern "INSTANCES" 'cl-user)))
+    
 
 (defun children (class &optional (kb *default-kb*))
   (class-query class kb (lambda(ce reasoner) (#"getSubClasses" reasoner ce t))))
