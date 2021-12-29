@@ -102,7 +102,7 @@
 
     ;; accessors for subclasses and instances of a node. Take care here if we are using inferred or uninferred
     (flet ((satisfiable-children (node)
-	     (set-difference (lsw2/dlquery::children node treekb) unsatisfiable :test 'eq))
+	     (set-difference (children node treekb) unsatisfiable :test 'eq))
 	   (direct-instances-1 (node)
 	     (direct-instances node treekb))
 	   (maybe-tooltip (kb node)
@@ -231,6 +231,7 @@
   (apply 'show-classtree (load-ontology url) stuff))
 
 (defmethod show-classtree ((symbol symbol) &rest stuff)
+  ;; Fixme standard-ontology-classtree-options not defined.
   (apply 'show-classtree (load-ontology symbol) (append (standard-ontology-classtree-options symbol) stuff )))
 
 (defmethod show-classtree ((kb v3kb) &rest stuff)
@@ -245,6 +246,7 @@
 		     :include-annotation-properties include-annotation-properties))
 
 (defmethod show-propertytree ((kb v3kb) &key root include-instances merge-same (include-annotation-properties t) (use-labels t) (dont-show nil))
+  ;; FIXME write-propertytree-treeml not defined
   (make-treeview (write-propertytree-treeml kb :root root :include-instances include-instances :merge-same merge-same
 					    :include-annotation-properties include-annotation-properties :dont-show dont-show) 
 		 (string(v3kb-name kb)) kb))
@@ -340,9 +342,11 @@
 	  (loop for e in (if (eq type :class) 
 			     (or (equivalents (make-uri entity) kb) (list (make-uri entity)))
 			     (if (member type '(:object-property :datatype-property))
+				 ;; FIXME same-properties not defined
 				 (cons (make-uri entity) (same-properties (make-uri entity) kb))
 				 (if (or (null type) (eq type :annotation-property))
 				     (list (make-uri entity))
+				     ;; FIXME sames not defined. Also this function redefined below
 				     (cons (make-uri entity) (sames (make-uri entity) kb)))))
 	     collect (format nil "~a~a" (if type (concatenate 'string (string-capitalize (string type)) ": ") "") (uri-full e)))
 	  ))
@@ -436,9 +440,11 @@
 		   (cond ((eq type :class)
 			  (html-for-class entity kb include-referencing))
 			 ((eq type :individual)
+			  ;; FIXME html-for-individual not defined
 			  (html-for-individual entity kb)
 			  )
 			 ((member type '(:object-property :datatype-property))
+			  ;; FIXME html-for-property not defined
 			  (html-for-property entity kb))
 			 (t "")))))))
 

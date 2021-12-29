@@ -106,6 +106,8 @@ Which can then be used as !material-entity
 (defun print-uri (object stream depth)
   (when (boundp '*print-uri-with-labels-from*)
     (loop for source in *print-uri-with-labels-from*
+	  ;; FIXME label-from-uri is from OWL2 system - shouldn't be referenced here.
+	  ;; Maybe factor with extensibility then add extension in OWL2. Ditto anything with KB below
 	   for label = (label-from-uri source object)
 	   when label
 	   do (let ((*print-case* :downcase)) 

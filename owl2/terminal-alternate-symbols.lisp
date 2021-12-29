@@ -1,5 +1,5 @@
 (in-package :cl-user)
-
+(defpackage :lsw2/owlterm (:use))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Manage alternative ways of writing OWL2 terms.
 ;;

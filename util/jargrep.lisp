@@ -1,3 +1,5 @@
+(in-package :cl-user)
+
 ;; Author: Alan Ruttenberg
 ;; Date: September 24, 2013
 

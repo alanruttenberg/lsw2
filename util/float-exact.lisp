@@ -1,3 +1,5 @@
+(in-package :cl-user)
+
 ;; compare http://www.h-schmidt.net/FloatApplet/IEEE754.html
 
 (defun float-exact (float digits) 

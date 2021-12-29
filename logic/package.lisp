@@ -1,8 +1,3 @@
-(eval-when (:load-toplevel :execute :compile-toplevel)
-  (loop for early in '("OWL-SEXP-TO-FOL" "URI-LABEL" "URI-FULL" "*RUNNING-IN-VAGRANT*" "*VAMPIRE-BOX-NAME*" "*VAMPIRE-EXECUTABLE*" "*LADR-BINARIES*"
-		       "*VAMPIRE-SHARED-DIRECTORY-REMOTE*" "*VAMPIRE-SHARED-DIRECTORY-LOCAL*" "CAMELCASE" "*DEFAULT-URI-BASE*" "*Z3-EXECUTABLE*"
-		       "GET-VAGRANT-BOX-ID" "GET-VAGRANT-BOX-WD" "GET-VAGRANT-BOX-STATUS" "VAGRANT-BOX-UP" "AXIOM" "?") 
-		      do (intern early :cl-user)))
 (defpackage :ginsberg-cnf-dnf
   (:use cl)
   (:intern #:dnf #:cnf #:<= #:=> #:<=> )
@@ -10,7 +5,7 @@
 
 (defpackage :logic
   (:use cl jss)
-  (:import-from :cl-user cl-user::owl-sexp-to-fol cl-user::run-program-string->string
+  (:import-from :cl-user cl-user::run-program-string->string
 		cl-user::uri-full cl-user::uri-p cl-user::uri-label cl-user::*default-kb* cl-user::*default-uri-base*
 		cl-user::camelcase cl-user::replace-all cl-user::make-uri  
 		cl-user::get-vagrant-box-id cl-user::get-vagrant-box-status

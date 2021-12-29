@@ -794,15 +794,6 @@
   (setq path (namestring (translate-logical-pathname path)))
   (to-owl-syntax ont :rdfxml path))
 
-(defun classtree-depth (kb &aux (maxdepth 0))
-  (labels ((each-node (c depth)
-	     (setq maxdepth (max maxdepth depth))
-	     (dolist (cc (lsw2/dlquery::children c kb))
-	       (unless (eq cc !owl:Nothing)
-		 (each-node cc (1+ depth))))))
-    (each-node !owl:Thing 0)
-    maxdepth))
-
 ;; direct-only t means definitional, e.g. for properties domain,range, transitivity but not object-property-assertions using the property
 ;; direct-only nil means any axiom that mentions the term
 (defun get-referencing-axioms (entity type ont &optional direct-only)

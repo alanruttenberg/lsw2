@@ -1,3 +1,5 @@
+(in-package :cl-user)
+
 (defvar *active-evil-server* nil)
 
 ;; listens on 127.0.0.1 port 6666 for a post with single parameter. Then returns (print (eval (read ...)))

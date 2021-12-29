@@ -39,16 +39,6 @@
 	(new 'owlapi.util.BidirectionalShortFormProviderAdapter (#"getImportsClosure" (v3kb-ont kb))
 	     lang-specific-provider)))))
 
-
-(defun camelCase (label &optional initialcap)
-  (when (#"matches" label "'.*'$")
-    (setq label (subseq label 1 (- (length label) 1))))
-  (let* ((words (all-matches label "([^_\\- ]+)" 1))
-	 (humped (apply 'concatenate 'string (mapcar (lambda(word) (string-capitalize (car word))) words))))
-    (unless initialcap
-      (setf (char humped 0) (char-downcase (char humped 0))))
-    humped))
-
 (defun make-camel-case-short-form-provider (ontology)
   (let ((short-form-provider (short-form-provider ontology)))
     (flet ((camelCase (entity initialcap)

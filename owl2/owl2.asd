@@ -15,31 +15,39 @@
   :license "BSD"
   :components
   ((:module "basics"
-	    :pathname ""
- 	    :components
-	    ((:file "package")
-	     (:file "owlapi")
-	     (:file "debug"))
-	    :serial t)
+    :pathname ""
+    :components
+    ((:file "owlapi")
+     (:file "debug"))
+    :serial t)
    (:module matcher
-	    :pathname ""
-	    :components
-	    ((:file "auxfns")
-	     (:file "patmatch")))
+    :pathname ""
+    :components
+    ((:file "auxfns")
+     (:file "patmatch"))
+    :depends-on ("basics"))
+   (:module mapping
+    :pathname ""
+    :components
+    ((:file "parse-mapping-spec")
+     (:file "generate-mapping")
+     (:file "the-mapping")
+     (:file "swrl-rdf-mapping")	     
+     (:file "terminal-alternate-symbols"))
+     :serial t)
+   (:module syntax
+    :pathname ""
+    :components
+    ((:file "manchester-class-expression")
+     (:file "to-owl-syntax")
+     (:file "owl-to-lisp-syntax")
+     (:file "to-owlapi-class-expression")
+    ))
    (:module translate
 	    :pathname ""
 	    :serial t
 	    :components
-	    ((:file "parse-mapping-spec")
-	     (:file "generate-mapping")
-	     (:file "the-mapping")
-	     (:file "swrl-rdf-mapping")
-	     (:file "manchester-class-expression")
-	     (:file "to-owl-syntax")
-	     (:file "sparql")
-	     (:file "sparql-owlbgp")
-	     (:file "sparql-twerpish")
-	     (:file "graph")
+	    ((:file "graph")
 	     (:file "axioms")
 	     (:file "weaken")
 ;	     (:file "materialize-restrictions-for-triplestore")
@@ -48,15 +56,11 @@
 	     (:file "module")
 	     (:file "inferred-axioms")
 	     (:file "create-external-derived")
-	     (:file "terminal-alternate-symbols")
 	     (:file "jena")
 	     (:file "label-source")
-	     (:file "owl-to-lisp-syntax");
 	     (:file "clean-subclass-tree")
 	     (:file "violations")
-	     (:file "to-owlapi-class-expression")
 	     (:file "text-classtree")
-	     (:file "dl-query")
 	     (:file "hermit-debug")
 	     (:file "domain-and-range")
 	     (:file "short-form-providers")
@@ -65,11 +69,15 @@
 ;	     (:file "html-description")
 	     (:file "describe")
 	     (:file "logger-control")
-	     (:file "owl-to-fol")
 	     )
-	    :depends-on (matcher basics)
-	    ))
-  :depends-on (util xmls owl2libs-mvn2 logic))
+	    :depends-on (matcher basics mapping syntax)
+	    )
+   (:module "query" :pathname ""
+    :components ((:file "dl-query")
+		 (:file "sparql")
+		 (:file "sparql-owlbgp")
+		 (:file "sparql-twerpish"))))
+  :depends-on (util xmls owl2libs-mvn2))
 
 (defun cl-user::test-lsw2-owlapi ()
   (let ((*load-verbose* nil))

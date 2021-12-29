@@ -49,11 +49,12 @@
      (:file "test-theory-with-model-seed")
      (:org "paper-support")
      (:org "render-ontology-fol")
-     (:file "read-clif"))
+     (:file "read-clif")
+     (:file "owl-to-fol"))
     :depends-on ("package" "main"
 			   "graal"
 			   )))
-  :depends-on (:cl-ansi-text :yacc :paiprolog :util :md5 :cl-unification)
+  :depends-on (:cl-ansi-text :yacc :paiprolog :util :md5 :cl-unification util)
   :defsystem-depends-on  ("lilith")
 
   :in-order-to ((test-op (load-op "logic/test"))))

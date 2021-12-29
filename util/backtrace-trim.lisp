@@ -1,4 +1,6 @@
-(defparameter *backtrace-trim-pattern* "(?i).*org\\.armedbear\\.lisp\\.(Primitives|(Lisp\\.error)|clos|LispThread|Standard|Lisp\\.eval).*")
+(in-package :cl-user)
+
+ (defparameter *backtrace-trim-pattern* "(?i).*org\\.armedbear\\.lisp\\.(Primitives|(Lisp\\.error)|clos|LispThread|Standard|Lisp\\.eval).*")
 
 (defun trim-backtrace (bt) 
   (append

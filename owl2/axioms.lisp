@@ -217,6 +217,7 @@
     (print nil)
     (return-from ppax nil))
   (if (uri-p thing)
+      ;; FIXME all-relevant-axioms not defined
       (setq thing (all-relevant-axioms thing)))
   (if (not (consp thing))
       (if (java-object-p thing)

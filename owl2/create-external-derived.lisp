@@ -44,6 +44,7 @@
 
 (defun maybe-url-filename (thing)
   (if (keywordp thing)
+      ;; FIXME uri-of-standard-ontology isn't defined.
       (uri-of-standard-ontology thing)
       (if (or (pathnamep thing)
 	      (not (or 

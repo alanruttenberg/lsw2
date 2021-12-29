@@ -1,3 +1,5 @@
+(in-package :cl-user)
+
 ;; all I can say is WOW
 
 (defun today-verbose-date ()

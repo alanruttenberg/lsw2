@@ -125,6 +125,7 @@
 			  (#"create" 'QueryExecutionFactory jquery 
 				     (#"createInfModel" 'modelfactory 
 							(#"getOWLReasoner" 'ReasonerRegistry)
+							;; FIXME kb-jena-reasoner not defined
 							(#"getModel" (kb-jena-reasoner kb)))))
 			 (t (error "SPARQL isn't supported with reasoner ~a. It is only supported, currently, when using reasoners :pellet, :pellet-sparql, :none" use-reasoner)))))
 	       ;; ResultSet results = qe.execSelect();

@@ -1,4 +1,6 @@
-(defmacro eval-with-timeout (expression time &optional when-done )
+(in-package :cl-user)
+
+ (defmacro eval-with-timeout (expression time &optional when-done )
   `(let (done it result)
      (unwind-protect
 	  (progn 

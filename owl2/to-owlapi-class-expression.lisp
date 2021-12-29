@@ -158,6 +158,7 @@
 		    for processed-arg = (ecase argtype
 					  (literal (to-owlapi-literal arg data-factory))
 					  (data-range (to-owlapi-data-range arg data-factory))
+					  ;; FIXME to-owlapi-facet-restriction not defined
 					  (facet-restriction (to-owlapi-facet-restriction arg (pop arguments) data-factory)))
 		    if accumulate-set collect processed-arg into last-arg-set 
 		      else collect processed-arg into leading-args

@@ -24,6 +24,7 @@
   
 (flet ((load ()
 	 (ql:quickload 'owl2 :verbose nil)
+	 (ql:quickload 'logic :verbose nil)
 	 (ql:quickload 'inspect :verbose nil)))
   (if *load-verbose*
       (load)

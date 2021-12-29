@@ -300,7 +300,7 @@
 		  collect (read-from-string (string g)) into indices
 		  finally (return
 			    ;; If no groups are specified then ask for the whole match (group 0)
-			    `(let* ((,matches (car (all-matches ,string ,(if case-insensitive (concat "(?i)" re) re) ,@(or indices '(0))))))
+			    `(let* ((,matches (car (all-matches ,string ,(if case-insensitive (concatenate 'string "(?i)" re) re) ,@(or indices '(0))))))
 			       (if ,matches
 				   (let ,bindings
 				     ,@body)
@@ -326,3 +326,12 @@
   (if (consp string)
       (apply 're-match-case-internal (car string) cases (cdr string))
       (re-match-case-internal string cases nil)))
+
+(defun camelCase (label &optional initialcap)
+  (when (#"matches" label "'.*'$")
+    (setq label (subseq label 1 (- (length label) 1))))
+  (let* ((words (all-matches label "([^_\\- ]+)" 1))
+	 (humped (apply 'concatenate 'string (mapcar (lambda(word) (string-capitalize (car word))) words))))
+    (unless initialcap
+      (setf (char humped 0) (char-downcase (char humped 0))))
+    humped))

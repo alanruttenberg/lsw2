@@ -35,6 +35,7 @@ they are sorted by the length of the owl axiom as string.
 
 #+begin_src lisp
 (defun dump-ontology-and-fol-translation (ont &optional (dest t))
+  (require 'owl2)
   (let (axs)
     (cl-user::each-axiom ont (lambda(ax) 
 		      (let ((l (cl-user::axiom-to-lisp-syntax ax)))
@@ -74,6 +75,7 @@ the substring starting after the first parenthesis and ending before the last.
 
 #+begin_src lisp
 (defun render-ontology-as (ont format &optional (dest t))
+  (require 'owl2)
   (let (axs)
     (cl-user::each-axiom ont (lambda(ax) 
 		      (let ((l (cl-user::axiom-to-lisp-syntax ax)))

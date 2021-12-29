@@ -71,7 +71,20 @@
 ;; does the same thing but saves cache files to location
 ;;
 
+(defpackage lsw2cache
+  (:use cl jss ext)
+  (:import-from :cl-user #:get-url #:uri-full #:uri-p 
+		;; These are used in load-ontology which is loaded first. Really these should be in this package and exported, but
+		;; package shit is annoying so just use the cl-user symbols
+		#:*use-cache-aware-load-ontology*
+		#:cache-ontology-and-imports
+		#:ontology-cache-location
+		#:uri-mapper-for-source
+		))
 (in-package lsw2cache)
+;; First attempts to isolate something in LSW using packages
+
+
     
 (defvar *ontology-cache-directory* "~/Desktop/ontology-cache/")
 (defvar *cache-check-etag-min-time* 24)
@@ -97,8 +110,8 @@
 	     (and (stringp value) (subseq value 1 (1- (length value)))))))))
 
 (defun cache-one-ontology (url &optional from)
-  (forget-cached-url url);; just in case
-  (format *debug-io* "~&Downloading ~a~%" url)
+  (cl-user::forget-cached-url url);; just in case
+  (cl-user::format *debug-io* "~&Downloading ~a~%" url)
   (multiple-value-bind (dir ont headers-file) (ontology-cache-location url)
     (let ((response (multiple-value-list (ignore-errors (get-url (or from url) :verb "HEAD" :dont-cache t :force-refetch t :persist nil)))))
       (if (and (consp response) (eq (car response) :error)
@@ -160,7 +173,7 @@
 (defun cache-ontology-imports (ontology url)
   (multiple-value-bind (dir ont headers-file) (ontology-cache-location url)
     (let ((imports-path (merge-pathnames dir (make-pathname :name  (pathname-name url) :type "imports")))
-	  (imports (mapcar (lambda(el) (butlast el 1)) (loaded-documents ontology))))
+	  (imports (mapcar (lambda(el) (butlast el 1)) (cl-user::loaded-documents ontology))))
       ;; if an import was loaded from a file then we pretend it was loaded from its ontology-iri
       (let ((massaged-imports (loop for (i o) in imports
 				    if (null (pathname-host i)) collect (list o o)
@@ -180,7 +193,7 @@
 	    (setq have (cache-one-ontology url)))
 	  (setq imports (cached-imports ontology))
 	  (unless imports
-	    (setq ontology (load-ontology (namestring have))))))
+	    (setq ontology (cl-user::load-ontology (namestring have))))))
       (unless imports
 	(setq imports (cache-ontology-imports ontology url)))
       (loop
@@ -273,9 +286,9 @@
     (loop
        with dir = (namestring (make-pathname :directory (pathname-directory catalog)))
        with mapper = (new 'OWLOntologyIRIMapperImpl)
-       for el in (find-elements-with-tag (xmls::parse f) "uri")
-       for uri = (coerce (attribute-named el "uri") 'simple-base-string)
-       for name = (coerce (attribute-named el "name") 'simple-base-string)
+       for el in (cl-user::find-elements-with-tag (xmls::parse f) "uri")
+       for uri = (coerce (cl-user::attribute-named el "uri") 'simple-base-string)
+       for name = (coerce (cl-user::attribute-named el "name") 'simple-base-string)
        for physical-uri = (if (find #\: uri) uri (format nil "file://~a" (namestring (translate-logical-pathname (format nil "~a~a" dir uri)))))
        when (and uri name)
        do 
