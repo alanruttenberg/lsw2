@@ -1,30 +1,3 @@
-(defpackage lsw2/dlquery
-  (:use cl)
-  (:import-from :cl-user cl-user::class-query cl-user::instance-query cl-user::property-query cl-user::get-entity
-		cl-user::make-uri cl-user::instantiate-reasoner 
-		cl-user::to-class-expression cl-user::v3kb-reasoner cl-user::*default-kb* cl-user::to-iri cl-user::v3kb-datafactory
-		cl-user::v3kb-uri2entity cl-user::get-inferred-axioms cl-user::get-owl-literal-value 
-		;; used earlier
-		cl-user::children cl-user::parents 
-		cl-user::descendants 
-		cl-user::direct-instances 
-		cl-user::equivalents 
-		cl-user::satisfiable? 
-		cl-user::is-subclass-of? 
-		cl-user::classtree-depth 
-		)
-  (:import-from :jss #:set-to-list)
-  (:import-from :java java::jclass java::jinstance-of-p java::jequal)
-  (:export  #:property-children  #:property-descendants 
-	   #:property-parents #:ancestors #:property-ancestors  #:instance-types
-	    #:property-equivalents  #:leaves #:same-individuals #:instance-properties
-	   #:entailed?     #:equivalent-classes?))
-(use-package :lsw2/dlquery :cl-user)
-
-(in-package lsw2/dlquery)
-
-(import (list (intern "INSTANCES" 'cl-user)))
-    
 
 (defun children (class &optional (kb *default-kb*))
   (class-query class kb (lambda(ce reasoner) (#"getSubClasses" reasoner ce t))))
@@ -121,7 +94,7 @@
 (defun classtree-depth (kb &aux (maxdepth 0))
   (labels ((each-node (c depth)
 	     (setq maxdepth (max maxdepth depth))
-	     (dolist (cc (lsw2/dlquery::children c kb))
+	     (dolist (cc (children c kb))
 	       (unless (eq cc !owl:Nothing)
 		 (each-node cc (1+ depth))))))
     (each-node !owl:Thing 0)
