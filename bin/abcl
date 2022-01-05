@@ -1,9 +1,6 @@
 #!/bin/bash
-# r=ram, s=stack, b=bits, j=java, g=verbose gc, c=trace class loading, d=wait for jdi. Environment variables if not command line args.
+# r=ram, s=stack, j=java, g=verbose gc, c=trace class loading, d=wait for jdi. Environment variables if not command line args.
 ulimit -s 32768
-#bits="-d32"
-#gc=("-XX:-PrintGCDetails" "-XX:-PrintGCTimeStamps") 
-cl=("-XX:-TraceClassLoading" "-XX:-TraceClassUnloading")
 ram="-Xmx1024m"
 stack="-Xss24m"
 java=java
@@ -17,12 +14,11 @@ while ([ "${#args[@]}" -gt 0 ] ); do
 	#options
         -r) ram="-Xmx$2m"  ; shift ; shift ;;
   	-s) stack="-Xss$2m"  ; shift ; shift ;;
-#	-b) bits="-d$2"   ; shift ; shift ;;
 	-j) java="$2"   ; shift ; shift ;;
         -help) usage ; exit 0 ;;
 
 	# switches 
-#	-g) gc=("-XX:${OPTARG}\PrintGCDetails" "-XX:${OPTARG}PrintGCTimeStamps")  ; shift  ;;
+	-g) gc=("-XX:${OPTARG}\PrintGCDetails" "-XX:${OPTARG}PrintGCTimeStamps")  ; shift  ;;
 	-c) cl=("-XX:${OPTARG}\TraceClassLoading" "-XX:${OPTARG}TraceClassUnloading")   ; shift ;;
 	-d) debug=("-Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=8000" "-XX:-OmitStackTraceInFastThrow")  ; shift  ;;
 	-h) usage ; exit 0 ;; 
@@ -46,10 +42,6 @@ while ([ "${#args[@]}" -gt 0 ] ); do
 done
 shopt -u extglob
 
-# if [ -z "${ABCL_BITS}" ]
-# then
-#     bits="-d${ABCL_BITS}"
-# fi
 
 if [ -n "${ABCL_JDI}" ]
 then
@@ -66,10 +58,10 @@ else
     here=${ABCL_WD}
 fi
 
-# if [ -n "${ABCL_VERBOSEGC}" ]
-# then
-#     gc=("-XX:${ABCL_VERBOSEGC}PrintGCDetails" "-XX:{ABCL_VERBOSEGC}PrintGCTimeStamps") 
-# fi
+if [ -n "${ABCL_VERBOSEGC}" ]
+then
+    gc=("-XX:${ABCL_VERBOSEGC}PrintGCDetails" "-XX:{ABCL_VERBOSEGC}PrintGCTimeStamps") 
+fi
 
 if [ -n "${ABCL_CLASSLOADING}" ] 
 then
@@ -91,14 +83,25 @@ then
     java=${ABCL_JAVA}
 fi
   
-read -r -a version <<<`$java -version 2>&1 | head -1 | tr -d '\n' | tr -d '"'`
+read -r -a version <<EOF
+`java -version 2>&1 | head -1 | tr -d '\n' | tr -d '"'`
+EOF
 versionwhole="${version[2]}"
-versionregex="1.([0-9]).*"
+versionregex="([0-9]+).([0-9]+)"
 if [[ $versionwhole =~ $versionregex ]]
 then
     version="${BASH_REMATCH[1]}";
+    if [[ $version == 1 ]]
+    then
+	version="${BASH_REMATCH[2]}";
+    fi
+
 else
-    unset version
+    versionregex="([0-9][0-9])"
+    if [[ $versionwhole =~ $versionregex ]]
+    then
+    version="${BASH_REMATCH[1]}";
+fi
 fi
 
 sep="================================================================"
@@ -118,35 +121,27 @@ function complainCantTellVersion {
     echo "Going to try anyways, but this may not work..."
  }
 
-function complainWrongVersion {
-    echo "This project needs java 1.5-1.9 but \"$java -version\" prints"
-    echo $sep
-    echo `java -version`
-    echo $sep
-   echo "You either need to install a working java version, and/or first set the"
-   echo "environment variable ABCL_JAVA to the appropriate java executable (e.g."
-   echo "e.g in Mac OS X:/Library/Java/JavaVirtualMachines/<version>/Contents/Home/bin/java)"
- }
 
-# if [ -z $version ]
-# then
-#     complainCantTellVersion
-# elif ! [[ $version  =~ [1][1] ]]
-# then
-#     complainWrongVersion
-# fi
+if [ -z $version ]
+then
+    complainCantTellVersion
+fi
 
 if [ $version == 7 ]
 then
     permgen=("-XX:MaxPermSize=128M" "-XX:+CMSClassUnloadingEnabled" )
 fi
 
-# if ! [[ $version =~ [56] ]]
-# then
-#     bits="-d64" 
-# fi
+if [ $version == "17" ]
+then
+    addopen=("--add-opens" "java.base/java.util=ALL-UNNAMED" "--add-opens" "java.base/java.security=ALL-UNNAMED" )
+fi
+if [ $version == "11" ]
+then
+    addopen=("--add-opens" "java.base/java.util=ALL-UNNAMED" "--add-opens" "java.base/java.security=ALL-UNNAMED" )
+fi
 		   
-   read -r -a libs  <<< `find $here/lib -follow -name \*\.jar`
+read -r -a libs  <<< `find $here/lib -follow -name \*\.jar`
 
 classpath=`echo "${libs[@]}" | sed 's/[ ]/'$pathjoin/g`
 
@@ -160,7 +155,7 @@ then
     dock=("-Xdock:icon=$here/images/lswicon.icns" "-Xdock:name='ABCL'")
 fi
 
-args=($ram $stack $bits ${dbg[@]} ${gc[@]} ${cl[@]} ${profileargs[@]} ${dock[@]})
+args=($ram $stack ${dbg[@]} ${gc[@]} ${profileargs[@]} ${dock[@]})
 
 if ! [[ ${OS} =~ Windows ]]
 then
@@ -175,8 +170,7 @@ CLASSPATH=$classpath
 export CLASSPATH
 
 echo "CLASSPATH=$classpath"
-
-command=($java "${args[@]}" "${permgen[@]}" "org.armedbear.lisp.Main" "--load" "$here/scripts/system-registry.lisp" "${lisp[@]}" "${unprocessed_args[@]}")
+command=($java "${args[@]}"  "${permgen[@]}" "${cl[@]}" "${addopen[@]}" "org.armedbear.lisp.Main"  "${lisp[@]}" "${unprocessed_args[@]}")
 
 echo "${command[@]}"
 
