@@ -300,8 +300,6 @@
 		   (new 'long "9223372036854775807")
 		   (#"valueOf" 'individualNodeSetPolicy "BY_SAME_AS")
 		   )))
-;      (setq @ it)
-;      (set-java-field it "ignoreUnsupportedDatatypes" +true+ t)
       it)))
 
 (defun quiet-reasoner-config ()
@@ -319,16 +317,27 @@
 (defun jfact-reasoner-config ()
   (vanilla-reasoner-config))
 
+
+(defvar *hermit-ignore-unsupported-datatypes* nil
+  "If using hermit, ignore unsupported datatypes. Yes this is ugly but not in the mood to refactor now")
+
 (defun hermit-reasoner-config (&optional profile ont timeout)
   (if profile
       (let ((new (new 'org.semanticweb.HermiT.Configuration))
 	    (monitor (new 'org.semanticweb.HermiT.monitor.CountingMonitor)))
-	(jss::set-java-field new "monitor" monitor)
+	(jss::set-java-field new "monitor" monitor t)
 	(setf (v3kb-hermit-monitor ont) monitor)
-	(and timeout (set-java-field new "individualTaskTimeout" (new 'long (prin1-to-string timeout))))
+	(and timeout (set-java-field new "individualTaskTimeout" (new 'long (prin1-to-string timeout)) t))
+	(when *hermit-ignore-unsupported-datatypes*
+	  (set-java-field new "ignoreUnsupportedDatatypes" +true+ t))
 	new)
-      (let ((it (new 'SimpleConfiguration (new 'owlapi.reasoner.ConsoleProgressMonitor) )))
-	it)))
+      (let ((new (new 'org.semanticweb.HermiT.Configuration))
+	    (monitor (new 'owlapi.reasoner.ConsoleProgressMonitor)))
+	(jss::set-java-field new "reasonerProgressMonitor" monitor t)
+	(when *hermit-ignore-unsupported-datatypes*
+	  (set-java-field new "ignoreUnsupportedDatatypes" +true+ t))
+	new
+	)))
 
 (defun elk-reasoner-config ()
   (vanilla-reasoner-config))
