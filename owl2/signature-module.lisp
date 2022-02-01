@@ -6,8 +6,9 @@
   (let* ((manager (#"createOWLOntologyManager" 'org.semanticweb.owlapi.apibinding.OWLManager))
 	 (extractor (new 'SyntacticLocalityModuleExtractor manager (v3kb-ont ontology)   (get-java-field 'modularity.ModuleType module-type))))
     (let* ((owlapi-signature
-	    (loop for el in terms
-		  collect (caar (gethash el (v3kb-uri2entity ontology)))))
+	     (loop for el in terms
+		   for entry = (gethash el (v3kb-uri2entity ontology))
+		   when entry collect (caar entry)))
 	  (sig (list-to-java-set owlapi-signature)))
       (let* ((extracted (#"extractAsOntology" extractor sig (to-iri module-uri)))
 	     (changes (new 'arraylist))
