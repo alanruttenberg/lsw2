@@ -61,7 +61,7 @@
   (let ((as (to-owl-syntax ontology :functional)))
     (setq as (#"replaceAll" as "(#[# ].*)\\n" ""))
     (with-input-from-string (s (regex-replace-all "_value" as "_ value"))
-      (print-db s)
+;      (print-db s)
       (multiple-value-bind (axioms ontology-iri version-iri namespaces)
 	  (parse-functional-syntax (read-and-tokenize-functional-syntax s))
 ;	(print-db ontology-iri version-iri namespaces)
@@ -78,7 +78,7 @@
 			     (:collecting t :base ,(and base (#"replaceFirst" base "#*$" "")) ;; shouldn't be necessary 
 					  :ontology-iri ,ontology-iri
 					  :version-iri ,version-iri
-					  :about ,(make-uri (v3kb-name ontology))
+					  :about ,(make-uri (string (v3kb-name ontology)))
 					  ),axioms)
 			axioms
 			ontnamevar

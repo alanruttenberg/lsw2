@@ -37,7 +37,9 @@
 	    t)
       (when dest
 	(write-rdfxml extracted dest))
-      extracted-ont)))))
+	  extracted-ont)))))
+
+
 #|
 test
 
@@ -47,12 +49,15 @@ test
 	(declaration (class !c))
 	(declaration (object-property !p1))
 	(declaration (object-property !p2))
+	(annotation-assertion !rdfs:label !p1 "p1")
+	(annotation-assertion !rdfs:label !p2 "p2")
 	(subclassof !a (object-some-values-from  !p1 !b))
-					;(subclassof !c (object-min-cardinality !p2 2))
+					;(subclassof !c (object-min-cardinality !p2 2)) ;
 	))
   (pprint (owl-to-lisp-syntax foo))
-  (pprint (owl-to-lisp-syntax (create-module-for-signature foo (list !a !b !p1)))))
+  (pprint (owl-to-lisp-syntax (create-module-given-terms foo (list !a !b !p1)))))
 
+Before
 (with-ontology ont
                (:collecting t :base "urn:lsw:ontology:foo"
                 :ontology-iri !<urn:lsw:ontology:foo> :version-iri
@@ -64,7 +69,7 @@ test
                 (declaration (object-property !ex:p2))
                 (sub-class-of !ex:a
                  (object-some-values-from !ex:p1 !ex:b))))
-
+After
 (with-ontology ont
                (:collecting t :base "urn:lsw:ontology:foo"
                 :ontology-iri !<urn:lsw:ontology:foo> :version-iri
