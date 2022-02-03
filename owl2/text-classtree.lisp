@@ -20,9 +20,13 @@
     node))
 
 (defmethod print-text-tree ((node text-tree-node) &optional (indent 0))
-  (print-one-node node indent)
-  (if (text-tree-node-children node)
-      (loop for child in (text-tree-node-children node) do (print-text-tree child (+ indent (indent-increment node))))))
+    (print-one-node node indent)
+    (if (text-tree-node-children node)
+	(loop for child in (text-tree-node-children node) do (print-text-tree child (+ indent (indent-increment node))))))
+
+(defun show-text-tree (ontology &optional (root !owl:Thing))
+  (let ((*dont-show-reasoner-progress* t))
+    (print-text-tree (create-text-tree-structure ontology root))))
 
 (defmethod print-one-node  ((node text-tree-node) &optional (indent 0))
   (loop repeat indent do (write-string (indent-string node)))

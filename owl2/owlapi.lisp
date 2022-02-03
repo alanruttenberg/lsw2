@@ -292,9 +292,12 @@
 	 (#"valueOf" 'individualNodeSetPolicy "BY_SAME_AS")
 	 )))
 
+(defvar *dont-show-reasoner-progress* nil)
+
 (defun vanilla-reasoner-config ()
   (let ((standard (new 'SimpleConfiguration))
-	(progressMonitor (new 'owlapi.reasoner.ConsoleProgressMonitor)))
+	(progressMonitor (if *dont-show-reasoner-progress* (new 'NullReasonerProgressMonitor)
+			     (new 'owlapi.reasoner.ConsoleProgressMonitor))))
     (let ((it (new 'org.semanticweb.owlapi.reasoner.SimpleConfiguration progressMonitor
 		   (#"getFreshEntityPolicy" standard)
 		   (new 'long "9223372036854775807")
@@ -332,7 +335,8 @@
 	  (set-java-field new "ignoreUnsupportedDatatypes" +true+ t))
 	new)
       (let ((new (new 'org.semanticweb.HermiT.Configuration))
-	    (monitor (new 'owlapi.reasoner.ConsoleProgressMonitor)))
+	    (monitor (if *dont-show-reasoner-progress* (new 'NullReasonerProgressMonitor)
+			 (new 'owlapi.reasoner.ConsoleProgressMonitor))))
 	(jss::set-java-field new "reasonerProgressMonitor" monitor t)
 	(when *hermit-ignore-unsupported-datatypes*
 	  (set-java-field new "ignoreUnsupportedDatatypes" +true+ t))

@@ -40,7 +40,7 @@
     (check-ontology source-ont)
     (let ((filler (new 'InferredOntologyGenerator (v3kb-reasoner source-ont) generators)))
       (#"fillOntology" filler (v3kb-datafactory source-ont) inf-ont)
-      (unless to-ont (copy-ontology-annotations source-ont inf-ont))
+      (unless to-ont (copy-annotations-between-ontologies source-ont (make-v3kb :ont inf-ont)))
       (make-v3kb :ont inf-ont))))
 
 (defun axiom-within-signature? (terms axiom)
