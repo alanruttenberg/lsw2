@@ -34,13 +34,18 @@
 	 (generators (new 'arraylist)))
     (loop for type in types
 	  for found = (second (assoc type *inferred-axiom-types*))
-	  unless found do (error "don't know inferred axiom type ~a?")
+	  unless found do (error "don't know inferred axiom type ~a?" type)
 	    do (#"add" generators (new found)))
     (unless (v3kb-reasoner source-ont) (instantiate-reasoner source-ont))
     (check-ontology source-ont)
     (let ((filler (new 'InferredOntologyGenerator (v3kb-reasoner source-ont) generators)))
       (#"fillOntology" filler (v3kb-datafactory source-ont) inf-ont)
-      inf-ont)))
+      (unless to-ont (copy-ontology-annotations source-ont inf-ont))
+      (make-v3kb :ont inf-ont))))
+
+(defun axiom-within-signature? (terms axiom)
+  (let ((signature  (mapcar #'make-uri (mapcar #"toString" (mapcar #"getIRI" (set-to-list (#"getSignature" axiom)))))))
+    (not (set-difference signature terms))))
 
 (defun test-inferred-axioms-1 ()
   (with-ontology foo (:collecting t)
@@ -49,7 +54,7 @@
 		       (declaration (class !c))
 		       (equivalent-classes !c (object-union-of !a !b))))
     (check-ontology foo :classify t :reasoner :factpp)
-    (each-axiom (add-inferred-axioms foo :types '((:subclasses)))
+    (each-axiom (add-inferred-axioms foo :types '(:subclasses))
 		(lambda(e) 
 		  (print-db e
 			    ;; workaround over-eager print-db-hook that calls eval-uri-reader-macro
