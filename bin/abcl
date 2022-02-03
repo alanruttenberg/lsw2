@@ -132,13 +132,16 @@ then
     permgen=("-XX:MaxPermSize=128M" "-XX:+CMSClassUnloadingEnabled" )
 fi
 
+# these opens are to avoid warnings about reflective access and to let felix (OSGI) work.
 if [ $version == "17" ]
 then
-    addopen=("--add-opens" "java.base/java.util=ALL-UNNAMED" "--add-opens" "java.base/java.security=ALL-UNNAMED" )
+    addopen=("--add-opens" "java.base/java.util=ALL-UNNAMED" )
+    # without this (require :jss) fails
+#  "--add-opens" "java.base/java.security=ALL-UNNAMED" --add-opens java.base/java.net=ALL-UNNAMED not necessary after updating felix/osgi
 fi
 if [ $version == "11" ]
 then
-    addopen=("--add-opens" "java.base/java.util=ALL-UNNAMED" "--add-opens" "java.base/java.security=ALL-UNNAMED" )
+    addopen=("--add-opens" "java.base/java.util=ALL-UNNAMED" )
 fi
 		   
 read -r -a libs  <<< `find $here/lib -follow -name \*\.jar`
@@ -175,4 +178,5 @@ command=($java "${args[@]}"  "${permgen[@]}" "${cl[@]}" "${addopen[@]}" "org.arm
 echo "${command[@]}"
 
 exec "${command[@]}"
+
 
