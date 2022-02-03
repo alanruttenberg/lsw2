@@ -63,6 +63,8 @@ Which can then be used as !material-entity
 	 string)
 	((and (null string) (null abbreviation))
 	 (internal-make-uri "bnode" "bnode")) ;; FIXME. How to return a bnode? GetURI returns null
+	((and (null abbreviation) (not (find #\: string :test 'char=)))
+	 (make-uri nil (format nil "ex:~a" string)))
 	(t 
 	 (when (equal abbreviation "blank:")
 	   (setq abbreviation (format nil "blank:~a" (incf *blankcounter*)))
