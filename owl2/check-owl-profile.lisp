@@ -77,8 +77,7 @@
 		    thereis (member bareclass *owl-profile-violations-preventing-reasoning* :test 'equalp)))))))
 
 (defun clean-and-replace-uris-with-labels-in-report (ont report)
-  (#"replaceAll"
-   (#"replaceAll" 
-    (replace-all report "((?s)<(.*?)>)" (lambda(e) (format nil "'~a'" (car (rdfs-label (make-uri (subseq e 1 (- (length e) 1 ))) ont)))) 1)
-    "OntologyID\\(OntologyIRI\\((.*?)\\)" "$1")
-    "\\s*VersionIRI\\('null'\\)" ""))
+  (chain-rewrites
+   (replace-all report "((?s)<(.*?)>)" (lambda(e) (format nil "'~a'" (car (rdfs-label (make-uri (subseq e 1 (- (length e) 1 ))) ont)))) 1)
+   ("OntologyID\\(OntologyIRI\\((.*?)\\)" "$1")
+   ("\\s*VersionIRI\\('null'\\)" "")))

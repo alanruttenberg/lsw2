@@ -106,6 +106,15 @@
         (t form)))
 
 #+abcl
+(defmacro chain-rewrites (string &rest regex/replacement-pairs)
+  (if (null regex/replacement-pairs)
+      string
+      (let* ((last (car regex/replacement-pairs))
+	     (pattern `(load-time-value (#"compile" 'regex.pattern ,(car last)))))
+	`(chain-rewrites (#"replaceAll"   (#"matcher" ,pattern ,string)  ,(second last))
+			 ,@(cdr regex/replacement-pairs)))))
+
+#+abcl
 (define-compiler-macro scan
     (&whole form regex string)
   "Compile constant regex to pattern at compile time"
