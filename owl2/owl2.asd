@@ -61,7 +61,7 @@
 	     (:file "jena")
 	     (:file "label-source")
 	     (:file "clean-subclass-tree")
-	     (:file "violations")
+	     (:file "check-owl-profile")
 	     (:file "text-classtree")
 	     (:file "hermit-debug")
 	     (:file "domain-and-range")
