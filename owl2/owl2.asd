@@ -79,7 +79,11 @@
 		 (:file "sparql")
 		 (:file "sparql-owlbgp")
 		 (:file "sparql-twerpish"))
-    :depends-on ("main")))
+    :depends-on ("main"))
+   (:module api :pathname ""
+    :components
+    ((:file "api-symbols"))
+    :depends-on (main query)))
   :depends-on (util xmls owl2libs-mvn2))
 
 (defun cl-user::test-lsw2-owlapi ()
