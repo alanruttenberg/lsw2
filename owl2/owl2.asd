@@ -45,9 +45,10 @@
     ))
    (:module main
 	    :pathname ""
-	    :serial t
+;	    :serial t
 	    :components
 	    ((:file "graph")
+	     (:file "preferred-label")
 	     (:file "axioms")
 	     (:file "weaken")
 	     (:file "filter")
