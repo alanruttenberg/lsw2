@@ -3,25 +3,37 @@
   (class-query class kb (lambda(ce reasoner) (#"getSubClasses" reasoner ce t))))
 
 (defun property-children (property &optional (kb *default-kb*))
-  (property-query property kb (lambda(pe reasoner)  (#"getSubObjectProperties" reasoner pe t))))
+  (property-query property kb (lambda(pe reasoner)
+				(if (get-entity property :object-property)
+				    (#"getSubObjectProperties" reasoner pe t)
+				    (#"getSubDataProperties" reasoner pe t)))))
 
 (defun descendants (class &optional (kb *default-kb*))
   (class-query class kb (lambda(ce reasoner) (#"getSubClasses" reasoner ce nil))))
 
 (defun property-descendants (property &optional (kb *default-kb*))
-  (property-query property kb (lambda(pe reasoner) (#"getSubObjectProperties" reasoner pe nil))))
+  (property-query property kb (lambda(pe reasoner) 
+				(if (get-entity property :object-property kb)
+				    (#"getSubObjectProperties" reasoner pe nil)
+				    (#"getSubDataProperties" reasoner pe nil)))))
 
 (defun parents (class &optional (kb *default-kb*))
   (class-query class kb (lambda(ce reasoner) (#"getSuperClasses" reasoner ce t))))
 
 (defun property-parents (property &optional (kb *default-kb*))
-  (property-query property kb (lambda(pe reasoner)  (#"getSuperObjectProperties" reasoner pe t))))
+  (property-query property kb (lambda(pe reasoner)
+				(if (get-entity property :object-property kb)
+				    (#"getSuperObjectProperties" reasoner pe t)
+				    (#"getSuperDataProperties" reasoner pe t)))))
 
 (defun ancestors (class &optional (kb *default-kb*))
   (class-query class kb (lambda(ce reasoner) (#"getSuperClasses" reasoner ce nil))))
 
 (defun property-ancestors (property &optional (kb *default-kb*))
-  (property-query property kb (lambda(pe reasoner)  (#"getSuperObjectProperties" reasoner pe nil))))
+  (property-query property kb (lambda(pe reasoner)
+				(if (get-entity property :object-property kb)
+				    (#"getSuperObjectProperties" reasoner pe nil)
+				    (#"getSuperDataProperties" reasoner pe nil)))))
 
 (defun instances (class &optional (kb *default-kb*))
   (class-query class kb (lambda(ce reasoner) (#"getInstances" reasoner ce nil))))
