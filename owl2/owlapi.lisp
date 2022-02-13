@@ -77,6 +77,8 @@
 	((jinstance-of-p thing (find-java-class "org.semanticweb.owlapi.model.IRI")) thing)
 	(t (error "don't know how to coerce ~s to IRI" thing))))
 
+(defvar *loaded-ontologies* (make-hash-table :test 'equal :weakness :value))
+
 (defun load-ontology (source &key name reasoner (silent-missing t) mapper)
 ;  (set-java-field 'OWLRDFConsumer "includeDublinCoreEvenThoughNotInSpec" nil)
 ;  (set-java-field 'ManchesterOWLSyntaxEditorParser "includeDublinCoreEvenThoughNotInSpec" nil)
@@ -123,8 +125,22 @@
 		 )))
 	(let ((it (make-v3kb :name (or uri name) :manager manager :ont ont :datafactory (#"getOWLDataFactory" manager) :default-reasoner reasoner :mapper mapper)))
 	  (setf (v3kb-uri2entity it) (compute-uri2entity it))
+	  (and  (get-version-iri it)
+		(setf (gethash (get-ontology-iri it) *loaded-ontologies*) it))
+	  (and (get-ontology-iri it)
+	       (setf (gethash (get-version-iri it) *loaded-ontologies*) it))
 	  it
 	  )))))
+
+(defun get-ontology-iri (kb &optional version-iri)
+  (let* ((id (#"getOntologyID" (v3kb-ont kb)))
+	 (maybe (if version-iri (#"getVersionIRI" id) (#"getOntologyIRI" id) ))
+	 (present (#"isPresent" maybe)))
+    (when present
+      (make-uri (#"toString" (#"get" maybe))))))
+
+(defun get-version-iri (kb)
+  (get-ontology-iri kb t))
 
 (defun check-loaded-versus-mapped (ont)
   (let ((irimap (get-java-field (v3kb-mapper iao) "iriMap" t)))
@@ -509,7 +525,9 @@
 		unless (or (null iri) (and (eq uri !owl:Nothing) (not include-nothing))) collect (make-uri string)))))))
 
 
-(defun property-query (property kb fn &optional (flatten t) include-top filter )
+(defconstant +property-extrema+ (list !owl:topDataProperty !owl:topObjectProperty !owl:bottomDataProperty !owl:bottomObjectProperty))
+
+(defun property-query (property kb fn &optional (flatten t) include-top-bottom filter )
   (instantiate-reasoner kb (or (v3kb-default-reasoner kb) *default-reasoner*) nil)
   (let* ((data-expression (get-entity property :data-property kb))
 	 (object-expression (get-entity property :object-property kb))
@@ -524,7 +542,9 @@
 					 them)))
 			       res))
 		for uri = (and iri (get-property-iri-maybe-inverse iri))
-		unless (or (null iri) (and (not include-top) (eq uri (if data-expression !owl:topDataProperty !owl:topObjectProperty))))
+		unless (or (null iri)
+			   (unless include-top-bottom
+			     (member uri property-extrema)))
 		  collect uri))))))
 
 (defun get-property-iri-maybe-inverse (ob)
