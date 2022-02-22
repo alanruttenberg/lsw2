@@ -880,6 +880,20 @@
      when (eq etype type)
      do (return-from get-entity entity)))
 
+;; get-entity-type Returns an entity type (:class, object-property, etc). If default is given, return error unless there
+;; is a type = default. If default not specified then returns the single type otherwise error if punned
+
+(defun get-entity-type (uri ont &optional default)
+  (unless (v3kb-uri2entity ont)
+    (setf (v3kb-uri2entity ont) (compute-uri2entity ont)))
+  (cond ((null default)
+         (if (> (length (gethash uri (v3kb-uri2entity ont))) 1)
+             (error "Term is punned and no default given: ~a" uri)
+             (second (car (gethash uri (v3kb-uri2entity ont))))))
+        (t (or (find default (gethash uri (v3kb-uri2entity ont)) :key 'second)
+               (error "~a is ~{~s, ~}but not ~s"  uri (mapcar 'second (gethash uri (v3kb-uri2entity ont))) default)))))
+
+
   
 (defun is-property-simple? (property &optional (ont *default-kb*))
   (let* ((opm (new 'OWLObjectPropertyManager (v3kb-manager ont) (v3kb-ont ont))))
