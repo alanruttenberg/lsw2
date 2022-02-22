@@ -1,3 +1,5 @@
+(in-package :cl-user)
+
 (defclass parsed-book ()
   ((book-path :accessor book-path :initarg :book-path :initform nil)
    (parsed-sheets :accessor parsed-sheets :initarg :parsed-sheets :initform nil)

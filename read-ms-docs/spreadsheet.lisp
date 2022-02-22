@@ -1,3 +1,4 @@
+(in-package :cl-user)
 
 ;; skip-rows - how many initial rows in the spreadsheet until the header line. default:0
 ;; row-limit - how many rows to read. Includes skipped rows and header row. default nil = no limit
