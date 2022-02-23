@@ -882,17 +882,18 @@
 
 ;; get-entity-type Returns an entity type (:class, object-property, etc). If default is given, return error unless there
 ;; is a type = default. If default not specified then returns the single type otherwise error if punned
-
+;; Returns null if there isn't anything 
 (defun get-entity-type (uri ont &optional default)
   (unless (v3kb-uri2entity ont)
     (setf (v3kb-uri2entity ont) (compute-uri2entity ont)))
-  (cond ((null default)
-         (if (> (length (gethash uri (v3kb-uri2entity ont))) 1)
-             (error "Term is punned and no default given: ~a" uri)
+  (cond ((null (gethash uri (v3kb-uri2entity ont))) nil) ;; there's no entity with that IRI
+        ((null default) ;; there's no default and we're punning (error) or not (return kind)
+         (if (> (length (remove-duplicates (gethash uri (v3kb-uri2entity ont)) :key 'second)) 1)
+             (error "Term is punned ~{~a~^, ~} and no default given: ~a" (mapcar 'second (gethash uri (v3kb-uri2entity ont))) uri)
              (second (car (gethash uri (v3kb-uri2entity ont))))))
-        (t (or (find default (gethash uri (v3kb-uri2entity ont)) :key 'second)
-               (error "~a is ~{~s, ~}but not ~s"  uri (mapcar 'second (gethash uri (v3kb-uri2entity ont))) default)))))
-
+        ;; At this point we know there's an entry and we have a default
+        ;; Either return default if found, or if not nil
+        (t (second (find default (gethash uri (v3kb-uri2entity ont)) :key 'second)))))
 
   
 (defun is-property-simple? (property &optional (ont *default-kb*))

@@ -40,6 +40,9 @@
 
 (defun instance-types (instance &optional (kb *default-kb*))
   (instance-query instance kb (lambda(ce reasoner) (#"getTypes" reasoner ce nil))))
+
+(defun instance-direct-types (instance &optional (kb *default-kb*))
+  (instance-query instance kb (lambda(ce reasoner) (#"getTypes" reasoner ce t))))
   
 (defun direct-instances (class &optional (kb *default-kb*))
   (class-query class kb (lambda(ce reasoner) (#"getInstances" reasoner ce t))))
