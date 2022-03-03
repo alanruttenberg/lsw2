@@ -77,6 +77,7 @@
 	    )
    (:module "query" :pathname ""
     :components ((:file "dl-query")
+                 (:file "annotation-property-query")
 		 (:file "sparql")
 		 (:file "sparql-owlbgp")
 		 (:file "sparql-twerpish"))
