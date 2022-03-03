@@ -133,7 +133,7 @@
 	  )))))
 
 (defun get-ontology-iri (kb &optional version-iri)
-  (let* ((id (#"getOntologyID" (v3kb-ont kb)))
+  (let* ((id (#"getOntologyID" (if (v3kb-p kb) (v3kb-ont kb) kb)))
 	 (maybe (if version-iri (#"getVersionIRI" id) (#"getOntologyIRI" id) ))
 	 (present (#"isPresent" maybe)))
     (when present
@@ -544,7 +544,7 @@
 		for uri = (and iri (get-property-iri-maybe-inverse iri))
 		unless (or (null iri)
 			   (unless include-top-bottom
-			     (member uri property-extrema)))
+			     (member uri +property-extrema+)))
 		  collect uri))))))
 
 (defun get-property-iri-maybe-inverse (ob)
@@ -617,12 +617,17 @@
 	*disallowed-property-property-pairs*)))
 
 (defun get-owl-literal (value)
-  (cond ((#"isRDFPlainLiteral" value) (#"getLiteral" value))
+  (cond ((#"isRDFPlainLiteral" value) 
+         (if (#"hasLang" value)
+             (format nil "~a@~a" (#"getLiteral" value) (#"getLang" value))
+             (#"getLiteral" value)))
 	((#"isBoolean" value) (let ((string (#"getLiteral" value)))
 				(if (equal string "true") :true :false)))
 	((member (#"toString" (#"getDatatype" value))
 		 '("http://www.w3.org/2001/XMLSchema#string" "xsd:string") :test 'equal)
 	 (#"getLiteral" value))
+        ((equalp (#"toString" (#"getDatatype" value)) "xsd:anyURI")
+         `(:literal ,(#"getLiteral" value) ,!xsd:anyURI))
 	((or (#"isFloat" value) (#"isInteger" value) (#"isDouble" value))
 	 `(:literal ,(#"getLiteral" value) ,(make-uri (#"toString" (#"getIRI" (#"getDatatype" value))))))
 	(t value)))
@@ -787,9 +792,9 @@
 	      (#"setShortFormProvider" it (short-form-provider kb))
 	      it))))
 
-(defun compute-uri2entity (kb)
+(defun compute-uri2entity (kb &optional include-imports-closure)
   ;; build table - uri -> triples entity, type, ontology
-  (loop for ont in (set-to-list (#"getImportsClosure" (v3kb-ont kb)))
+  (loop for ont in (if include-imports-closure (set-to-list (#"getImportsClosure" (v3kb-ont kb))) (list (v3kb-ont kb)))
        with table = (make-hash-table)
      do
        (loop for (type entities) in (list (list :class (#"getClassesInSignature" ont))
