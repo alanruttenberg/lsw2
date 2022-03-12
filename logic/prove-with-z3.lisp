@@ -2,7 +2,13 @@
 
 ;; brew install z3
 
-(defvar *z3-executable* "/usr/local/bin/z3")
+(defvar *z3-executable* (or (ignore-errors
+                             (string-trim (list #\space #\newline)
+                                          (uiop::run-program  "which z3"
+                                                              :output :string
+                                                              :ignore-error-status t)))
+                            "/usr/local/bin/z3"))
+
 (defvar *last-z3-output* nil)
 (defvar *last-z3-input* nil)
 (defvar *last-z3-error* nil)

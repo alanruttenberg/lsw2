@@ -1,19 +1,20 @@
 (in-package :logic)
 
-(defvar *running-in-vagrant* nil)
-(defvar *vampire-box-name* "vampirebox")
-
 ;; On OSX
 ;; cp vampire.rb /usr/local/Homebrew/Library/Taps/homebrew/homebrew-core/Formula/
 ;; brew install --HEAD vampire
 
-(defvar *vampire-executable* "vampire_rel")
+(defvar *vampire-executable* 
+  (flet ((which (vamp)
+            (ignore-errors
+             (string-trim (list #\space #\newline)
+              (uiop::run-program  (concatenate 'string "which " vamp)
+               :output :string
+               :ignore-error-status t)))))
+    (or (which "vampire")
+        (which "vampire_rel")
+        "/usr/local/bin/vampire_rel")))
 
-(defvar *vampire-shared-directory-remote* (namestring "/vagrant/"))
-(defvar *checked-vampire-box-present* nil)
-(defvar *checked-vampire-box-running* nil)
-(defvar *vampire-box-id* (and *running-in-vagrant* (get-vagrant-box-id *vampire-box-name*)))
-(defvar *vampire-shared-directory-local* (and *running-in-vagrant* (make-pathname :directory (get-vagrant-box-wd *vampire-box-name*))))
 (defvar *last-vampire-output* )
 (defvar *last-vampire-input*)
 (defvar *last-vampire-axiom-map*)
@@ -35,49 +36,17 @@
 	else collect ax))
 
 (defun run-vampire (input timeout &optional (mode :vampire) (switches nil))
-  (if *running-in-vagrant* 
-      (progn
-	(ensure-vampire-box-running)
-	(let ((tmpdir (merge-pathnames (make-pathname :directory '(:relative "tmp")) *vampire-shared-directory-local*)))
-	  (ensure-directories-exist tmpdir)
-	  (let ((file (uiop/stream::get-temporary-file :directory tmpdir)))
-	    (with-open-file (f file :direction :output)
-			    (write-string input f))
-	    (multiple-value-bind (output error-output)
-		(run-program-string->string
-		 "vagrant" 
-		 (list  "ssh" *vampire-box-id* "-c"
-			(format nil "~a --input_syntax smtlib2 --time_limit ~a --memory_limit 4096  --mode ~a ~{--~a ~a ~} ~a "
-				*vampire-executable* timeout (string-downcase (string mode)) switches
-				(merge-pathnames (make-pathname :name (pathname-name file)
-								:type (pathname-type file))
-						 (merge-pathnames "tmp/" *vampire-shared-directory-remote*))))
-		 ""
-		 )
-	      (assert (or (not error-output) ) () "Vampire failed: ~a" error-output)
-	      output
-	    ))))
-    (let ((file (uiop/stream::get-temporary-file :directory "/tmp")))
-      (with-open-file (f file :direction :output)
-		      (write-string input f))
-      (run-program-string->string  *vampire-executable*
-				   `("--input_syntax" "smtlib2"
-				     "--time_limit" ,(prin1-to-string timeout)
-				     "--memory_limit" "4096"
-				     "--mode" ,(string-downcase (string mode))
-				     ,(namestring file)
-				     ,@switches)
-				   ""))))
-
-(defun ensure-vampire-box-running (&optional force)
-  (when force
-    (setq *vampire-box-id* (get-vagrant-box-id *vampire-box-name*)))
-  (or (if force nil *checked-vampire-box-running*)
-      (unless (is-vagrant-box-running *vampire-box-id*)
-	(vagrant-box-up  *vampire-box-id*)
-	(unless (equalp (get-vagrant-box-status *vampire-box-id*) "running")
-	  (error "Couldn't bring up vagrant box ~a" *vampire-box-id*)))
-      (setq *checked-vampire-box-running* t)))
+  (let ((file (uiop/stream::get-temporary-file :directory "/tmp")))
+    (with-open-file (f file :direction :output)
+      (write-string input f))
+    (run-program-string->string  *vampire-executable*
+                                 `("--input_syntax" "smtlib2"
+                                                    "--time_limit" ,(prin1-to-string timeout)
+                                                    "--memory_limit" "4096"
+                                                    "--mode" ,(string-downcase (string mode))
+                                                    ,(namestring file)
+                                                    ,@switches)
+                                 "")))
 
 ;; TODO modify each axiom with an extra clause (:= <label> <label>)
 ;; Then look for lines with [input] and extract to recover the axiom.

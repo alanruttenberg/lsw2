@@ -10,7 +10,17 @@
 ;; https://github.com/alanruttenberg/ladr
 ;; https://github.com/alanruttenberg/iprover
 
-(defvar cl-user::*ladr-binaries* "~/repos/ladr/bin/")
+(defvar cl-user::*ladr-binaries* 
+  (or (ignore-errors 
+       (let ((found (#"replaceAll" 
+                     (uiop::run-program "which clausetester"
+                                        :output :string
+                                        :ignore-error-status t)
+                     "(?s)(.*)/.*" "$1/")))
+         (and found (not (equalp found ""))))
+      "~/repos/ladr/bin/")))
+
+
 ;(setq *ladr-binaries* "~/repos/ladr/bin/")
 (defun prover-binary (name)
   (namestring (truename (if cl-user::*ladr-binaries*
