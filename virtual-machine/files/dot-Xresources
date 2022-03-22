@@ -1,8 +1,0 @@
-Xft.antialias:true
-Xft.dpi:96
-Xft.hinting:true
-! hintslight | hintsmedium | hintsfull
-Xft.hintstyle:hintslight
-! rgba subpixel hinting (for LCDs)
-Xft.rgba:none
-
