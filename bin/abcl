@@ -174,7 +174,7 @@ CLASSPATH=$classpath
 export CLASSPATH
 
 echo "CLASSPATH=$classpath"
-command=($java "${args[@]}"  "${permgen[@]}" "${cl[@]}" "${addopen[@]}" "org.armedbear.lisp.Main"  "${lisp[@]}" "${unprocessed_args[@]}")
+command=($java "${args[@]}" -XX:-UsePerfData "${permgen[@]}" "${cl[@]}" "${addopen[@]}" "org.armedbear.lisp.Main"  "${lisp[@]}" "${unprocessed_args[@]}")
 
 echo "${command[@]}"
 
