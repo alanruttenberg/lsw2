@@ -135,7 +135,10 @@ fi
 # these opens are to avoid warnings about reflective access and to let felix (OSGI) work.
 if [ $version == "17" ]
 then
-    addopen=("--add-opens" "java.base/java.util=ALL-UNNAMED"  "--add-opens" "java.base/sun.net.www.protocol.http=ALL-UNNAMED")
+    addopen=("--add-opens" "java.base/java.util=ALL-UNNAMED"  "--add-opens" "java.base/sun.net.www.protocol.http=ALL-UNNAMED"
+# Needed for get-url
+             "--add-opens" "java.base/sun.net.www.protocol.https=ALL-UNNAMED"
+            )
     # without this (require :jss) fails
 #  "--add-opens" "java.base/java.security=ALL-UNNAMED" --add-opens java.base/java.net=ALL-UNNAMED not necessary after updating felix/osgi
 # sun.net.www.protocol.http is used by get-url
