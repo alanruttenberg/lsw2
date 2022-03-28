@@ -79,7 +79,7 @@
 
 (defvar *loaded-ontologies* (make-hash-table :test 'equal :weakness :value))
 
-(defun load-ontology (source &key name reasoner (silent-missing t) mapper)
+(defun load-ontology (source &key name reasoner (silent-missing t) mapper (cache t))
 ;  (set-java-field 'OWLRDFConsumer "includeDublinCoreEvenThoughNotInSpec" nil)
 ;  (set-java-field 'ManchesterOWLSyntaxEditorParser "includeDublinCoreEvenThoughNotInSpec" nil)
   (if (uri-p source) (setq source (uri-full source)))
@@ -106,7 +106,7 @@
 	      (if uri
 		  (if  (null (pathname-host uri))
 		       (#"loadOntologyFromOntologyDocument" manager (to-iri uri))
-		       (if *use-cache-aware-load-ontology*
+		       (if (and *use-cache-aware-load-ontology* cache)
 			   (progn
 			     (cache-ontology-and-imports uri)
 			     (multiple-value-bind (dir ont headers-file) (ontology-cache-location uri)
@@ -719,16 +719,6 @@
 			       (#"getOWLDataProperty" (v3kb-datafactory kb) (to-iri !owl:bottomDataProperty))))))
 	for uri = (make-uri (#"toString" (#"getIRI" p)))
 	unless (or (eq uri !owl:bottomObjectProperty) (eq uri !owl:bottomDataProperty)) collect uri))
-
-(defun get-ontology-iri (kb)
-  (let ((ontology (if (v3kb-p kb) (v3kb-ont kb) kb)))
-    (make-uri (#"toString" (#"get" (#"getOntologyIRI" (#"getOntologyID" ontology)))))))
-
-(defun get-version-iri (kb)
-  (let* ((ontology (if (v3kb-p kb) (v3kb-ont kb) kb))
-	 (maybe-iri (#"getVersionIRI" (#"getOntologyID" ontology))))
-    (and (#"isPresent" maybe-iri)
-	 (make-uri (#"toString" (#"get" maybe-iri))))))
 
 (defun get-imports-declarations (kb)
   (mapcar (compose 'make-uri #"toString" #"getIRI")
