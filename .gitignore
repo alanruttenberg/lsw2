@@ -15,3 +15,5 @@ logic/macosx/*
 site.retry
 libnot
 *~
+materialize/trips-pro/*
+bioportal-cache/*
