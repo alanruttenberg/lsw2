@@ -20,6 +20,7 @@
     (:nquads RioNQuadsStorerFactory NQuadsDocumentFormat)
     (:trig RioTrigStorerFactory TrigDocumentFormat)
     (:trix RioTrixStorerFactory TrixDocumentFormat )
+    (:jsonld RioJsonLDStorerFactory RDFJsonLDDocumentFormat)
     ))
 
 (defun to-owl-syntax (ont syntax &optional dest)
@@ -53,6 +54,23 @@
 	    (values)
 	    (truename dest)))))
 
+;; https://github.com/jsonld-java/jsonld-java
+;; No interface (or understanding atm) of options
+;; kind is :compact :flatten :normalize or :expand
+;; prefixes is a list of pairs (prefix expansion). No ":" in the prefixes
+(defun reformat-jsonld (json-string kind &optional prefixes)
+  (let* ((json (#"fromString" 'JsonUtils json-string))
+         (context  (new 'HashMap)))
+    (loop for (prefix expansion) in prefixes
+          do
+             (#"put" context prefix expansion))
+    (let* ((options  (new 'JsonLdOptions)))
+      (let ((formatted (ecase kind
+                         (:compact (#"compact" 'JsonLdProcessor json context options))
+                         (:flatten (#"flatten" 'JsonLdProcessor json context options))
+                         (:normalize (#"normalize" 'JsonLdProcessor json options))
+                         (:expand (#"expand" 'JsonLdProcessor json options)))))
+        (#"toPrettyString" 'JsonUtils formatted)))))
 
 
 ;; Formats   
