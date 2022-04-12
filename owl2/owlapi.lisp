@@ -132,6 +132,19 @@
 	  it
 	  )))))
 
+;; Sometimes there's a need to make a kb for an ontology in the imports closure, which isn't acquired by loadOntology
+(defun make-kb-from-java-object (ont &key name)
+  (let* ((name (or name (uri-full (get-ontology-iri ont))))
+         (manager (#"createOWLOntologyManager" 'org.semanticweb.owlapi.apibinding.OWLManager))
+         (kb (make-v3kb :name name
+                        :manager manager
+                        :ont ont
+                        :datafactory (#"getOWLDataFactory" manager)
+                        :default-reasoner :none)))
+    (setf (v3kb-uri2entity kb) (compute-uri2entity kb))
+    kb))
+	       
+
 (defun get-ontology-iri (kb &optional version-iri)
   (let* ((id (#"getOntologyID" (if (v3kb-p kb) (v3kb-ont kb) kb)))
 	 (maybe (if version-iri (#"getVersionIRI" id) (#"getOntologyIRI" id) ))
