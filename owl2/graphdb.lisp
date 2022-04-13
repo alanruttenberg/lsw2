@@ -10,7 +10,7 @@
 )
 
 (defclass openrdf-sesame-instance (sparql-repository-set)
-  ((system-endpoint :accessor system-endpoint :documentation "The SYSTEM repository, instance of class determined by endpoint-class method"))
+  ((system-endpoint :accessor system-endpoint :documentation "The SYSTEM repository, instance of class determined by repository-class method"))
   (:documentation "An OpenRDF Sesame repository set. There is a distinguished SYSTEM repo for configuring other repositories in the set")
   ) 
 
@@ -22,7 +22,7 @@
 						      ()
 						      "No SYSTEM repository found in ~a" (name instance))))))
 
-(defmethod endpoint-named ((instance openrdf-sesame-instance) name b &optional (errorp t) f g)
+(defmethod endpoint-named ((instance openrdf-sesame-instance) name &optional (errorp t))
   "Returns the endpoint named the given name. If the repository is not found and errorp is t signal an error. Always refresh the list of repositories as they might be added by actions outside of this program."
   (get-repositories instance)
   (let ((found (gethash name (repositories instance))))
@@ -68,12 +68,12 @@
   ()
   (:documentation "A SPARQL endpoint within a graphdb instance"))
 
-(defgeneric endpoint-class (instance) (:documentation "The class of SPARQL endpoint associated with endpoints in an instance"))
+(defgeneric repository-class (instance) (:documentation "The class of SPARQL endpoint associated with endpoints in an instance"))
 
-(defmethod endpoint-class  ((g openrdf-sesame-instance))
+(defmethod repository-class  ((g openrdf-sesame-instance))
   'sesame-sparql-endpoint)
 
-(defmethod endpoint-class  ((g graphdb-instance))
+(defmethod repository-class  ((g graphdb-instance))
   'graphdb-sparql-endpoint)
   
 (defvar *default-graphdb* (make-instance 'graphdb-instance :root "http://127.0.0.1:8080/openrdf-sesame/" :name :local-graphdb))
@@ -87,13 +87,13 @@
   "Get the list of repositories (sparql endpoint objects) for a sesame instance"
   (with-input-from-string (s (get-url (uri-full (repositories-endpoint instance)) :accept  "text/csv" :force-refetch t))
     (read-line s)
-    (loop with endpoint-class = (endpoint-class instance)
+    (loop with repository-class = (repository-class instance)
 	  for line =  (read-line s nil :eof)
 	  until (eq line :eof)
 	  for (uri id title readable writeable) = (split-at-char (#"replaceAll" line "\\r" "") #\,)
 	  for repo = (or (gethash id (repositories instance))
 			 (setf (gethash id  (repositories instance))
-			       (make-instance endpoint-class
+			       (make-instance repository-class
 					      :instance instance
 					      :repo-id id
 					      :title title
