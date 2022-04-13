@@ -6,7 +6,7 @@
 				  :defaults *load-pathname*))))
 
 (require :quicklisp-abcl)
-(require 'javaparser)
+;(require 'javaparser)
 
 (unless (member 'ql:quickload sys::*module-provider-functions*)
   (setq sys::*module-provider-functions*  (append sys::*module-provider-functions*  '(ql:quickload))))
@@ -25,7 +25,8 @@
 (flet ((load ()
 	 (ql:quickload 'owl2 :verbose nil)
 	 (ql:quickload 'logic :verbose nil)
-	 (ql:quickload 'inspect :verbose nil)))
+;	 (ql:quickload 'inspect :verbose nil)
+         ))
   (if *load-verbose*
       (load)
       (let ((ext:*suppress-compiler-warnings* (not *load-verbose*))
