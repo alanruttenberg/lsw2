@@ -112,16 +112,20 @@
 		       (#"setRequestMethod" connection "PUT")
 		       (#"setRequestMethod" connection "POST"))
 		   (#"setDoOutput" connection t)
-		   (if (consp post)
-		       (with-output-to-string (s)
-			 (loop for (prop value) in post
-			    do (format s "~a=~a&" prop (#"encode" 'java.net.URLEncoder (coerce value 'simple-string) "UTF-8")))
-			 (setq post (get-output-stream-string s))
-			 (setq post (subseq post 0 (- (length post) 1)))
-			 (#"setRequestProperty" connection "Content-Type" "application/x-www-form-urlencoded"))
-		       (#"setRequestProperty" connection "Content-Type" "text/xml"))
+                   ;; DWIM: If it's a string that starts with { then it's application/json
+                   ;;       otherwise, if it's a string it's text/xml
+                   ;;       otherwise if it's a list then it's  x-www-form-urlencoded
+                   (if (and (stringp post) (char= (char post 0) #\{));  
+                       (#"setRequestProperty" connection "Content-Type" "application/json")
+                       (if (consp post)
+                           (with-output-to-string (s)
+                             (loop for (prop value) in post
+                                   do (format s "~a=~a&" prop (#"encode" 'java.net.URLEncoder (coerce value 'simple-string) "UTF-8")))
+                             (setq post (get-output-stream-string s))
+                             (setq post (subseq post 0 (- (length post) 1)))
+                             (#"setRequestProperty" connection "Content-Type" "application/x-www-form-urlencoded"))
+                           (#"setRequestProperty" connection "Content-Type" "text/xml")))
 		   (let ((out (new 'PrintWriter (#"getOutputStream" connection))))
-		     ;(print post)
 		       (#"print" out post)
 		       (#"close" out)))
 		 (when head
