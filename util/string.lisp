@@ -344,3 +344,8 @@
     (unless initialcap
       (setf (char humped 0) (char-downcase (char humped 0))))
     humped))
+
+(defun de-camelcase (string)
+  (let ((string (string string)))
+    (let ((it (string-upcase (#"replaceAll" string "([a-z])([A-Z])" "$1-$2"))))
+      (intern it :keyword))))
