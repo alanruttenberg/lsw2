@@ -422,7 +422,10 @@
 			   string)
 			 (if (search "urn:blank:" string)
 			     (concatenate 'string "_:b" (subseq string 10) )
-			     (format nil "<~a>" (uri-full el)))))))
+			     (if *allow-unknown-namespaces*
+                                 ;; gross hack. Allow unknown namespace passthrough so I can add temporary prefixes
+                                 (uri-full el)
+                                 (format nil "<~a>" (uri-full el))))))))
 	     (if star (concatenate 'string almost "*") almost))))
 	((and (stringp el) (char= (char el 0) #\<)
 	      (char= (char el (1- (length el))) #\>))

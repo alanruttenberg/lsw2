@@ -220,6 +220,7 @@
    #:unabbreviate-namespace
    #:maybe-unabbreviate-namespace
    #:register-namespace
+   #:*allow-unknown-namespaces*
    #:with-default-namespace
    #:; utils/uri.lis
    #:*default-uri-base*

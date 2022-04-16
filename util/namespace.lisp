@@ -149,11 +149,14 @@
 			 (t (values (concat replacement name-part) replacement)))))))
     s))
 
+(defvar *allow-unknown-namespaces* nil)
 
 (defun unabbreviate-namespace (s)
   (let ((unabbreviated (maybe-unabbreviate-namespace s)))
-    (when (eq s unabbreviated)
-      (error "Don't know the namespace in ~a" s))
+    (if (eq s unabbreviated)
+        ;; gross hack. Allow unknown namespace passthrough so I can add temporary prefixes
+        (unless *allow-unknown-namespaces*
+          (error "Don't know the namespace in ~a" s)))
     unabbreviated))
 
 (defun maybe-unabbreviate-namespace (s)
