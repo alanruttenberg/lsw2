@@ -57,7 +57,7 @@
       (:json (json-parse result))
       (:text result))))
 
-(defmethod load-file ((repo graphdb9-repository) file)
+(defmethod load-server-file ((repo graphdb9-repository) file)
   (let ((answer 
           (json-api-call-post repo "/rest/data/import/server/" (json-encode `(("fileNames" ,file)) :from :alist) :result-type :text)))
     (assert (#"matches" answer "File .* sent for import.") () "Load of ~a failed with '~a'" file answer)
@@ -75,11 +75,15 @@
   (declare (ignorable query-options geturl-options command format trace))
   (apply 'sparql-endpoint-query (update-endpoint repo) query  keys))
 
+(defmethod total-triples ((repo graphdb9-repository))
+  (parse-integer (caar (sparql-query repo '(:select ((:count (*) as ?c)) () (?s ?p ?o))))))
+
 ;; ****************************************************************
 (eval-when (:execute :load-toplevel)
   (register-namespace "ontotext-geosparql:" "http://www.ontotext.com/plugins/geosparql#")
   (register-namespace "geosparql:" "http://www.opengis.net/ont/geosparql#" t)
-  (register-namespace "simple-feature:" "http://www.opengis.net/ont/sf#"))
+  (register-namespace "simple-feature:" "http://www.opengis.net/ont/sf#")
+  (register-namespace "sys:" "http://www.ontotext.com/owlim/system#"))
 
 (defmethod geosparql-configuration ((repo graphdb9-repository))
   (sparql-query repo '(:select (*) (:distinct t)
@@ -106,6 +110,48 @@
                                      (:_b1 !ontotext-geosparql:prefixTree ,(format nil "~a" (car prefix-tree)))
                                      (:_b1 !ontotext-geosparql:precision ,(format nil "~a" (second prefix-tree))))) :trace t)))
 
+
+(defmethod re-infer ((repo graphdb9-repository))
+  (sparql-update repo '(:update (:insert ( :_b !<http://www.ontotext.com/owlim/system#reinfer> :_b )))))
+
+;; ****************************************************************
+;; Rule sets
+
+(defmethod get-rulesets ((repo graphdb9-repository))
+  (sparql-query repo '(:select (?state ?ruleset) () (?state !sys:listRulesets ?ruleset))))
+
+;; doesn't work in my version of free.  (explore-rulesets *first* "owl2-rl-optimized") -> nil. Maybe for custom ones
+(defmethod explore-ruleset ((repo graphdb9-repository) ruleset)
+  (sparql-query repo `(:select (?content) () (?content !sys:exploreRuleset ,ruleset))))
+
+(defmethod add-ruleset ((repo graphdb9-repository) ruleset )
+  (sparql-update repo `(:update (:insert (:_b !sys:addRuleset ,ruleset)))))
+
+(defmethod change-ruleset ((repo graphdb9-repository) ruleset)
+  (sparql-update repo `(:update (:insert (:_b !sys:defaultRuleset ,ruleset)))))
+
+(defmethod remove-ruleset ((repo graphdb9-repository) ruleset)
+  (sparql-update repo `(:update (:insert (:_b !sys:removeRuleset ,ruleset)))))
+  
+(defvar *graphdb9-ruleset-directory* "/Applications/GraphDB Free.app/Contents/Java/configs/rules/")
+
+(defvar *graphdb9-builtin-rulesets*
+  '((:empty "No reasoning, i.e., GraphDB operates as a plain RDF store."
+     )
+    (:rdfs "Supports the standard model-theoretic RDFS semantics. This includes support for subClassOf and related type inference, as well as subPropertyOf."
+     "builtin_RdfsRules.pie" "builtin_RdfsRules-optimized.pie" )
+    (:rdfs-plus "Extended version of RDFS with the support also symmetric, inverse and transitive properties, via the OWL vocabulary: owl:SymmetricProperty, owl:inverseOf and owl:TransitiveProperty."
+     "builtin_rdfsPlus.pie" "builtin_rdfsPlus-optimized.pie")
+    (:owl-horst "OWL dialect close to OWL-Horst - essentially pD*"
+     "builtin_Rules-horst-optimized.pie")
+    (:owl-max "RDFS and that part of OWL Lite that can be captured in rules (deriving functional and inverse functional properties, all-different, subclass by union/enumeration; min/max cardinality constraints, etc.)."
+     "builtin_Rules.pie" "builtin_Rules-optimized.pie"
+     )
+    (:owl2-ql "The OWL2-QL profile - a fragment of OWL2 Full designed so that sound and complete query answering is LOGSPACE with respect to the size of the data. This OWL2 profile is based on DL-LiteR, a variant of DL-Lite that does not require the unique name assumption."
+     "builtin_owl2-ql.pie" "builtin_owl2-ql-optimized.pie" )
+    (:owl2-rl "The OWL2-RL profile - an expressive fragment of OWL2 Full that is amenable for implementation on rule engines.")
+    "builtin_owl2-rl.pie" "builtin_owl2-rl-optimized.pie")
+  )
 
 #|
 (setq *default-graphdb* (make-instance 'graphdb9-instance
