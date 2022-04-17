@@ -3,7 +3,7 @@
 ;; Create a package with all useful symbols and export them, so that non-cl-user packages can just "use" them
 
 (uiop::define-package  lsw2
-  (:use lsw2/owlterm)
+    (:use lsw2/owlterm)
   (:import-from
    cl-user 
    ;; owlapi.lisp
@@ -222,7 +222,7 @@
    #:register-namespace
    #:*allow-unknown-namespaces*
    #:with-default-namespace
-   #:; utils/uri.lis
+   ;; utils/uri.lis
    #:*default-uri-base*
    #:make-uri-base-relative
    #:uri-p
@@ -246,7 +246,7 @@
    #:uri-full
    #:uri-abbreviated
    #:uri-blank-p
-   ; preferred-label.lis
+   ;; preferred-label.lis
    #:get-preferred-labels
    ;; tree.lisp
    #:tree-walk
@@ -277,6 +277,44 @@
    #:subclassof-axiom
    #:count-descendants-with-axioms
    #:property-axiom-terms
+   ;; graphdb.lisp graphdb9.lisp
+   #:graphdb9-instance
+   #:json-parse 
+   #:json-encode
+   #:repository-class
+   #:graphdb9-repository
+   #:repository-named
+   #:get-repository-parameters
+   #:json-api-call-post
+   #:json-api-call-get
+   #:load-server-file
+   #:clear-repository
+   #:sparql-query
+   #:sparql-update
+   #:total-triples
+   #:geosparql-configuration
+   #:enable-geosparql
+   #:disable-geosparql
+   #:reindex-geosparql
+   #:update-geosparql-configuation
+   #:re-infer
+   #:get-rulesets
+   #:explore-ruleset
+   #:add-ruleset
+   #:change-ruleset
+   #:remove-ruleset
+   #:*graphdb9-ruleset-directory*
+   #:*graphdb9-builtin-rulesets*
+   #:sparql-repository-set 
+   #:endpoint-named
+   #:graphdb-instance
+   #:repository-class 
+   #:get-repositories 
+   #:get-timeout 
+   #:get-endpoint-parameter 
+   #:set-endpoint-parameter 
+   #:get-repository-prefixes
+   #:set-repository-prefixes
    ))
 
 (do-symbols (s 'lsw2) (export s 'lsw2))
