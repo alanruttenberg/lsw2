@@ -70,7 +70,7 @@
 (defvar *endpoint-abbreviations* nil)
 ;; http://www-128.ibm.com/developerworks/xml/library/j-sparql/
 
-(defun sparql (query &rest all &key (kb (and (boundp '*default-kb*) *default-kb*)) (use-reasoner :pellet) (flatten nil) (trace nil) (trace-show-query trace) endpoint-options geturl-options (values t) (endpoint nil) (chunk-size nil) (syntax :sparql) &allow-other-keys &aux (command :select) count)
+(defun sparql (query &rest all &key (kb (and (boundp '*default-kb*) *default-kb*)) (use-reasoner :pellet) (flatten nil) (trace nil) (trace-show-query trace) endpoint-options geturl-options (values t) (endpoint nil) (chunk-size nil) (syntax :sparql) labels-for &allow-other-keys &aux (command :select) count)
   (when chunk-size (return-from sparql (apply 'sparql-by-chunk query all)))
   (setq use-reasoner (or endpoint use-reasoner))
   (setq count (and (consp query)
@@ -79,14 +79,14 @@
 		   (member use-reasoner '(:jena :none :pellet :sparqldl))))
   (when (listp query) 
     (setq command (car query))
-    (setq query (sparql-stringify query use-reasoner)))
+    (setq query (sparql-stringify query use-reasoner labels-for)))
   (setq use-reasoner (or (second (assoc use-reasoner *endpoint-abbreviations*)) use-reasoner))
   (if (stringp use-reasoner) (setq use-reasoner (make-uri use-reasoner)))
   (let ((do-trace (or *sparql-always-trace* (and trace  *sparql-allow-trace*))))
     (if (and do-trace (or *sparql-always-trace* trace-show-query))
-      (format t "Query: ~a~%~a~%~%Results:~%" (if (stringp trace) trace "")  query)
-      (if do-trace
-	  (format t "Query: ~a~%~%Results:~%" (if (stringp trace) trace ""))))
+        (format *trace-output* "Query: ~a~%~a~%~%Results:~%" (if (stringp trace) trace "")  query)
+        (if do-trace
+            (format *trace-output* "Query: ~a~%~%Results:~%" (if (stringp trace) trace ""))))
     (if (uri-p use-reasoner)
 	(let ((bindings (sparql-endpoint-query use-reasoner query :query-options endpoint-options :geturl-options geturl-options :command command)))
 	  (when do-trace
@@ -209,11 +209,12 @@
 			   do (format p "PREFIX ~a <~a>~%" ns (second (assoc ns *nslookup* :test 'equal)))))))
       (concatenate 'string (string #\linefeed) prefix query)))
 
-(defun sparql-stringify (form &optional reasoner &rest ignore)
+(defun sparql-stringify (form &optional reasoner &rest ignore &key labels-for)
   (declare (ignore ignore))
   (let ((*sparql-using-pellet* (eq reasoner :pellet))
 	(*blankcounter* 0))
     (setq form (eval-uri-reader-macro form))
+    (if labels-for (setq form (transform-for-labels form labels-for)))
     (let ((query (adding-sparql-prefixes 
 		  (lambda()
 		    (cond ((eq (car form) :select)
@@ -422,7 +423,7 @@
 			   string)
 			 (if (search "urn:blank:" string)
 			     (concatenate 'string "_:b" (subseq string 10) )
-			     (if *allow-unknown-namespaces*
+			     (if (and *allow-unknown-namespaces* (#"matches" (uri-full el) ".*:"))
                                  ;; gross hack. Allow unknown namespace passthrough so I can add temporary prefixes
                                  (uri-full el)
                                  (format nil "<~a>" (uri-full el))))))))
@@ -600,7 +601,24 @@ See: https://www.w3.org/2009/sparql/docs/property-paths/Overview.xml
 			(write-char #\, s)))
 		 (write-char #\) s)))))))
 
+;; Take a query in lisp form and a list of variables that you want labels for.
+;; Suppose the variable is ?var. Rewrite all places (except select) changing
+;; that variable to ?var_inst. Then add (?var_inst !rdfs:label ?var)
+;; e.g. (transform-for-labels '(:select (?a ?b) ()  (?a !ex:r ?b)) '(?a))
+;; -> '(:select (?a ?b) nil (?a_inst !rdfs:label ?a) (?a_inst !ex:r ?b))
 
+(defun transform-for-labels (query labels &aux extra)
+  (let ((rewritten 
+          (tree-replace
+           (lambda(el)
+             (if (member el labels)
+                 (let ((new-var 
+                         (intern (format nil "~a_INST" (string el)) (symbol-package el))))
+                   (pushnew `(,new-var ,!rdfs:label ,el) extra :test 'equalp)
+                   new-var)
+                 el))
+           (eval-uri-reader-macro (cdddr query)))))
+    `(,(car query) ,(second query) ,(third query) ,@extra ,@rewritten )))
 
 
 

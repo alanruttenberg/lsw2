@@ -13,7 +13,7 @@
   (let ((ql::*quickload-verbose* nil))
     ;; Jonathan is a JSON encoder/decoder
     ;; See https://github.com/Rudolph-Miller/jonathan
-    (ql:quickload "jonathan")))
+    (asdf::load-system "jonathan")))
 
 ;; these functions so that we can be lazy about loading Jonathan, which brought in a pile of
 ;; other code.
@@ -67,9 +67,9 @@
   (json-parse (get-url (format nil "~a/repositories/~a/statements" (repository-root (instance repo)) (repo-id repo))
                        :verb "DELETE")))
 
-(defmethod sparql-query ((repo graphdb9-repository) query &rest keys &key query-options geturl-options (command :select) format (trace nil) &allow-other-keys)
+(defmethod sparql-query ((repo graphdb9-repository) query &rest keys )
   (declare (ignorable query-options geturl-options command format trace))
-  (apply 'sparql-endpoint-query (query-endpoint repo) query  keys))
+  (apply 'sparql query :endpoint (query-endpoint repo) keys))
 
 (defmethod sparql-update ((repo graphdb9-repository) query &rest keys &key query-options geturl-options (command :select) format (trace nil) &allow-other-keys)
   (declare (ignorable query-options geturl-options command format trace))
@@ -77,6 +77,9 @@
 
 (defmethod total-triples ((repo graphdb9-repository))
   (parse-integer (caar (sparql-query repo '(:select ((:count (*) as ?c)) () (?s ?p ?o))))))
+
+(defmethod get-repository-prefixes ((repo graphdb9-repository))
+  (all-matches (get-url  (uri-full (namespaces-endpoint repo)) :force-refetch t) "(?m)(\\S*),(\\S+)" 1 2))
 
 ;; ****************************************************************
 (eval-when (:execute :load-toplevel)
