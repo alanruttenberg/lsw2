@@ -67,7 +67,7 @@
   (json-parse (get-url (format nil "~a/repositories/~a/statements" (repository-root (instance repo)) (repo-id repo))
                        :verb "DELETE")))
 
-(defmethod sparql-query ((repo graphdb9-repository) query &rest keys )
+(defmethod sparql-query ((repo graphdb9-repository) query &rest keys &key &allow-other-keys )
   (declare (ignorable query-options geturl-options command format trace))
   (apply 'sparql query :endpoint (query-endpoint repo) keys))
 

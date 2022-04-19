@@ -79,7 +79,7 @@
 		   (member use-reasoner '(:jena :none :pellet :sparqldl))))
   (when (listp query) 
     (setq command (car query))
-    (setq query (sparql-stringify query use-reasoner labels-for)))
+    (setq query (sparql-stringify query use-reasoner :labels-for labels-for)))
   (setq use-reasoner (or (second (assoc use-reasoner *endpoint-abbreviations*)) use-reasoner))
   (if (stringp use-reasoner) (setq use-reasoner (make-uri use-reasoner)))
   (let ((do-trace (or *sparql-always-trace* (and trace  *sparql-allow-trace*))))
