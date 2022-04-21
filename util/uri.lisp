@@ -56,8 +56,6 @@ Which can then be used as !material-entity
       (gethash string *interned-uris*)
       (make-uri-base-relative string)))
 
-(defvar *blankcounter* 0)
-
 (defun make-uri (string &optional abbreviation &rest format-args &aux blank?)
   (cond ((uri-p string)
 	 string)
@@ -66,9 +64,8 @@ Which can then be used as !material-entity
 	((and (null abbreviation) (not (find #\: string :test 'char=)))
 	 (make-uri nil (format nil "ex:~a" string)))
 	(t 
-	 (when (equal abbreviation "blank:")
-	   (setq abbreviation (format nil "blank:~a" (incf *blankcounter*)))
-	   (setq blank? t))
+	 (when (and abbreviation (#"matches" abbreviation "blank:.*"))
+	   (setq blank? (subseq abbreviation (load-time-value (length "blank:")))))
 	 (when (and abbreviation (char= (char abbreviation 0) #\_) (char= (char abbreviation 1) #\:))
 	   (setq abbreviation (format nil "blank:~a" (subseq abbreviation 2))))
 	 (if string
