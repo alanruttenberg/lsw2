@@ -72,6 +72,7 @@
 ;	     (:file "html-description")
 	     (:file "describe")
 	     (:file "logger-control")
+             (:org "owldoc")
 	     )
 	    :depends-on (matcher basics mapping syntax)
 	    )
@@ -86,7 +87,8 @@
     :components
     ((:file "api-symbols"))
     :depends-on (main query)))
-  :depends-on (util xmls owl2libs-mvn2))
+  :depends-on (util xmls owl2libs-mvn2)
+  :defsystem-depends-on (lilith))
 
 (defun cl-user::test-lsw2-owlapi ()
   (let ((*load-verbose* nil))
