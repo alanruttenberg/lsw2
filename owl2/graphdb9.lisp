@@ -52,7 +52,7 @@
       (:text result))))
 
 (defmethod json-api-call-get ((repo graphdb9-repository) path &optional (result-type :json))
-  (let ((result (get-url (format nil "~a~a~a" (repository-root (instance repo)) path (repo-id repo)))))
+  (let ((result (get-url (format nil "~a~a~a" (repository-root (instance repo)) path (repo-id repo)) :force-refetch t :persist nil :dont-cache t)))
     (ecase result-type
       (:json (json-parse result))
       (:text result))))
@@ -65,7 +65,7 @@
 
 (defmethod clear-repository ((repo graphdb9-repository))
   (json-parse (get-url (format nil "~a/repositories/~a/statements" (repository-root (instance repo)) (repo-id repo))
-                       :verb "DELETE")))
+                       :verb "DELETE" :force-refetch t :persist nil :dont-cache t)))
 
 (defmethod sparql-query ((repo graphdb9-repository) query &rest keys &key &allow-other-keys )
   (declare (ignorable query-options geturl-options command format trace))
@@ -79,7 +79,7 @@
   (parse-integer (caar (sparql-query repo '(:select ((:count (*) as ?c)) () (?s ?p ?o))))))
 
 (defmethod get-repository-prefixes ((repo graphdb9-repository))
-  (all-matches (get-url  (uri-full (namespaces-endpoint repo)) :force-refetch t) "(?m)(\\S*),(\\S+)" 1 2))
+  (all-matches (get-url  (uri-full (namespaces-endpoint repo)) :force-refetch t :persist nil :dont-cache t) "(?m)(\\S*),(\\S+)" 1 2))
 
 ;; ****************************************************************
 (eval-when (:execute :load-toplevel)

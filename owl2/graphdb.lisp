@@ -85,7 +85,7 @@
 
 (defmethod get-repositories ((instance openrdf-sesame-instance))
   "Get the list of repositories (sparql endpoint objects) for a sesame instance"
-  (with-input-from-string (s (get-url (uri-full (repositories-endpoint instance)) :accept  "text/csv" :force-refetch t))
+  (with-input-from-string (s (get-url (uri-full (repositories-endpoint instance)) :accept  "text/csv" :force-refetch t :persist nil :dont-cache t))
     (read-line s)
     (loop with repository-class = (repository-class instance)
 	  for line =  (read-line s nil :eof)
@@ -170,7 +170,7 @@
       oldvalue)))
     
 (defmethod get-repository-prefixes ((repo sesame-sparql-endpoint))
-  (extract-sparql-results (get-url (uri-full (namespaces-endpoint repo)) :force-refetch t)))
+  (extract-sparql-results (get-url (uri-full (namespaces-endpoint repo)) :force-refetch t :persist nil :dont-cache t)))
   
 (defmethod set-repository-prefixes ((repo sesame-sparql-endpoint) prefixes)
   (loop for (prefix replacement) in prefixes
@@ -254,7 +254,7 @@
 			     :command :update :trace t))))
 
 (defmethod delete-repository ((repo sesame-sparql-endpoint))
-  (get-url (uri-fill (query-endpoint repo))  :verb "DELETE")
+  (get-url (uri-fill (query-endpoint repo))  :verb "DELETE" :force-refetch t :persist nil :dont-cache t)
   (remhash (repo-id repo) (repositories (instance repo))))
   
   
