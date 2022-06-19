@@ -70,6 +70,55 @@
 (defvar *endpoint-abbreviations* nil)
 ;; http://www-128.ibm.com/developerworks/xml/library/j-sparql/
 
+#|
+
+The arguments to the sparql function were added to over the years and need to be reorganized. 
+Let's document their current behavior
+
+query: Either a lisp-form sparql query, format documented below, or a string.
+
+By default returns a list of lists of binding values, in the order they are in the query.
+
+kb: The OWL ontology object (either lisp or java object)
+
+use-reasoner: What's doing the reasoning for the query. Possible values
+  :none/nil - Use this if you want to query just over the stated values 
+  :pellet - Default, uses pellet reasoner, which is the only one (at the time written) that can 
+     do SPARQL queries with reasoning. Pellet SPARQL works as an extension to Jena, so a jena model 
+     is created from the original kb. 
+  :sparqldl - Synonymous with :pellet 
+  A URL or endpoint keyword. See endpoint variable below.
+  :jena - I think a synonym for :none. Haven't used this in a while 
+  
+endpoint: Either a URL that is a SPARQL endpoint that the query is sent to, or a keyword
+  which is used as a lookup on the alist *endpoint-abbreviations*
+endpoint-options: passed on to sparql-endpoint-query. See doc there.
+geturl-options: passed on to get-url, which sparql-endpoint-query uses. See get-url (non?) documentation.
+command: If the query is lisp form no need to pass this. If textual needs to be set to one of 
+  :select :describe :ask or :construct.  So that I don't have to bother parsing the text query to figure it out. 
+  Needs to be known because there are different options for :select et all vs :update
+
+Tracing is controlled also by the variables 
+  *sparql-always-trace*: Globally defaults to trace
+  *sparql-allow-trace*: Globally inhibits tracing
+
+trace: t/nil. Whether to print query/query results, usually for debugging. 
+trace-show-query: Whether the query should be shown in a trace, default t.
+values: Whether the sparql function should return the results of the query or not. In a repl
+  sometimes you only want to see the trace.
+
+flatten: Concatenate all the bindings lists. Typical use is when you only have one binding, to return
+  a list of results instead of a list of length one binding lists
+
+syntax: :sparql or :terp. Default :sparql. If terp, see sparql-twerpish-class? for now until 
+  better documentation.
+
+labels-for: If the query is lisp form, transform the query so that the given bindings return, 
+  instead of their IRI, their label. See transform-for-labels
+
+|#
+
+
 (defun sparql (query &rest all &key (kb (and (boundp '*default-kb*) *default-kb*)) (use-reasoner :pellet) (flatten nil) (trace nil) (trace-show-query trace) endpoint-options geturl-options (values t) (endpoint nil) (chunk-size nil) (syntax :sparql) labels-for &allow-other-keys &aux (command :select) count)
   (when chunk-size (return-from sparql (apply 'sparql-by-chunk query all)))
   (setq use-reasoner (or endpoint use-reasoner))
@@ -602,8 +651,10 @@ See: https://www.w3.org/2009/sparql/docs/property-paths/Overview.xml
 		 (write-char #\) s)))))))
 
 ;; Take a query in lisp form and a list of variables that you want labels for.
+;;
 ;; Suppose the variable is ?var. Rewrite all places (except select) changing
 ;; that variable to ?var_inst. Then add (?var_inst !rdfs:label ?var)
+;;
 ;; e.g. (transform-for-labels '(:select (?a ?b) ()  (?a !ex:r ?b)) '(?a))
 ;; -> '(:select (?a ?b) nil (?a_inst !rdfs:label ?a) (?a_inst !ex:r ?b))
 
