@@ -125,6 +125,7 @@
 	    for capitalized = (capitalize-by-hyphen worded)
 	    for entry = (list* un worded capitalized other-synonyms)
 	    do
+               (setf (symbol-plist worded) (symbol-plist un)) ;; so source information is transferred
 	       (setf (gethash un table) entry)
 	       (setf (gethash worded table) entry)
 	       (setf (gethash capitalized table) entry)
