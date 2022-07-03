@@ -105,8 +105,8 @@
 (defun t-collect (input &optional (zero-blankcounter t))
   (let ((*triple-collector* nil))
     (progv (if zero-blankcounter (list '*blankcounter*)) (if zero-blankcounter (list 0))
-      (reverse (t (unblank-individuals (eval-uri-reader-macro input))))
-      *triple-collector*)))
+       (t (unblank-individuals (eval-uri-reader-macro input)))
+      (reverse *triple-collector*))))
 
 
 (defun t-jena (input &rest prefixes)
@@ -146,7 +146,7 @@
 (defun fresh-blank ()
   (cond (*jena-model*
 	 (fresh-jena-blank *jena-model*))
-	(t !blank:)))
+	(t (make-uri-base-relative  (prin1-to-string (incf *blankcounter*)) "blank:"))))
 
 (defun make-literal (value type)
   (if *jena-model*

@@ -315,6 +315,10 @@
    #:set-endpoint-parameter 
    #:get-repository-prefixes
    #:set-repository-prefixes
+   ;; generate-mapping.lisp
+   #:t
+   #:t-jena
+   #:t-collect
    ))
 
 (do-symbols (s 'lsw2) (export s 'lsw2))
