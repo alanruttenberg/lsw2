@@ -147,8 +147,20 @@ if [ $version == "11" ]
 then
     addopen=("--add-opens" "java.base/java.util=ALL-UNNAMED" )
 fi
-		   
+
+for x in `echo $ABCL_ADDOPENS`
+do
+    addopen+=("--add-opens" $x)
+done
+
 read -r -a libs  <<< `find $here/lib -follow -name \*\.jar`
+
+if [ ${ABCL_BOOTLIBS} ]
+then
+    read -r -a morelibs <<< `find $ABCL_BOOTLIBS -follow -name \*\.jar`
+fi
+
+libs+=(${morelibs[@]})
 
 classpath=`echo "${libs[@]}" | sed 's/[ ]/'$pathjoin/g`
 
