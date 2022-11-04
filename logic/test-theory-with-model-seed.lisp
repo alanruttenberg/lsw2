@@ -18,11 +18,13 @@
 (defvar *last-checked-seed* nil)
 (defvar *last-checked-spec* nil)
 (defvar *last-expanded-model* nil)
+(defvar *last-rules-for-spec* nil)
+
 ;; If everything ok, return t
 ;; Otherwise return information about failures
 
-(defun check-theory-with-model-seed (theory model &key expect-failing-formulas expect-propositions unexpected-propositions print-debug? expect-unsat label saveas)
-  (let ((rules (rules-for-spec theory)))
+(defun check-theory-with-model-seed (theory model &key expect-failing-formulas expect-propositions unexpected-propositions print-debug? expect-unsat)
+  (let ((rules (setq *last-rules-for-spec* (rules-for-spec theory))))
     (setq *last-checked-seed* model)
     (setq *last-checked-spec* theory)
     (let* ((expanded (setq *last-expanded-model* (expand-seed model rules)))
