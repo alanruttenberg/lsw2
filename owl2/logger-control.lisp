@@ -6,7 +6,8 @@
 			       'org.semanticweb.owlapi.rdf.rdfxml.parser.AbstractState)
 	for logger = (#"getLogger" 'slf4j.LoggerFactory (if (symbolp loggerkey) (find-java-class loggerkey) loggerkey))
 	do
-	   (set-java-field logger "currentLogLevel" (get-java-field logger "LOG_LEVEL_WARN" t) t)))
+	   (ignore-errors
+            (set-java-field logger "currentLogLevel" (get-java-field logger "LOG_LEVEL_WARN" t) t))))
 
 (mute-owlapi-loggers)
 
