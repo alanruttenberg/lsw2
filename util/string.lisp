@@ -150,7 +150,7 @@
 
 (defun print-db-aux (forms)
   (and (fboundp 'eval-uri-reader-macro)
-       (setq forms (eval-uri-reader-macro forms)))
+       (setq forms (eval `(eval-uri-reader-macro ',forms))))
   (loop for hook in *print-db-hooks*
      do (setq forms (funcall hook forms)))
   (when forms
