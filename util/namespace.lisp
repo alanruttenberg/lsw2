@@ -57,7 +57,6 @@
     ("http://neuroweb.med.yale.edu/senselab/neuron_ontology.owl#" "neurondb:")
     ("http://neuroscientific.net/ont/biopax-level2_neuro_extension.owl#" "neuro:")
     ("http://neuroscientific.net/ont/kidb#" "kidb:")
-    ("http://purl.obolibrary.org/obo/" "obo:")
     ("http://purl.obolibrary.org/obo/OBI_" "obi:")
     ("http://www.ifomis.org/bfo/1.1/span#" "span:")
     ("http://purl.obolibrary.org/obo/RO_" "ro:")
@@ -105,6 +104,7 @@
     ("http://snomed.info/id/" "snomed:")
     ("http://opensextant.org/ontology/" "osex:") ; https://github.com/orgs/OpenSextant
     ("http://www.ontologyrepository.com/CommonCoreOntologies/" "cco:") ;https://github.com/CommonCoreOntology/
+    ("http://purl.obolibrary.org/obo/" "obo:")
     (,*blankprefix* "blank:")
     ))
 
