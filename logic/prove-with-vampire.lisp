@@ -10,7 +10,7 @@
              (string-trim (list #\space #\newline)
               (uiop::run-program  (concatenate 'string "which " vamp)
                :output :string
-               :ignore-error-status t)))))
+               )))))
     (or (which "vampire")
         (which "vampire_rel")
         "/usr/local/bin/vampire_rel")))
