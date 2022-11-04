@@ -102,11 +102,27 @@
 
 (defvar *blankcounter* 0)
 
+;; Take an axiom and return the triples in the translation to rdf
+;; as a courtesy if a list of assertions, return concatenated triples for all
 (defun t-collect (input &optional (zero-blankcounter t))
+  (setq input (rewrite-owl-canonical-functional (eval-uri-reader-macro input)))
   (let ((*triple-collector* nil))
     (progv (if zero-blankcounter (list '*blankcounter*)) (if zero-blankcounter (list 0))
-       (t (unblank-individuals (eval-uri-reader-macro input)))
+      (loop for a in (if (consp (car input)) input (list input))
+            append (t (unblank-individuals (eval-uri-reader-macro a))))
       (reverse *triple-collector*))))
+
+(defvar *triple-mapper*)
+
+;; Take an axiom and call function on each triple in the translation to rdf
+;; as a courtesy if a list of assertions map over them
+(defun t-map (input function &optional (zero-blankcounter t))
+  (setq input (rewrite-owl-canonical-functional (eval-uri-reader-macro input)))
+  (let ((*triple-mapper* function))
+    (progv (if zero-blankcounter (list '*blankcounter*)) (if zero-blankcounter (list 0))
+      (loop for a in (if (consp (car input)) input (list input))
+            do (t (unblank-individuals (eval-uri-reader-macro a)))
+      (values)))))
 
 
 (defun t-jena (input &rest prefixes)
@@ -160,6 +176,8 @@
 	 (add-jena-triple *jena-model* a b c))
 	((boundp '*triple-collector* )
 	 (push (list a b c) *triple-collector*))
+        ((boundp '*triple-mapper*)
+         (funcall *triple-mapper* (list a b c)))
 	(t (format t "~a ~a ~a .~%" a b c)))
   t) ; return t so no fail
 
