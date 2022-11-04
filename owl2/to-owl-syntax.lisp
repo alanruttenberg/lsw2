@@ -20,7 +20,6 @@
     (:nquads RioNQuadsStorerFactory NQuadsDocumentFormat)
     (:trig RioTrigStorerFactory TrigDocumentFormat)
     (:trix RioTrixStorerFactory TrixDocumentFormat )
-    (:jsonld RioJsonLDStorerFactory RDFJsonLDDocumentFormat)
     ))
 
 (defun to-owl-syntax (ont syntax &optional dest)
