@@ -119,7 +119,7 @@ labels-for: If the query is lisp form, transform the query so that the given bin
 |#
 
 
-(defun sparql (query &rest all &key (kb (and (boundp '*default-kb*) *default-kb*)) (use-reasoner :pellet) (flatten nil) (trace nil) (trace-show-query trace) endpoint-options geturl-options (values t) (endpoint nil) (chunk-size nil) (syntax :sparql) labels-for &allow-other-keys &aux (command :select) count)
+(defun sparql (query &rest all &key (kb (and (boundp '*default-kb*) *default-kb*)) (use-reasoner :pellet) (flatten nil) (trace nil) (trace-show-query trace) endpoint-options geturl-options (values t) (endpoint nil) (chunk-size nil) (syntax :sparql) labels-for explicit-literals &allow-other-keys &aux (command :select) count)
   (when chunk-size (return-from sparql (apply 'sparql-by-chunk query all)))
   (setq use-reasoner (or endpoint use-reasoner))
   (setq count (and (consp query)
@@ -192,13 +192,20 @@ labels-for: If the query is lisp form, transform the query so that the given bin
 						   (make-uri (or (get-uri jval)
 								 (format nil "~a~a" *blankprefix* (#"toString" jval))
 								 ))
-						   (let ((val (#"getValue" jval)))
-						     (if (java-object-p val) ;; handle a wierd case found in EquipmentOntology
-							 (if (and (jss::jtypep  val 'BaseDatatype$TypedValue)
-								  (equal (get-java-field val "datatypeURI") "http://www.w3.org/2000/01/rdf-schema#Literal"))
-							     (get-java-field val "lexicalValue")
-							     (error "Don't know what this sparql value is: ~a" val))
-							 val))))
+                                                   (if explicit-literals ;; don't convert to lisp values
+                                                       (progn
+                                                         `(:literal
+                                                           ,(#"getLexicalForm" jval)
+                                                           ,(make-uri (#"getDatatypeURI" jval))))
+						       (let ((val (#"getValue" jval)))
+						         (if (java-object-p val) ;; handle a wierd case found in EquipmentOntology
+							     (if (and (jss::jtypep  val 'BaseDatatype$TypedValue)
+								      (equal (get-java-field val "datatypeURI") "http://www.w3.org/2000/01/rdf-schema#Literal"))
+							         (get-java-field val "lexicalValue")
+                                                                 (progn `(:literal ,(get-java-field val "lexicalValue") ,(make-uri (get-java-field val "datatypeURI")))
+                                        ;(error "Don't know what this sparql value is: ~a" val)
+                                                                        ))
+							     val)))))
 				    collect val)))
 			    (when do-trace
 			      (format t "~{~s~^	~}~%" bindings))
