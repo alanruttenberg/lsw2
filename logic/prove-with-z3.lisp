@@ -203,6 +203,11 @@
  
 (defvar *z3-model-symbol-package* (make-package "Z3Z3" :use '(cl)))
 
+;; 2022-09-18 20:33:02 alanr
+;; (z3-find-model '((:and (:not (:= c1 p1)) (:not (:= c1 t1)) (:not (:= p1 t1))) :dr-pi :dr-po :dr-pow :disjoint-cover :part-of-while-operating :trans-part-of (:fact (part-of c1 c1 t1))))
+;; has one of the values = '(- 1)
+;; hack to replace '(- 1) with -1 
+
 (defun transform-z3-model (z3-output)
   (if (equal z3-output "") 
       z3-output
@@ -223,15 +228,21 @@
 	  (if (not model)
 	      z3-output
 	      (let ((ints (let ((them nil))
-			    (subst-if :int (lambda(e) (if (integerp e) (pushnew e them))) model)
+			    (subst-if :int (lambda(e) (if (integerp e)
+                                                          (pushnew e them)
+                                                          (if (and (consp e) (eq (car e) '-) (integerp (second e)))
+                                                              (pushnew (- (second e)) them))
+                                                                   
+                                                          )()) model)
 			    them)))
 		(loop for form  in (cdr model)
 		      do
 			 (if (equal (string (car form)) "define-fun")
 			     (destructuring-bind (name args type . body) (cdr form)
+                               (if (and (consp (car body)) (eq (caar body) '-)) (setf (car body) (- (second (car body)))))
 			       (cond ((null args)
 				      (unless (find #\! (string name))
-					 (push  (z3-model-symbol name) (gethash (car body) named))))
+					(push  (z3-model-symbol name) (gethash (car body) named))))
 				     ((and (equal (string type) "Bool")
 					   (not (find #\! (string name))))
 				      (push (list (z3-model-symbol name) (length args)) relations)
@@ -242,7 +253,10 @@
 					 (or (intern "or"  *z3-model-symbol-package*))
 					 (not (intern "not"  *z3-model-symbol-package*))
 					 (lets (intern "let" *z3-model-symbol-package*)))
-				     (push `(,name ,(mapcar 'car args) ,@(subst 'let lets (subst 'or  or (subst 'not not (subst 'and  and (subst 'if ite body)))))) forms)
+				     (push `(,name ,(mapcar 'car args) ,@(tree-replace (lambda(x) (if (and (consp x) (eq (car x) '-))
+                                                                                                      (- (second x))
+                                                                                                      x))
+                                                                                       (subst 'let lets (subst 'or  or (subst 'not not (subst 'and  and (subst 'if ite body))))))) forms)
 				     )))))
 		(loop for el in (set-difference ints (alexandria::hash-table-keys named))
 		      with count = 0
