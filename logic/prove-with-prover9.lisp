@@ -120,7 +120,7 @@
 				    (ecase which
 				      (:mace4
 				       (let ((model (make-instance 'mace4-model :raw-form output)))
-					 (if (search "interpretation" output)
+					 (if (search "interpretation(" output)
 					     (cook-mace4-output output interpformat model)
 					     (values))))
 				      (:prover9 output))))
@@ -187,7 +187,7 @@
 					  matched ))
 		    )
 		  ;; replace the numbers for universals and constants with their name
-		  (let* ((final (#"replaceAll" (replace-all reduced "(?s)(\\d+)" (lambda(num) (car (find num matched :test 'equalp :key 'second))) 1)  "(?m)^\\s*$" ""))
+		  (let* ((final (#"replaceAll" (replace-all reduced "(?s)(\\d+)" (lambda(num) (or (car (find num matched :test 'equalp :key 'second)) num)) 1)  "(?m)^\\s*$" ""))
 			 (sexp (baked-to-sexp final)))
 		    (setf (tuples model) sexp))
 		  model
