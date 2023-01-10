@@ -89,8 +89,14 @@ digraph {
   ((model-seed :accessor model-seed :initarg :model-seed :initform nil)))
 
 (defmethod pprint-model ((m tuple-model) &optional (tuples (tuples m)))
-  (loop for form in tuples
-	do (let ((*print-case* :downcase)) (format t "~a~%" form))))
+  (if (eq (tuples m) :nil)
+      "WTF tuples=:nil"
+      (loop for form in tuples
+	    do (let ((*print-case* :downcase)) (format t "~a~%" form)))))
+
+(defmethod pprint-model ((n t)  &optional tuples)
+  (declare (ignore n tuples))
+  )
 
 (defmethod sort-model-alphabetically ((m tuple-model) &optional (tuples (tuples m)))
   (sort (copy-list tuples) 'string-lessp :key 'prin1-to-string))
@@ -135,11 +141,13 @@ digraph {
   (remove-duplicates (mapcar 'car (tuples m))))
 
 (defmethod print-object ((m tuple-model) stream)
+  (if (eq (tuples m) :nil)
+      (format stream "#<wtf tuples=:nil>")
   (print-unreadable-object (m stream :type t :identity nil)
     (format stream "domain size ~a, ~a predicates, ~a tuples"
 	    (model-domain-size m)
 	    (length (model-predicates m))
-	    (length (tuples m)))))
+	    (length (tuples m))))))
 
 (defun find-model (with spec &rest keys)
   (let ((model
