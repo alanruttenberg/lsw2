@@ -15,6 +15,7 @@
    (uri2label :initarg :uri2label :initform nil :accessor uri2label)
    (ignore-obsolete :initarg :ignore-obsolete :initform t :accessor ignore-obsolete)
    (label-annotation-properties :initarg :label-annotation-properties :initform (list !rdfs:label !foaf:name !swan:title) :accessor label-annotation-properties) ; initform is for backwards compatibility
+   (include-imports-closure :initarg :include-imports-closure :initform nil :accessor include-imports-closure)
    ))
 
 ;; two uses
@@ -24,6 +25,7 @@
 (defclass careful-label-source (label-source) ())
 
 (defmethod initialize-instance ((ls label-source) &rest ignore)
+  (declare (ignore ignore))
   (call-next-method)
   (let ((label2uri (make-hash-table :test 'equal)) ; string key
 	(uri2label (make-hash-table :test 'eq)))   ; URIs are interned
@@ -38,13 +40,14 @@
 	   (each-entity-label
 	    kb (label-annotation-properties ls)
 	    (lambda(uri prop label)
+              (declare (ignore prop))
 	      (pushnew uri (gethash label label2uri))
 	      (pushnew label (gethash uri uri2label) :test 'equal)
-	      ))
+	      ) (include-imports-closure ls))
 	   (setf (label2uri ls) label2uri)
 	   (setf (uri2label ls) uri2label)
 	   (postprocess ls)))
-    (register-self ls)))
+    (when (key ls) (register-self ls))))
 
 ;; for careful label sources what we care about are uri to label is 1:many as long as label to uri is 1:1 
 (defmethod postprocess ((ls careful-label-source))
@@ -97,22 +100,25 @@
 (defun all-label-sources () (key2instance (mop:class-prototype (find-class 'label-source))))
 	     
 ;; meant to be fast. <5 seconds for a label across snomed
-(defun each-entity-label (kb label-properties fn)
+;; Slower if include-imports-closure is t since we recompute uri2label
+(defun each-entity-label (kb label-properties fn &optional include-imports-closure)
   (unless (consp label-properties) (setq label-properties (list label-properties)))
   (let ((props (mapcar (lambda(p) (#"getOWLAnnotationProperty" (v3kb-datafactory kb) (to-iri p))) label-properties)))
     (with-constant-signature ((iterator "iterator" t) (hasnext "hasNext") (next "next") (getvalue "getValue"))
       (maphash (lambda(uri entry)
 		 (declare (optimize (speed 3) (safety 0)))
 		 (loop for (entity nil eont) in entry
-		    do   
-		      (loop for prop in props for propuri in label-properties
-			   do
-			   (loop with iterator = (iterator (#0"getAnnotations" 'EntitySearcher entity eont prop))
-			      while (hasNext iterator)
-			      for item = (next iterator)
-			      do (funcall fn uri propuri (#"getLiteral" (getvalue item)))))))
-	       (v3kb-uri2entity kb)))))
-  
+		       do   
+		          (loop for prop in props for propuri in label-properties
+			        do
+			           (loop with iterator = (iterator (#0"getAnnotations" 'EntitySearcher entity eont prop))
+			                 while (hasNext iterator)
+			                 for item = (next iterator)
+			                 do (funcall fn uri propuri (#"getLiteral" (getvalue item)))))))
+	       (if include-imports-closure
+                   (compute-uri2entity kb t)
+                   (v3kb-uri2entity kb))))))
+
 (defmethod label-from-uri ((source symbol) uri)
   (label-from-uri (cdr (assoc source (key2instance (mop:class-prototype (find-class 'label-source))))) uri))
 
