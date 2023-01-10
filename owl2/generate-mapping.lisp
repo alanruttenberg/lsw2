@@ -122,7 +122,14 @@
     (progv (if zero-blankcounter (list '*blankcounter*)) (if zero-blankcounter (list 0))
       (loop for a in (if (consp (car input)) input (list input))
             do (t (unblank-individuals (eval-uri-reader-macro a)))
-      (values)))))
+               (values)))))
+
+;; Take a set of assertions and return a list of triples
+
+(defun to-triples (assertions &aux them)
+  (t-map  (eval-uri-reader-macro `(ontology !f ,@(eval-uri-reader-macro assertions)))
+          (lambda(x) (push x them)))
+  (cdr (nreverse them)))
 
 
 (defun t-jena (input &rest prefixes)
