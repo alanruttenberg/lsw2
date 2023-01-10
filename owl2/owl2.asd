@@ -73,6 +73,7 @@
 	     (:file "describe")
 	     (:file "logger-control")
              (:org "owldoc")
+             (:file "add-label-comments-to-owl-file")
 	     )
 	    :depends-on (matcher basics mapping syntax)
 	    )

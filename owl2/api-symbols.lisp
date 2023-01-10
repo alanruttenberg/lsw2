@@ -319,7 +319,12 @@
    #:t
    #:t-jena
    #:t-collect
+   #:t-map
+   #:to-triples
+   ;; add-rdfxml-label-comments
+   #:add-rdfxml-label-comments
    ))
 
-(do-symbols (s 'lsw2) (export s 'lsw2))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (do-symbols (s 'lsw2) (export s 'lsw2)))
 
