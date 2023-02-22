@@ -98,7 +98,7 @@
 ;  (set-java-field 'ManchesterOWLSyntaxEditorParser "includeDublinCoreEvenThoughNotInSpec" nil)
   (if (uri-p source) (setq source (uri-full source)))
   (if (ignore-errors (uiop/pathname:logical-pathname-p (pathname source))) (setq source (namestring (translate-logical-pathname source))))
-  (setq source (#"replaceFirst" source "file:/*(/.*)"  "$1"))
+  (when (stringp source) (setq source (#"replaceFirst" source "file:/*(/.*)"  "$1")))
   (#"setProperty" 'system "jdk.xml.entityExpansionLimit" "100000000")
   (#"setProperty" 'system "entityExpansionLimit" "100000000") ; avoid low limit as we are not worried about security
   (when (boundp '*factpp-natives*)
