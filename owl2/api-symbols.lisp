@@ -323,7 +323,25 @@
    #:to-triples
    ;; add-rdfxml-label-comments
    #:add-rdfxml-label-comments
+   ;; keyword-iri.org
+   #:iri-counter
+   #:iri-prefix
+   #:iri-abbreviations
+   #:reset-iri-counters
+   #:fresh-instance-iri
+   #:register-term-nickname
+   #:abbreviation-iri
+   #:replace-iri-abbreviations
+   #:prefixes-for-abbreviations
+   #:get-used-prefixes
+   #:sparql-string
+   #:keyword-iris
+   #:allow-unknown-namespaces
+   #:iri-prefix
    ))
+
+(do-symbols (s (find-package :lsw2))
+  (ignore-errors (export s)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (do-symbols (s 'lsw2) (export s 'lsw2)))

@@ -1,0 +1,168 @@
+# -*- Mode: POLY-ORG;  -*- ---
+#+PROPERTY: literate-lang lisp
+#+PROPERTY: literate-load yes
+#+OPTIONS: html-postamble:nil
+#+OPTIONS: ^:nil
+
+#+Author: Alan Ruttenberg
+#+Title: Keyword-IRIs
+
+#+begin_src lisp
+(in-package :cl-user)
+#+end_src
+
+* Keyword IRIs
+
+This class is intended as a mixin, and provides a facility to name IRIs
+by keywords, transform triples using them by replacing the the keywords
+with the IRIs and collecting prefixes needed for a SPARQL query.
+
+If the SPARQL functions are used then the class mixing this in should have
+a slot repo. The value can either be a string, in which 
+
+The slots are:
+
+- iri-counter :: Allocation of IRIs is via a UUID followed by an incrementing counter.
+  This stores the counter. 
+- iri-prefix :: Prefix of allocated IRIs, e.g. "demo:"
+- iri-abbreviations :: We use keywords for IRIs, to make them easier to
+  work with. Call register-term-nickname to add a translation from a
+  keyword to the set. Call define-abbreviations for the initial set, which
+  can be later added to.
+- label-source :: When defining the keywords, if there's a label source
+  you can give the label instead of the IRI and it will look up the IRI.
+- repo :: If SPARQL queries are to be done either a string, in which
+  case an endpoint query is done, a kb in which the usual sparql method
+  is called or a graphdb repository, which which case the sparql-query
+  method on it is called. repo can also just be a method rather than a slot.
+
+#+begin_src lisp
+(defclass keyword-iris ()
+  ((iri-counter :accessor iri-counter :initform 0 :initarg :iri-counter)
+   (iri-prefix :accessor iri-prefix :initarg :iri-prefix :initform nil)
+   (iri-abbreviations :accessor iri-abbreviations :initform nil)
+   (label-source :accessor label-source :initarg :label-source :allocation :class)
+   (allow-unknown-namespaces :initarg :allow-unknown-namespaces :initform nil :accessor allow-unknown-namespaces)
+   ))
+
+#+end_src
+
+** Allocate IRIs
+
+Assume the prefix is unique so we only need a counter in addition to create a fresh IRI
+
+~reset-iri-counter~ resets the counter back to 0. Useful if you are
+doing a number of repeats of triple generation and you don't want the
+counter to keep growing.
+
+#+begin_src lisp 
+(defmethod reset-iri-counter ((tr keyword-iris))
+  (setf (id-counter tr) 0))
+#+end_src
+
+~fresh-instance-iri~ allocates a new IRI 
+
+#+begin_src lisp
+(defmethod fresh-instance-iri ((tr keyword-iris))
+  (threads:synchronized-on
+   tr
+   (let ((*allow-unknown-namespaces* (allow-unknown-namespaces tr)))
+     (make-uri-base-relative (format nil "~x" (incf (iri-counter tr))) (iri-prefix tr)))))
+#+end_src
+
+** Let us use keywords for IRIs
+
+Register a new keyword. Lookup labels from label source we create. Kind is optional,
+mostly to jog memory. Use :property, :individual, :class 
+   
+#+begin_src lisp
+(defmethod register-term-nickname ((tr keyword-iris) keyword iri-or-label kind)
+  (let ((iri (if (stringp iri-or-label)
+                 (make-uri-from-label-source (label-source tr) iri-or-label)
+                 (if (consp iri-or-label)
+                     (eval iri-or-label)
+                     iri-or-label))))
+    (pushnew (list keyword IRI kind) (iri-abbreviations tr) :key 'car)
+    iri))
+#+end_src
+
+Given keyword, return IRI
+
+#+begin_src lisp 
+(defmethod abbreviation-iri ((tr keyword-iris) what)
+  (second (assoc what (iri-abbreviations tr))))
+
+#+end_src
+
+** Translate the keyword abbreviations in a form to IRIs
+
+Takes any form  - assertions, triples, or body of a sparql query and replaces the keywords
+that define IRIs with the IRIs.
+
+#+begin_src lisp
+(defmethod replace-iri-abbreviations ((tr keyword-iris) axioms)
+  (eval-uri-reader-macro (tree-replace (lambda(el) (if (keywordp el) (or (abbreviation-iri tr el) el) el)) axioms)))
+#+end_src
+
+** Define sparql-query that uses our abbreviations as prefixes
+
+The SPARQL query will use prefixes based on the labels in the body, in order to make the
+query easier to read.
+
+Write a string with prefix definitions. If which is supplied only those prefixes in which.   
+
+#+begin_src lisp
+(defmethod prefixes-for-abbreviations ((tr keyword-iris) &optional which)
+  (with-output-to-string (s)
+    (loop for (ab  class) in (iri-abbreviations tr)
+          when (or (null which) (member ab which))
+            do (format s "PREFIX ~a: <~a>~%" (substitute #\_ #\- (string-downcase (string ab)))
+                       (uri-full (eval-uri-reader-macro class))))))
+#+end_src
+
+Figure out which prefixes we are using in a query
+
+#+begin_src lisp
+(defmethod get-used-prefixes ((tr keyword-iris) query &aux them)
+  (let ((*allow-unknown-namespaces* t))
+    (tree-walk (eval-uri-reader-macro query)
+             (lambda(e)
+               (when (uri-p e)
+                 (when (#"matches" (uri-abbreviated e) ".*:$")
+                   (pushnew (intern (substitute #\- #\_ (string-upcase (subseq (uri-abbreviated e) 0 (- (length (uri-abbreviated e)) 1))))
+                                    'keyword)  them :test 'equalp))))))
+  them)
+#+end_src
+
+sparql-query method that adds our prefixes to the query
+
+#+begin_src lisp 
+(defmethod sparql-query ((tr keyword-iris) query &rest args &key labels-for &allow-other-keys)
+  (let ((cl-user::*allow-unknown-namespaces* t))
+    (let ((query 
+            (concatenate 'string (prefixes-for-abbreviations tr (get-used-prefixes tr query))
+                         (sparql-stringify query nil :labels-for labels-for))))
+      (cond ((stringp (repo tr))
+             (apply 'sparql-endpoint-query (repo tr) query args))
+            ((typep repo 'graphdb-repository)
+             (apply 'sparql-query (repo tr)  query args))
+            ((v3kb-p repo)
+             (apply 'sparql query args))
+            (t (error "don't know how to do a sparql query against ~a" (repo tr))))
+      )))
+#+end_src
+
+#+begin_src lisp
+(defmethod sparql-string ((tr keyword-iris) query &key labels-for &allow-other-keys)
+  (let ((cl-user::*allow-unknown-namespaces* t))
+    (concatenate 'string (prefixes-for-abbreviations tr (get-used-prefixes tr query))
+                 (sparql-stringify query nil :labels-for labels-for))))
+#+end_src
+
+** Helper to generate UUIDs 
+
+#+begin_src lisp
+(defun uuid ()
+  (#"toString" (#"randomUUID" 'util.uuid)))
+#+end_src
+

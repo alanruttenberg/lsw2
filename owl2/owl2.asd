@@ -82,7 +82,8 @@
                  (:file "annotation-property-query")
 		 (:file "sparql")
 		 (:file "sparql-owlbgp")
-		 (:file "sparql-twerpish"))
+		 (:file "sparql-twerpish")
+                 (:org "keyword-iris"))
     :depends-on ("main"))
    (:module api :pathname ""
     :components
