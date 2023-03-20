@@ -2,6 +2,7 @@
 (setq *rules* nil)
 
 (defun add-rule (pattern action)
+  (setq *rules* (delete pattern *rules* :key 'car :test 'equalp))
   (setq *rules* (append *rules* (list (cons pattern action)))))
 
 (add-rule
@@ -155,6 +156,12 @@
                    #'cddr
                with blanks
                for blank = (fresh-blank)
+               do (setq facet (case facet ;; allow abbreviations for some facet names
+                                (.<= !xsd:maxInclusive)
+                                (.>= !xsd:minInclusive)
+                                (.> !xsd:minExclusive)
+                                (.< !xsd:maxExclusive)
+                                (otherwise facet)))
                do (triple blank facet value)
                   (push blank blanks)
                finally (triple (:blank ?x)
