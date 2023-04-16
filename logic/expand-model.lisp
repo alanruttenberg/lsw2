@@ -101,7 +101,7 @@
 ;; ran generate rules for all of BFO+Allen relations. Default DNF filter is :no-mixed.
 ;; Removing all DNF filters found 6 more axioms. Changing quantifier
 ;; strategy to :replace-existentials from :keep-skolems made no
-;; difference.
+;; difference. Changing the z3 timeout from 2 to 10 didn't make a difference.
 
 
 ;; rewrite formula so that nested quantifed variables don't share names e.g. 
