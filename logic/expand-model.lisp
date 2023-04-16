@@ -78,7 +78,7 @@
 ;;  :no-mixed - only pure positive and pure negative clauses  [default]
 :;  :no-skolem-head - don't use if there's a skolem in any positive - might be ok if bound. 
 ;;  :only-one-positive - only one set of positives. 
-;;  :single-negative - only one positive in the positive set. If not a separate rule is made for each positive.
+;;  :single-positive - only one positive in the positive set. If not a separate rule is made for each positive.
 ;;  :single-negative - only one negative in each negative set. If not, use all possible combinations of negatives
 
 ;; quantifier strategy is one of
@@ -97,6 +97,11 @@
 ;; contain bottom or complementary literals, then no model exists. Otherwise, the
 ;; formula is satisfiable.
 
+;; 2023-04-15 20:10:17 alanr
+;; ran generate rules for all of BFO+Allen relations. Default DNF filter is :no-mixed.
+;; Removing all DNF filters found 6 more axioms. Changing quantifier
+;; strategy to :replace-existentials from :keep-skolems made no
+;; difference.
 
 
 ;; rewrite formula so that nested quantifed variables don't share names e.g. 
@@ -247,13 +252,16 @@
        (rewrite-standardizing-apart
 	formula))))
     (:replace-existentials
-     (strip-quantifiers
-      (tree-replace (lambda(e)
-		      (if (and (consp e) (eq (car e) :exists))
-			  `(:not (:forall ,(second e) (:not ,(third e))))
-			  e))  
-		    (rewrite-standardizing-apart
-		     formula))))))
+     (labels ((rewrite (formula)
+                (tree-replace (lambda(e)
+		                (if (and (consp e) (eq (car e) :exists))
+			            `(:not (:forall ,(second e) (:not ,(rewrite (third e)))))
+			            e))  
+		              formula)))
+       (strip-quantifiers
+        (tree-replace #'rewrite  
+		      (rewrite-standardizing-apart
+		       formula)))))))
 
 ;; strategies is a list of any number of :no-mixed, :no-skolem-head, :only-one-positive, :single-negative, :single-negative
 ;; dnf is the disjunctive normal form
@@ -332,10 +340,14 @@
 ;; 
 ;; Output is a list of (label (:implies (:and (f ?x ...) ...) (g ?x ..)))
 
+(defvar *debug-generate* nil)
+(defvar *rule-proof-attempts-counter* 0)
+
 (defun generate-rules (&key (alternatives-strategy '(:head-variables-bound))
 			 (quantifier-strategy :keep-skolems)
 			 (dnf-filters '(:no-mixed))
-			 check-with-reasoner theory check)
+			 check-with-reasoner theory check (parallel (if *debug-generate* nil t)))
+  (setq *rule-proof-attempts-counter* 0)
   (let* ((raw-candidates
 	   (loop for ax in (collect-axioms-from-spec check)
 		 append 
@@ -358,9 +370,11 @@
     (setq candidates-fol (remove-duplicates (mapcar 'canonicalize-rule candidates-fol) :test 'equalp :key 'second))
     (if (not check-with-reasoner)
 	(mapcar (lambda(e) (list (car e) (third (second e)))) candidates-fol)
-	(lparallel::pmapcan (lambda(rule)
-			      (if (eq :proved (z3-prove theory (second rule) :timeout (if (numberp check-with-reasoner) check-with-reasoner 2)))
-				  (list (list (first rule) (third (second rule))))))
+	(funcall (if parallel 'lparallel::pmapcan 'mapcan)
+                 (lambda(rule)
+                   (incf *rule-proof-attempts-counter*)
+		   (if (eq :proved (z3-prove theory (second rule) :timeout (if (numberp check-with-reasoner) check-with-reasoner 2)))
+		       (list (list (first rule) (third (second rule))))))
 			    candidates-fol))))
 
 
@@ -369,7 +383,7 @@
 ;; When same sort by number of head variables used
 ;; When same sort printstring
 ;; Still ways too fool it, but reduces 272 generated rules to 236
-(defun canonicalize-rule (rule)
+q(defun canonicalize-rule (rule)
   (destructuring-bind (name (forall vars (implies (and . clauses) head))) rule
     (declare (ignore vars ))
     (assert (and (eq and :and)
@@ -480,16 +494,16 @@
     (setq *last-expanded-model* props)))
 
 
-(defun compute-rules (spec &optional for-formula)
+(defun compute-rules (spec &optional for-formula &rest args)
   (multiple-value-bind (binaries ternaries) (inverses-from-spec spec)
   (let ((theory  (rewrite-inverses  spec 
 				    :binary-inverses binaries
 				    :ternary-inverses ternaries :copy-names? t)))
-    (generate-rules 
+    (apply 'generate-rules 
      :theory theory :check (if for-formula (list (if (keywordp for-formula)
 						     for-formula
 						     (axiom-name for-formula))) theory)
-     :check-with-reasoner t))))
+     :check-with-reasoner t args))))
 
 (defun rules-for-axiom (axiom background-theory)
   (multiple-value-bind (binaries ternaries) (inverses-from-spec background-theory)
@@ -524,7 +538,7 @@
 ;;  If yes, then collect axioms and compare to cached using set-equality. If same then don't need to recompute
 ;;  If no, then update spec->axioms and  update axioms -> rules. The old rules should fall off on next GC.
 
-(defun rules-for-spec (spec)
+(defun rules-for-spec (spec &rest args)
   (let ((already (gethash spec *spec->collected-axioms-cache*))
 	(collected (mapcar 'axiom-sexp (collect-axioms-from-spec spec))))
     (if (and already
@@ -538,7 +552,7 @@
 	(prog1
 	  (or (gethash collected *collected-axioms->computed-rules-cache*)
 	      (setf (gethash collected *collected-axioms->computed-rules-cache*)
-		    (or (compute-rules spec) :none)))
+		    (or (apply 'compute-rules spec nil args) :none)))
 	  ;; only set this *after* compute rules is successful, otherwise if there's an error the cache can be stale NOPE doesn't help
 	  (setf (gethash spec *spec->collected-axioms-cache*) collected)))))
 
