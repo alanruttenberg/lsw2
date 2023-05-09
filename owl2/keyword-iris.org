@@ -36,10 +36,18 @@ The slots are:
   is called or a graphdb repository, which which case the sparql-query
   method on it is called. repo can also just be a method rather than a slot.
 
+The main methods are
+- fresh-instance-iri: returns an IRI that hasn't been used yet
+- register-term-nickname: associates a keyword with an IRI
+- sparql-query: Runs a query against repo. Query may use nicknames. 
+- sparql-string: Renders a (lispy) sparql query to a proper SPARQL string.
+  
 #+begin_src lisp
+
+(defparameter *iri-counter* 0)
+  
 (defclass keyword-iris ()
-  ((iri-counter :accessor iri-counter :initform 0 :initarg :iri-counter)
-   (iri-prefix :accessor iri-prefix :initarg :iri-prefix :initform nil)
+  ((iri-prefix :accessor iri-prefix :initarg :iri-prefix :initform nil)
    (iri-abbreviations :accessor iri-abbreviations :initform nil)
    (label-source :accessor label-source :initarg :label-source :allocation :class)
    (allow-unknown-namespaces :initarg :allow-unknown-namespaces :initform nil :accessor allow-unknown-namespaces)
@@ -56,18 +64,19 @@ doing a number of repeats of triple generation and you don't want the
 counter to keep growing.
 
 #+begin_src lisp 
-(defmethod reset-iri-counter ((tr keyword-iris))
-  (setf (id-counter tr) 0))
+(defmethod reset-iri-counter ((kwiri keyword-iris))
+  (setq *iri-counter* 0))
 #+end_src
 
 ~fresh-instance-iri~ allocates a new IRI 
 
 #+begin_src lisp
-(defmethod fresh-instance-iri ((tr keyword-iris))
+(defmethod fresh-instance-iri ((kwiri keyword-iris))
   (threads:synchronized-on
-   tr
-   (let ((*allow-unknown-namespaces* (allow-unknown-namespaces tr)))
-     (make-uri-base-relative (format nil "~x" (incf (iri-counter tr))) (iri-prefix tr)))))
+   kwiri
+   (let ((*allow-unknown-namespaces* (allow-unknown-namespaces kwiri)))
+     (incf *iri-counter*)
+     (make-uri-base-relative (format nil "~x" *iri-counter*) (iri-prefix kwiri)))))
 #+end_src
 
 ** Let us use keywords for IRIs
@@ -76,21 +85,21 @@ Register a new keyword. Lookup labels from label source we create. Kind is optio
 mostly to jog memory. Use :property, :individual, :class 
    
 #+begin_src lisp
-(defmethod register-term-nickname ((tr keyword-iris) keyword iri-or-label kind)
+(defmethod register-term-nickname ((kwiri keyword-iris) keyword iri-or-label kind)
   (let ((iri (if (stringp iri-or-label)
-                 (make-uri-from-label-source (label-source tr) iri-or-label)
+                 (make-uri-from-label-source (label-source kwiri) iri-or-label)
                  (if (consp iri-or-label)
                      (eval iri-or-label)
                      iri-or-label))))
-    (pushnew (list keyword IRI kind) (iri-abbreviations tr) :key 'car)
+    (pushnew (list keyword IRI kind) (iri-abbreviations kwiri) :key 'car)
     iri))
 #+end_src
 
 Given keyword, return IRI
 
 #+begin_src lisp 
-(defmethod abbreviation-iri ((tr keyword-iris) what)
-  (second (assoc what (iri-abbreviations tr))))
+(defmethod abbreviation-iri ((kwiri keyword-iris) what)
+  (second (assoc what (iri-abbreviations kwiri))))
 
 #+end_src
 
@@ -100,8 +109,8 @@ Takes any form  - assertions, triples, or body of a sparql query and replaces th
 that define IRIs with the IRIs.
 
 #+begin_src lisp
-(defmethod replace-iri-abbreviations ((tr keyword-iris) axioms)
-  (eval-uri-reader-macro (tree-replace (lambda(el) (if (keywordp el) (or (abbreviation-iri tr el) el) el)) axioms)))
+(defmethod replace-iri-abbreviations ((kwiri keyword-iris) axioms)
+  (eval-uri-reader-macro (tree-replace (lambda(el) (if (keywordp el) (or (abbreviation-iri kwiri el) el) el)) axioms)))
 #+end_src
 
 ** Define sparql-query that uses our abbreviations as prefixes
@@ -112,9 +121,9 @@ query easier to read.
 Write a string with prefix definitions. If which is supplied only those prefixes in which.   
 
 #+begin_src lisp
-(defmethod prefixes-for-abbreviations ((tr keyword-iris) &optional which)
+(defmethod prefixes-for-abbreviations ((kwiri keyword-iris) &optional which)
   (with-output-to-string (s)
-    (loop for (ab  class) in (iri-abbreviations tr)
+    (loop for (ab  class) in (iri-abbreviations kwiri)
           when (or (null which) (member ab which))
             do (format s "PREFIX ~a: <~a>~%" (substitute #\_ #\- (string-downcase (string ab)))
                        (uri-full (eval-uri-reader-macro class))))))
@@ -123,7 +132,7 @@ Write a string with prefix definitions. If which is supplied only those prefixes
 Figure out which prefixes we are using in a query
 
 #+begin_src lisp
-(defmethod get-used-prefixes ((tr keyword-iris) query &aux them)
+(defmethod get-used-prefixes ((kwiri keyword-iris) query &aux them)
   (let ((*allow-unknown-namespaces* t))
     (tree-walk (eval-uri-reader-macro query)
              (lambda(e)
@@ -134,30 +143,52 @@ Figure out which prefixes we are using in a query
   them)
 #+end_src
 
-sparql-query method that adds our prefixes to the query
-
-#+begin_src lisp 
-(defmethod sparql-query ((tr keyword-iris) query &rest args &key labels-for &allow-other-keys)
-  (let ((cl-user::*allow-unknown-namespaces* t))
-    (let ((query 
-            (concatenate 'string (prefixes-for-abbreviations tr (get-used-prefixes tr query))
-                         (sparql-stringify query nil :labels-for labels-for))))
-      (cond ((stringp (repo tr))
-             (apply 'sparql-endpoint-query (repo tr) query args))
-            ((typep repo 'graphdb-repository)
-             (apply 'sparql-query (repo tr)  query args))
-            ((v3kb-p repo)
-             (apply 'sparql query args))
-            (t (error "don't know how to do a sparql query against ~a" (repo tr))))
-      )))
-#+end_src
+Helper methods that translates use of keywords in the queries into prefix uris.
 
 #+begin_src lisp
-(defmethod sparql-string ((tr keyword-iris) query &key labels-for &allow-other-keys)
+(defmethod replace-keywords-with-prefixes ((kwiri keyword-iris) query)
+  (list* (car query) (second query)
+         (tree-replace (lambda(x)
+                         (if (keywordp x)
+                             (let ((*allow-unknown-namespaces* t))
+                               (make-uri nil (concatenate 'string (substitute #\_ #\- (string-downcase (string x))) ":")))
+                             x))
+                       (cddr query))))
+#+end_src
+
+
+** sparql-query 
+
+sparql-query method that adds our prefixes to the query. Accepts either prefix versions of the query e.g.
+!foo_bar: for or keywords directly e.g. :foo-bar
+
+#+begin_src lisp 
+(defmethod sparql-query ((kwiri keyword-iris) query &rest args &key labels-for &allow-other-keys)
   (let ((cl-user::*allow-unknown-namespaces* t))
-    (concatenate 'string (prefixes-for-abbreviations tr (get-used-prefixes tr query))
+    (setq query (replace-keywords-with-prefixes kwiri query))
+    (setq query
+          (concatenate 'string (prefixes-for-abbreviations kwiri (get-used-prefixes kwiri query))
+                       (sparql-stringify query nil :labels-for labels-for)))
+    (let ((queryfn (if (find :format args) 'sparql-endpoint-query 'sparql)))
+      (cond ((stringp (repo kwiri))
+             (apply queryfn (repo kwiri) query args))
+            ((or (typep (repo kwiri) 'graphdb-repository) (typep (repo kwiri) 'graphdb9-repository))
+             (apply queryfn (query-endpoint (repo kwiri))  query args))
+            ((v3kb-p (repo kwiri))
+             (apply 'sparql query args))
+            (t (error "don't know how to do a sparql query against ~a" (repo kwiri)))))))
+#+end_src
+
+** sparql-string
+
+#+begin_src lisp
+(defmethod sparql-string ((kwiri keyword-iris) query &key labels-for &allow-other-keys)
+  (let ((*allow-unknown-namespaces* t)
+        (query (replace-keywords-with-prefixes kwiri query)))
+    (concatenate 'string (prefixes-for-abbreviations kwiri (get-used-prefixes kwiri query))
                  (sparql-stringify query nil :labels-for labels-for))))
 #+end_src
+
 
 ** Helper to generate UUIDs 
 
