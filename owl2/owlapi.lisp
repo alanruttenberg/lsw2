@@ -93,9 +93,9 @@
 ;;     (declaration (named-individual !foo)))
 ;; Anything you get back from (owl-to-lisp-syntax ont) should work here, modulo bugs
 
-(defun load-ontology (source &key name reasoner (silent-missing t) mapper (cache t))
-;  (set-java-field 'OWLRDFConsumer "includeDublinCoreEvenThoughNotInSpec" nil)
-;  (set-java-field 'ManchesterOWLSyntaxEditorParser "includeDublinCoreEvenThoughNotInSpec" nil)
+(defun load-ontology (source &key name reasoner silent-missing mapper (cache t) (configuration nil))
+  ;; (set-java-field 'OWLRDFConsumer "includeDublinCoreEvenThoughNotInSpec" nil)
+  ;;  (set-java-field 'ManchesterOWLSyntaxEditorParser "includeDublinCoreEvenThoughNotInSpec" nil)
   (if (uri-p source) (setq source (uri-full source)))
   (if (ignore-errors (uiop/pathname:logical-pathname-p (pathname source))) (setq source (namestring (translate-logical-pathname source))))
   (when (stringp source) (setq source (#"replaceFirst" source "file:/*(/.*)"  "$1")))
@@ -109,43 +109,44 @@
     (when (or (stringp source) (uri-p source) )
       (setq uri source)
       (when (and (not (consp (pathname-host uri))) (probe-file uri))
-	(let ((dir (make-pathname :directory (pathname-directory uri))))
-	  (unless mapper (setq mapper (uri-mapper-for-source source)))
-	  ;(setq uri (format nil "file://~a" (truename uri)))
-	  ;(list (length (set-to-list (#"getOntologyIRIs" mapper))) uri)
-	  )))
-    (let* ((manager (#"createOWLOntologyManager" 'org.semanticweb.owlapi.apibinding.OWLManager)))
-;      (#"setSilentMissingImportsHandling" manager silent-missing)
+	(unless mapper (setq mapper (uri-mapper-for-source source)))
+	))
+    (let* ((manager (#"createOWLOntologyManager" 'org.semanticweb.owlapi.apibinding.OWLManager))
+           (load-configuration (or configuration (new 'owlontologyloaderconfiguration))))
+      (when silent-missing
+        (#"setMissingImportHandlingStrategy" load-configuration (#"valueOf" 'MissingImportHandlingStrategy "SILENT")))
       (and mapper (#"addIRIMapper" manager mapper))
-      (let ((ont
-	      (if uri
-		  (if  (null (pathname-host uri))
-		       (#"loadOntologyFromOntologyDocument" manager (to-iri uri))
-		       (if (and *use-cache-aware-load-ontology* cache)
-			   (progn
-			     (cache-ontology-and-imports uri)
-			     (multiple-value-bind (dir ont headers-file) (ontology-cache-location uri)
-			       (#"loadOntologyFromOntologyDocument" manager (to-iri (namestring ont)))))
-			   (#"loadOntologyFromOntologyDocument" manager (to-iri uri))))
-		 (#"loadOntologyFromOntologyDocument" manager (new 'java.io.ByteArrayInputStream
-								   (if (consp source)
-								       (if (keywordp (car source))
-                                                                           (#0"getBytes" (#0"toString" (second source)) "UTF-8")
-									   (let ((model (apply 't-jena (maybe-reorder-assertions source) nil)))
-									     (let ((sw (new 'java.io.StringWriter)))
-									       (setq *last-jena-model*  model)
-									       (#"write" model sw "RDF/XML" "urn:lsw:")
-									       (#0"getBytes" (#0"toString" sw) "UTF-8"))))
-								       (#0"toString" source))))
-		 )))
-	(let ((it (make-v3kb :name (or uri name) :manager manager :ont ont :datafactory (#"getOWLDataFactory" manager) :default-reasoner reasoner :mapper mapper)))
-	  (setf (v3kb-uri2entity it) (compute-uri2entity it))
-	  (and  (get-version-iri it)
-		(setf (gethash (get-ontology-iri it) *loaded-ontologies*) it))
-	  (and (get-ontology-iri it)
-	       (setf (gethash (get-version-iri it) *loaded-ontologies*) it))
-	  it
-	  )))))
+        (let ((ont
+	        (if uri
+		    (if  (null (pathname-host uri))
+		         (#"loadOntologyFromOntologyDocument" manager (new 'iridocumentsource (to-iri uri)) load-configuration)
+		         (if (and *use-cache-aware-load-ontology* cache)
+			     (progn
+			       (cache-ontology-and-imports uri)
+			       (multiple-value-bind (dir ont headers-file) (ontology-cache-location uri)
+			         (#"loadOntologyFromOntologyDocument" manager (new 'iridocumentsource (to-iri (namestring ont)) load-configuration))))
+			     (#"loadOntologyFromOntologyDocument" manager (new 'iridocumentsource (to-iri uri)) load-configuration)))
+		    (#"loadOntologyFromOntologyDocument" manager (new 'streamdocumentsource
+                                                                          (new 'java.io.ByteArrayInputStream
+								               (if (consp source)
+								                   (if (keywordp (car source))
+                                                                                       (#0"getBytes" (#0"toString" (second source)) "UTF-8")
+									               (let ((model (apply 't-jena (maybe-reorder-assertions source) nil)))
+									                 (let ((sw (new 'java.io.StringWriter)))
+									                   (setq *last-jena-model*  model)
+									                   (#"write" model sw "RDF/XML" "urn:lsw:")
+									                   (#0"getBytes" (#0"toString" sw) "UTF-8"))))
+								                   (#0"toString" source))))
+                                                         load-configuration))
+		))
+	  (let ((it (make-v3kb :name (or uri name) :manager manager :ont ont :datafactory (#"getOWLDataFactory" manager) :default-reasoner reasoner :mapper mapper)))
+	    (setf (v3kb-uri2entity it) (compute-uri2entity it))
+	    (and  (get-version-iri it)
+		  (setf (gethash (get-ontology-iri it) *loaded-ontologies*) it))
+	    (and (get-ontology-iri it)
+	         (setf (gethash (get-version-iri it) *loaded-ontologies*) it))
+	    it
+	    )))))
 
 ;; Sometimes there's a need to make a kb for an ontology in the imports closure, which isn't acquired by loadOntology
 (defun make-kb-from-java-object (ont &key name)
