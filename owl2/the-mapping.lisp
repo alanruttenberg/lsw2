@@ -31,7 +31,7 @@
 (defrdfm ontology
     (:pattern
      (ontology ?ontologyiri (??a ?versionuri)
-	       (?+ ?multiple-annotations/axioms))
+ 	       (?+ ?multiple-annotations/axioms))
      :case :subscript-free)
   (if (uri-p ?ontologyiri)
       (triple ?ontologyiri
@@ -516,3 +516,12 @@
 (defrdfm annotationpropertyrange 
     (:pattern (annotationpropertyrange ?annotation-property ?iri) :case :subscript-free)
   (triple (t ?annotation-property) !rdfs:range (t ?iri)))
+
+;; To inject explicit triples
+(defrdfm verbatim
+    (:pattern (verbatim (?+ ?multiple-triples)) :case :subscript-free)
+    (loop while ?multiple-triples
+          do (apply 'triple (pop ?multiple-triples))))
+
+
+

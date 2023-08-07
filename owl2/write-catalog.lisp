@@ -13,17 +13,20 @@
 
 ;; Create a subclass of ontology load configuration, defining the method
 ;; "isIgnoredImport" to return true all the
-;; time. *ignore-imports-load-configuation* is an instance of that class
+;; time. *ignore-imports-load-configuration* is an instance of that class
 
-(defparameter *ignore-imports-load-configuation*
-  (new (load-time-value (java:jnew-runtime-class
+(defvar *ignore-imports-load-configuration-class*
+   (java:jnew-runtime-class
    "IgnoreImportsOWLLoadedConfiguration"
    :methods (list
              (list "isIgnoredImport" :boolean '("org.semanticweb.owlapi.model.IRI")
                    (lambda (this iri) (declare (ignore this iri)) t)
                    )
              )
-   :superclass "org.semanticweb.owlapi.model.OWLOntologyLoaderConfiguration"))))
+   :superclass "org.semanticweb.owlapi.model.OWLOntologyLoaderConfiguration"))
+
+(defparameter *ignore-imports-load-configuration*
+  (new *ignore-imports-load-configuration-class*))
 
 ;; Return a list of lists of IRI and local path
 (defun directory-ontology-iris-and-paths (directory)
@@ -47,7 +50,7 @@
                     for path = (mapcar 'namestring onts)
                     append path)
               ;; load ontology but don't process imports
-            for ontology = (load-ontology ont-path :configuration *ignore-imports-load-configuation*)
+            for ontology = (load-ontology ont-path :configuration *ignore-imports-load-configuration*)
             for ontology-iri = (get-ontology-iri ontology)
             for version-iri = (get-version-iri ontology) 
             ;; collect a pair of the ontology iri (and version iri if
@@ -88,7 +91,7 @@
 
 
 
-; (#"isIgnoredImport"  *ignore-imports-load-configuation* (to-iri "http://example.com/"))
+; (#"isIgnoredImport"  *ignore-imports-load-configuration* (to-iri "http://example.com/"))
 
 
 

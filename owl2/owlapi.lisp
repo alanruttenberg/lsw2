@@ -21,6 +21,7 @@
   weakened-from ;; when creating a weakened kb, link to what it was weakened from
   default-reasoner ;; (:factpp :hermit :pellet) - can be overidden by an explicit call to check ontology or instantiate reasoner
   mapper 
+  source
   ;; for OWLBGP
   sparql-ontology-graph
   sparql-engine
@@ -93,9 +94,13 @@
 ;;     (declaration (named-individual !foo)))
 ;; Anything you get back from (owl-to-lisp-syntax ont) should work here, modulo bugs
 
-(defun load-ontology (source &key name reasoner silent-missing mapper (cache t) (configuration nil))
+(defun load-ontology (source &key name reasoner silent-missing mapper (cache t) 
+                               ignore-imports  
+                               (configuration (if ignore-imports *ignore-imports-load-configuation* nil) configuration-p))
   ;; (set-java-field 'OWLRDFConsumer "includeDublinCoreEvenThoughNotInSpec" nil)
   ;;  (set-java-field 'ManchesterOWLSyntaxEditorParser "includeDublinCoreEvenThoughNotInSpec" nil)
+  (when (and ignore-imports configuration-p configuration (not (#"isInstance" *ignore-imports-load-configuration-class* configuration)))
+      (error "Can't supply both configuration AND ignore-imports"))
   (if (uri-p source) (setq source (uri-full source)))
   (if (ignore-errors (uiop/pathname:logical-pathname-p (pathname source))) (setq source (namestring (translate-logical-pathname source))))
   (when (stringp source) (setq source (#"replaceFirst" source "file:/*(/.*)"  "$1")))
@@ -139,7 +144,7 @@
 								                   (#0"toString" source))))
                                                          load-configuration))
 		))
-	  (let ((it (make-v3kb :name (or uri name) :manager manager :ont ont :datafactory (#"getOWLDataFactory" manager) :default-reasoner reasoner :mapper mapper)))
+	  (let ((it (make-v3kb :name (or uri name) :manager manager :ont ont :datafactory (#"getOWLDataFactory" manager) :default-reasoner reasoner :mapper mapper :source source)))
 	    (setf (v3kb-uri2entity it) (compute-uri2entity it))
 	    (and  (get-version-iri it)
 		  (setf (gethash (get-ontology-iri it) *loaded-ontologies*) it))

@@ -20,13 +20,13 @@
     (setq command (car query))
     (setq query (sparql-stringify query)))
   (when trace (princ query))
-  (let* ((xml
+  (let* ((response
 	   (apply 'get-url (if (uri-p url) (uri-full url) url)
 		  :post (append `((,(cond ((member command '(:select :describe :ask :construct)) "query")
 					  ((member command '(:update)) "update")
 					  (t command)) ,query)
 				  ,(unless (eq command :update)
-				     (or format (unless (eq command :update) (list "format" "application/sparql-results+xml"))))
+				     (unless (eq command :update) (list "format" (or format "application/sparql-results+xml"))))
 				  ,@(if (eq command :select)
 					'(("should-sponge" "soft"))))
 				query-options)
@@ -34,10 +34,12 @@
 					     `(:accept ,(or format "application/rdf+xml"))
 					     (if (eq command :update)
 						 nil
-						 '(:accept "application/sparql-results+xml")) )
+						 `(:accept ,(or format "application/sparql-results+xml"))) )
 			  (list :dont-cache t :force-refetch t)
 			  ))))
-    (extract-sparql-results xml url)))
+    (if format
+        response
+        (extract-sparql-results response url))))
 	 
 (defun extract-sparql-results (xml &optional (endpoint ""))
   (if (equal xml "")
@@ -435,10 +437,10 @@ labels-for: If the query is lisp form, transform the query so that the given bin
 (defun emit-blank-node (name stream)
   (if (eq name '[])
       (format stream "[]")
-      (let ((name (subseq (string name) 1)))
+      (let ((name (string-downcase (subseq (string name) 1))))
 	(if (equal name "")
 	    (emit-blank-node '[] stream)
-	    (concatenate 'string "_:" name)))))
+	    (write-string (concatenate 'string "_:" name) stream)))))
 
 ;; Need to add the rest of these. As of now there's just "*"
 ;; uri	A URI or a prefixed name. A path of length one.
@@ -623,17 +625,21 @@ See: https://www.w3.org/2009/sparql/docs/property-paths/Overview.xml
 (defun emit-sparql-filter (expression s)
   (let ((*print-case* :downcase))
     (cond ((and (consp expression)
- (assoc (car expression) '((and "&&")(or "||") (equal "=") (< "<") (> ">"))))
+                (assoc (car expression) '((and "&&")(or "||") (equal "=") (<= "<=") (>= ">=") (< "<") (> ">"))))
 	   (write-char #\( s)
 	   (loop for rest on (cdr expression) do 
-		(emit-sparql-filter (car rest) s)
-		(when (cdr rest) 
-		  (format s " ~a " (second (assoc (car expression) '((and "&&")(or "||") (equal "=") (< "<") (> ">")))))))
+	     (emit-sparql-filter (car rest) s)
+	     (when (cdr rest) 
+	       (format s " ~a " (second (assoc (car expression) '((and "&&")(or "||") (equal "=") (< "<") (> ">") (<= "<=") (>= ">=")))))))
 	   (write-char #\) s))
 	  ((and (consp expression) (eq (car expression) 'not))
 	   (write-string "(!(" s)
 	   (loop for arg in (cdr expression) do (emit-sparql-filter arg s))
 	   (write-string "))" s))
+	  ((and (consp expression) (eq (car expression) :literal))
+	   (let ((value (second expression))
+	         (datatype (third expression)))
+	     (format s "\"~a\"~a~a" value (if datatype "^^" "") (if datatype (maybe-sparql-format-uri datatype) ""))))
 	  ((and (keywordp expression)
 		(char= (char (string expression) 0) #\_))
 	   (emit-blank-node expression s))
@@ -652,9 +658,9 @@ See: https://www.w3.org/2009/sparql/docs/property-paths/Overview.xml
 		 (format s "~a(" (or (second (assoc (car expression) *sparql-function-names*))
 				     (car expression)))
 		 (loop for rest on (cdr expression) do 
-		      (emit-sparql-filter (car rest) s)
-		      (when (cdr rest) 
-			(write-char #\, s)))
+		   (emit-sparql-filter (car rest) s)
+		   (when (cdr rest) 
+		     (write-char #\, s)))
 		 (write-char #\) s)))))))
 
 ;; Take a query in lisp form and a list of variables that you want labels for.

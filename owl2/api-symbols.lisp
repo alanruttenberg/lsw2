@@ -315,11 +315,13 @@
    #:set-endpoint-parameter 
    #:get-repository-prefixes
    #:set-repository-prefixes
+   #:repo
    ;; generate-mapping.lisp
    #:t
    #:t-jena
    #:t-collect
    #:t-map
+   #:t-jena-serialize
    #:to-triples
    ;; add-rdfxml-label-comments
    #:add-rdfxml-label-comments

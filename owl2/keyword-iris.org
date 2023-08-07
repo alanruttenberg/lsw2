@@ -85,7 +85,11 @@ Register a new keyword. Lookup labels from label source we create. Kind is optio
 mostly to jog memory. Use :property, :individual, :class 
    
 #+begin_src lisp
+(defparameter *sparql-reserved-keywords* '(:filter :optional :union :with :bind :as :graph :minus :exists :not-exists))
+
 (defmethod register-term-nickname ((kwiri keyword-iris) keyword iri-or-label kind)
+  (when (member keyword *sparql-reserved-keywords*)
+    (warn "IRI keyword ~s is reserved for SPARQL. You won't be able to use it in a SPARQL query"))
   (let ((iri (if (stringp iri-or-label)
                  (make-uri-from-label-source (label-source kwiri) iri-or-label)
                  (if (consp iri-or-label)
@@ -149,7 +153,8 @@ Helper methods that translates use of keywords in the queries into prefix uris.
 (defmethod replace-keywords-with-prefixes ((kwiri keyword-iris) query)
   (list* (car query) (second query)
          (tree-replace (lambda(x)
-                         (if (keywordp x)
+                         (if (and (keywordp x)
+                                  (find x (iri-abbreviations kwiri) :key 'car))
                              (let ((*allow-unknown-namespaces* t))
                                (make-uri nil (concatenate 'string (substitute #\_ #\- (string-downcase (string x))) ":")))
                              x))

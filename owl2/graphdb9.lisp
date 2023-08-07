@@ -81,6 +81,13 @@
 (defmethod get-repository-prefixes ((repo graphdb9-repository))
   (all-matches (get-url  (uri-full (namespaces-endpoint repo)) :force-refetch t :persist nil :dont-cache t) "(?m)(\\S*),(\\S+)" 1 2))
 
+;; set-repository-prefixes inherited from graphdb (original class, on which this class is based)
+
+(defmethod delete-repository-prefixes ((repo graphdb9-repository) &optional prefixes)
+  (loop for prefix in prefixes
+        do (cl-user::get-url (format nil "~a/~a" (uri-full (cl-user::namespaces-endpoint repo)) prefix)
+                             :verb "DELETE" :force-refetch t :ignore-errors t)))
+
 ;; ****************************************************************
 (eval-when (:execute :load-toplevel)
   (register-namespace "ontotext-geosparql:" "http://www.ontotext.com/plugins/geosparql#")
