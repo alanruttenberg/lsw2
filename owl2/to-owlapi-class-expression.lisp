@@ -113,7 +113,7 @@
 	 (let ((last@ (position #\@ arg :test 'char= :from-end t)))
 	   (#"getOWLLiteral" data-factory (subseq arg 0 last@) (subseq arg (1+ last@)))))
 	((stringp arg)
-	  (#"getOWLLiteral" data-factory arg))
+	  (#"getOWLLiteral" data-factory (#0"toString" arg)))
 	((and (consp arg) (eq (car arg) :literal))
 	 (#"getOWLLiteral" data-factory (princ-to-string arg) (#"getOWLDatatype" data-factory (to-iri (third arg)))))
 	((numberp arg)
@@ -206,5 +206,10 @@
        (jcall (owlapi-axiom-constructor axiom-type) df 
 	      (to-owlapi-object-property-expression (second axiom) df) 
 	      (to-owlapi-class-expression (third axiom) df)))
+      (annotationassertion
+       (jcall (owlapi-axiom-constructor axiom-type) df 
+	      (to-owlapi-annotation-property (second axiom) df) 
+	      (to-iri (third axiom))
+	      (to-owlapi-literal (fourth axiom) df)))
       (t (error "don't know how to create owlapi for axiom ~a yet" axiom-type)))))
 
