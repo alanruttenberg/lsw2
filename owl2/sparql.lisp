@@ -276,7 +276,7 @@ labels-for: If the query is lisp form, transform the query so that the given bin
     (let ((query (adding-sparql-prefixes 
 		  (lambda()
 		    (cond ((eq (car form) :select)
-			   (destructuring-bind (vars (&key limit distinct from count offset order-by) &rest clauses) (cdr form)
+			   (destructuring-bind (vars (&key limit distinct from count offset order-by group-by) &rest clauses) (cdr form)
 			     (with-output-to-string (s) 
 			       (let ((*print-case*  :downcase))
 				 (format s "SELECT ~a~a~{~a~^ ~}~a~a~%WHERE { "
@@ -290,6 +290,7 @@ labels-for: If the query is lisp form, transform the query so that the given bin
 				       do (emit-sparql-clause clause s))
 				 (format s "} ~a~a~a"
 					 (if order-by (format nil "~%ORDER BY ~{~a~^ ~} " order-by) "")
+					 (if group-by (format nil "~%GROUP BY ~{~a~^ ~} " group-by) "")
 					 (if limit (format nil "LIMIT ~a " limit) "")
 					 (if offset (format nil "OFFSET ~a " offset) "")
 					 )))))
@@ -656,7 +657,10 @@ See: https://www.w3.org/2009/sparql/docs/property-paths/Overview.xml
 		   (princ (string-downcase (string expression)) s))
 	       (progn
 		 (format s "~a(" (or (second (assoc (car expression) *sparql-function-names*))
-				     (car expression)))
+				     (if (uri-p (car expression))
+                                         (maybe-sparql-format-uri (car expression))
+                                         (car expression)
+                                         )))
 		 (loop for rest on (cdr expression) do 
 		   (emit-sparql-filter (car rest) s)
 		   (when (cdr rest) 
