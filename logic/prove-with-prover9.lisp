@@ -179,10 +179,11 @@
 			 (unaccounted-for-numbers 
 			   (sort (set-difference mentioned-numbers (mapcar 'parse-integer (mapcar 'second matched))) '<))
 			 (already (count-if (lambda(e) (#"matches" (car e) "^c\\d+")) matched)))
+                    (:print-db unaccounted-for-numbers)
 		    ;; augment matched list with skolems
 		    (setq matched (append (loop for number in unaccounted-for-numbers 
 						for count from (1+ already)
-						for name = (format nil "s~a" count)
+						for name = (format nil "_skolem~a" count)
 						collect (list name (prin1-to-string number)))
 					  matched ))
 		    )
@@ -217,7 +218,7 @@
 
 (defun reformat-interpretation (mace4-output kind)
   (assert (member kind '(:standard :standard2 :portable :tabular :raw :cooked :xml)))
-      (let ((process (run-program (prover-binary "interpformat") (list (string-downcase (string kind))))))
+      (let ((process (run-program (prover-binary "interpformat") (list (string-downcase (string kind))) :wait nil)))
 	(write-string mace4-output (process-input process) )
 	(close (process-input process))
 	(let ((output 
