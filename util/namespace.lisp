@@ -4,7 +4,7 @@
 
 (defparameter *blankprefix* "urn:blank:")
 
-(defparameter *namespace-replacements* 
+(defvar *namespace-replacements* 
   `(("http://www.openrdf.org/schema/sesame#" "sesame:")
     ("http://xmlns.com/wordnet/1.6/" "wordnet:") ; used in foaf
     ("http://www.inoh.org/owl#" "inoh:")
@@ -105,6 +105,12 @@
     ("http://opensextant.org/ontology/" "osex:") ; https://github.com/orgs/OpenSextant
     ("http://www.ontologyrepository.com/CommonCoreOntologies/" "cco:") ;https://github.com/CommonCoreOntology/
     ("http://purl.obolibrary.org/obo/" "obo:")
+    ("http://www.opengis.net/ont/geosparql#" "geosparql:")
+    ("http://www.opengis.net/ont/sf#"  "simple-feature:")
+    ("http://dbpedia.org/resource/" "dbr:")
+    ("http://dbpedia.org/ontology/" "dbo:")           
+    ("http://dbpedia.org/property/" "dbp:")
+    ("http://www.opengis.net/def/function/geosparql/" "geof:")
     (,*blankprefix* "blank:")
     ))
 
