@@ -8,7 +8,7 @@
 (defvar *running-processes* nil)
   
 (defun run-program-string->string (executable args &optional input &key wd)
-  (let ((process (sys::run-program executable args :directory wd :input (if input :stream))))
+  (let ((process (sys::run-program executable args :directory wd :input (if input :stream) :wait nil)))
     (push process *running-processes*)
     (when (boundp '*active-job-slot*)
       (push (list process executable args) (unix-processes (aref *jobs* *active-job-slot*))))
@@ -32,7 +32,4 @@
 				   do (write-line line s))))))))
 	       (values output error))))
       (setq *running-processes* (remove process *running-processes*)))))
-
-
-
 
