@@ -24,3 +24,8 @@
                                   (java:jnew-array-from-list "java.lang.Object" (list variable)))))
     (when found
       (#"getString" found  0))))
+
+(defun c-chdir (dir)
+  (ensure-jna-loaded)
+  (#"invokePointer" (#"getFunction" (#"getInstance" 'jna.nativelibrary "c") "chdir")
+                    (java:jnew-array-from-list "java.lang.Object" (list dir))))
