@@ -183,7 +183,7 @@
 		    ;; augment matched list with skolems
 		    (setq matched (append (loop for number in unaccounted-for-numbers 
 						for count from (1+ already)
-						for name = (format nil "_skolem~a" count)
+						for name = (format nil "_sk~a" count)
 						collect (list name (prin1-to-string number)))
 					  matched ))
 		    )
@@ -272,8 +272,14 @@
       (setf (result expected-proof) (if (mace4-model-p result) :sat result)))
     (if (mace4-model-p result) :sat result)))
 
+(defun disallow-constants-with-leading-underscore (assumptions)
+  (tree-walk assumptions
+             (lambda(x) (if (and (symbolp x) (char= (char (string x) 0) #\_))
+                            (error "models can't have constants that start with an underscore: ~:W" assumptions)))))
+
 (defun mace4-find-model (assumptions &rest keys &key (timeout 10) (format :baked) expected-proof (pprint nil) &allow-other-keys)
   (remf keys :pprint)
+  (disallow-constants-with-leading-underscore assumptions)
   (multiple-value-bind (result model)
       (apply 'mace-or-prover9 :mace4 assumptions nil :timeout timeout :interpformat format keys)
     (when expected-proof
