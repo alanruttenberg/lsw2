@@ -29,7 +29,7 @@
   (new *ignore-imports-load-configuration-class*))
 
 ;; Return a list of lists of IRI and local path
-(defun directory-ontology-iris-and-paths (directory)
+(defun directory-ontology-iris-and-paths (directory &key exclude full-path)
   (flet ((local-escaped-path (path)
            ;; trim off the directory name yielding local path
            (replace-all (subseq path (length directory))
@@ -50,26 +50,32 @@
                     for path = (mapcar 'namestring onts)
                     append path)
               ;; load ontology but don't process imports
-            for ontology = (load-ontology ont-path :configuration *ignore-imports-load-configuration*)
-            for ontology-iri = (get-ontology-iri ontology)
-            for version-iri = (get-version-iri ontology) 
+            for ontology = (or (ignore-errors
+                                (handler-bind ((warning #'ignore-warning))
+                                  (muffle-warning)
+                                  (load-ontology ont-path :configuration *ignore-imports-load-configuration*)))
+                             (warn "loading file ~s as ontology failed" ont-path))
+            for ontology-iri = (and ontology (get-ontology-iri ontology))
+            for version-iri = (and ontology (get-version-iri ontology))
+            for skip = (or (not ontology-iri) (some (lambda(x) (search x (uri-full ontology-iri) :test 'char-equal)) exclude))
             ;; collect a pair of the ontology iri (and version iri if
             ;; exists) and the path relative to directory
-            collect (list ontology-iri (local-escaped-path ont-path))
-            when version-iri
-              collect (list version-iri (local-escaped-path ont-path))
+            unless skip
+              collect (list ontology-iri (if full-path (namestring ont-path) (local-escaped-path ont-path)))
+            when (and version-iri (not skip))
+              collect (list version-iri (if full-path (namestring ont-path) (local-escaped-path ont-path)))
             ))))
 
 ;; Write out catalog-v001.xml with mappings for each of the iri/path pairs.
-(defun write-owl-catalog (directory)
+(defun write-owl-catalog (directory &key exclude full-path)
   (let ((catalog-file (namestring (merge-pathnames  "catalog-v001.xml" directory))))
     ;; If there's an existing catalog, check before deleting it. We don't
     ;; want it around because it might be incorrect or malformed and
     ;; we aren't processing imports anyways
     (if (probe-file catalog-file)
-        (when (y-or-n-p "Delete existing ~s" catalog-file)
+        (when (y-or-n-p "Delete existing ~s (y/n) " catalog-file)
           (delete-file catalog-file))))
-  (let ((paths (directory-ontology-iris-and-paths (namestring directory))))
+  (let ((paths (directory-ontology-iris-and-paths (namestring directory) :exclude exclude :full-path full-path)))
     (with-open-file (c (merge-pathnames  "catalog-v001.xml" directory)
 		       :if-exists :supersede :direction :output)
       ;; write header
