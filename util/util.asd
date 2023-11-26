@@ -58,6 +58,7 @@
 	     (:file "print-time-interval")
 	     (:file "background")
 	     (:file "slime-extras")
-	     (:file "threads")))))
+	     (:file "threads")
+             (:file "setenv")))))
 
 
