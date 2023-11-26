@@ -51,6 +51,7 @@ The main methods are
    (iri-abbreviations :accessor iri-abbreviations :initform nil)
    (label-source :accessor label-source :initarg :label-source :allocation :class)
    (allow-unknown-namespaces :initarg :allow-unknown-namespaces :initform nil :accessor allow-unknown-namespaces)
+   (repo :initarg :repo :initform nil :accessor repo)
    ))
 
 #+end_src
@@ -125,12 +126,14 @@ query easier to read.
 Write a string with prefix definitions. If which is supplied only those prefixes in which.   
 
 #+begin_src lisp
-(defmethod prefixes-for-abbreviations ((kwiri keyword-iris) &optional which)
-  (with-output-to-string (s)
-    (loop for (ab  class) in (iri-abbreviations kwiri)
-          when (or (null which) (member ab which))
-            do (format s "PREFIX ~a: <~a>~%" (substitute #\_ #\- (string-downcase (string ab)))
-                       (uri-full (eval-uri-reader-macro class))))))
+(defmethod prefixes-for-abbreviations ((kwiri keyword-iris) &optional (which nil which-supplied))
+  (if (and which-supplied (null which))
+      ""
+      (with-output-to-string (s)
+        (loop for (ab  class) in (iri-abbreviations kwiri)
+              when (or (null which) (member ab which))
+                do (format s "PREFIX ~a: <~a>~%" (substitute #\_ #\- (string-downcase (string ab)))
+                           (uri-full (eval-uri-reader-macro class)))))))
 #+end_src
 
 Figure out which prefixes we are using in a query
@@ -174,14 +177,14 @@ sparql-query method that adds our prefixes to the query. Accepts either prefix v
     (setq query
           (concatenate 'string (prefixes-for-abbreviations kwiri (get-used-prefixes kwiri query))
                        (sparql-stringify query nil :labels-for labels-for)))
-    (let ((queryfn (if (find :format args) 'sparql-endpoint-query 'sparql)))
-      (cond ((stringp (repo kwiri))
-             (apply queryfn (repo kwiri) query args))
-            ((or (typep (repo kwiri) 'graphdb-repository) (typep (repo kwiri) 'graphdb9-repository))
-             (apply queryfn (query-endpoint (repo kwiri))  query args))
-            ((v3kb-p (repo kwiri))
-             (apply 'sparql query args))
-            (t (error "don't know how to do a sparql query against ~a" (repo kwiri)))))))
+    (let ((where-to-query (or (getf args :kb) (repo kwiri))))
+        (cond ((stringp where-to-query)
+               (apply 'sparql-endpoint-query (repo kwiri) query args))
+              ((or (typep where-to-query 'graphdb-repository) (typep where-to-query 'graphdb9-repository))
+               (apply 'sparql-endpoint-query (query-endpoint where-to-query)  query args))
+              ((v3kb-p where-to-query)
+               (apply 'sparql query args))
+              (t (error "don't know how to do a sparql query against ~a" where-to-query))))))
 #+end_src
 
 ** sparql-string
