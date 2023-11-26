@@ -2,19 +2,45 @@
 
 (defun tree-walk (tree fn)
   (funcall fn tree)
-  (when (consp tree)
-    (map nil (lambda(el) (tree-walk el fn)) tree)))
+  (map-safe (lambda(x) (tree-walk x fn)) tree))
+            
+;; iterate over list possibly ending with dotted pair
+
+(defun map-safe (fn x) 
+  (loop for (this . next) on x
+        do (funcall fn this)
+           (cond ((null next)
+                  (return))
+                 ((atom next)
+                  (funcall fn next)
+                  (return)))))
+
+;; like mapcar but works on dotted list. Not the most efficient
+;; bc of using last. I efficiency needed then keep a tail pointer.
+(defun mapcar-safe (fn x) 
+  (loop for (this . next) on x
+        collect (funcall fn this) into all
+        do 
+           (cond ((null next)
+                  (return all))
+                 ((atom next)
+                  (setf (cdr (last all)) (funcall fn next))
+                  (return all)))))
 
 ;; Call function on tree. If function returns t recurse, otherwise stop.
 (defun tree-walk-conditional (tree fn)
   (if (funcall fn tree)
       (when (consp tree)
-	(map nil (lambda(el) (tree-walk-conditional el fn)) tree))))
+	(map-safe (lambda(el) (tree-walk-conditional el fn)) tree))))
 
 (defun tree-find (sym tree &key (test #'eq))
   (cond ((atom tree)
 	 (if (funcall test sym tree) tree))
-	(t (some (lambda(el) (tree-find sym el :test test)) tree))))
+	(t (catch 'some
+             (map-safe (lambda(el)
+                            (if (tree-find sym el :test test)
+                                (throw 'some sym)))
+                          tree)))))
 
 (defun tree-find-if (tree fn)
   (tree-walk tree (lambda(e) (when (funcall fn e) (return-from tree-find-if e)))))
@@ -22,7 +48,7 @@
 (defun f (tree fn)
   (cond ((atom tree)
 	 (funcall fn tree))
-	(t (mapcar (lambda(el) (f el fn)) tree))))
+	(t (mapcar-safe (lambda(el) (f el fn)) tree))))
 
 (defun tree-replace (replace-fn tree)
   "create new tree replacing each element with the result of calling replace-fn on it"
@@ -30,9 +56,11 @@
 	     (cond ((atom tree) (funcall replace-fn tree))
 		   (t (let ((replacement (funcall replace-fn tree)))
 			(if (eq replacement tree)
-			    (mapcar #'tr-internal tree)
+			    (mapcar-safe #'tr-internal tree)
 			    replacement))))))
     (tr-internal tree)))
+
+
 
 ;; Like nsubst - replacing atoms in the tree without disturbing the list structure.
 (defun tree-nsubst-if (replace-fn test-fn tree)
@@ -57,7 +85,7 @@
     (tr-internal tree)
     tree))
 
-
+;; still not dot safe
 (defun tree-remove-if (test tree)
   "create new tree without any expressions that match test"
   (cond ((atom tree) tree)
