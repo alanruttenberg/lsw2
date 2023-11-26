@@ -63,7 +63,6 @@
     ("http://www.ifomis.org/bfo/1.1/snap#" "snap:")
     ("http://purl.obolibrary.org/obo/BFO_" "bfo:")
     ("http://www.ifomis.org/obo/ro/1.0/light#" "bforo:")
-    ("http://www.opengis.net/ont/geosparql/" "geosparql:")
     ("http://protege.stanford.edu/plugins/owl/protege#" "protegeowl:")
     ("http://www.loa-cnr.it/ontologies/IRE/IRE.owl#" "ire:")
     ("http://www.loa-cnr.it/ontologies/ExtendedDnS.owl#" "edns:")
