@@ -94,6 +94,14 @@
 ;;     (declaration (named-individual !foo)))
 ;; Anything you get back from (owl-to-lisp-syntax ont) should work here, modulo bugs
 
+(defmethod maybe-default-reasoner-from-ontology ((ont v3kb))
+  (loop for (nil prop value) in (mapcar 'axiom-to-lisp-syntax (get-ontology-annotations ont))
+        for reasoner = (and (eq prop !rdfs:comment)
+                            (caar (all-matches value "reasoner:(.*)" 1)))
+        when reasoner do
+          (format *debug-io* "Default reasoner for ontology ~a: ~s" (get-ontology-iri ont) reasoner)
+          (return (intern (string-upcase reasoner) 'keyword))))
+
 (defun load-ontology (source &key name reasoner silent-missing mapper (cache t) 
                                ignore-imports  
                                (configuration (if ignore-imports *ignore-imports-load-configuation* nil) configuration-p))
@@ -145,6 +153,8 @@
                                                          load-configuration))
 		))
 	  (let ((it (make-v3kb :name (or uri name) :manager manager :ont ont :datafactory (#"getOWLDataFactory" manager) :default-reasoner reasoner :mapper mapper :source source)))
+            (unless (v3kb-default-reasoner it)
+              (setf (v3kb-default-reasoner it) (maybe-default-reasoner-from-ontology it)))
 	    (setf (v3kb-uri2entity it) (compute-uri2entity it))
 	    (and  (get-version-iri it)
 		  (setf (gethash (get-ontology-iri it) *loaded-ontologies*) it))
@@ -371,7 +381,7 @@
   (vanilla-reasoner-config))
 
 
-(defvar *hermit-ignore-unsupported-datatypes* nil
+(defvar *hermit-ignore-unsupported-datatypes* t
   "If using hermit, ignore unsupported datatypes. Yes this is ugly but not in the mood to refactor now")
 
 (defun hermit-reasoner-config (&optional profile ont timeout)
@@ -858,8 +868,8 @@
 
 ;; direct-only t means definitional, e.g. for properties domain,range, transitivity but not object-property-assertions using the property
 ;; direct-only nil means any axiom that mentions the term
-(defun get-referencing-axioms (entity type ont &optional direct-only)
-  (mapcar 'axiom-to-lisp-syntax 
+(defun get-referencing-axioms (entity type ont &optional direct-only (transform-with 'axiom-to-lisp-syntax))
+  (mapcar (or transform-with 'identity)
 	  (loop for (entity etype eont) in (gethash entity (v3kb-uri2entity ont))
 		when (eq etype type)
 		  append (set-to-list (#"getAxioms" eont entity t))
