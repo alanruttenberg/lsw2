@@ -357,6 +357,7 @@
    #:let-iris
    #:add-triples
    #:serialize-rdf
+   #:set-abbreviations
    ;; xmls-helpers.lisp
    #:find-element-with-tag
    #:find-elements-with-tag
