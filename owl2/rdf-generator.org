@@ -88,6 +88,8 @@ Initialization sets the abbreviations, resets the IRI counter and defines the im
   (set-abbreviations c)
   (setf (uri-d-triples c) nil))
 
+(defmethod set-abbreviations ((c rdf-generator))
+  )
 
 #+end_src
 
@@ -101,9 +103,9 @@ Use this macro to allocated fresh IRIs.
                collect (list var `(fresh-instance-iri ,generator)))
      (when(add-curated-in ,generator)
        (add-triples ,generator
-        (loop for var in ',vars
-              collect `(:curated-in ,var ,(ontology-iri ,generator)))))
-     ,@(eval-uri-reader-macro body)))
+                    (list ,@(loop for var in vars
+                                   collect `(list ,var (curated-in-iri ,generator)  (ontology-iri ,generator)))))
+       ,@(eval-uri-reader-macro body))))
 #+end_src
 
 
@@ -138,8 +140,8 @@ ones are either "RDF/XML" or "TURTLE".
         collect `(,(ontology-iri c) !owl:imports ,import)))
 
 (defmethod declarations-rdf ((c rdf-generator))
-  (append (when (curated-in-iri c) `((,(curated-in-iri !rdf:type !owl:AnnotationProperty))))
-          (loop for (nil iri type) in (iri-abbreviations *collector*)
+  (append (when (curated-in-iri c) `((,(curated-in-iri c) !rdf:type !owl:AnnotationProperty))))
+          (loop for (nil iri type) in (iri-abbreviations c)
                 for type-iri = (cond ((eq type :data-property) !owl:DatatypeProperty)
                                      ((eq type :class) !owl:Class)
                                      ((eq type :object-property) !owl:ObjectProperty))
@@ -149,7 +151,7 @@ ones are either "RDF/XML" or "TURTLE".
   (loop for (prop value) in (ontology-annotations c)
         collect `(,(ontology-iri c) ,prop ,value)))
 
-(defmethod serialize ((c rdf-generator) &key (format "RDF/XML") (destination nil destination-supplied-p))
+(defmethod serialize-rdf ((c rdf-generator) &key (format "RDF/XML-ABBREV") (destination nil destination-supplied-p))
   (setf (uri-d-triples c) (replace-iri-abbreviations c (apply 'append (reverse (triples c)))))
   (let ((untranslated (tree-find-if (uri-d-triples c) (lambda (el) (and (keywordp el) (not (member el '(:literal :blank))))))))
     (when untranslated (error "Keyword ~s not associated with an IRI" untranslated)))
@@ -157,7 +159,8 @@ ones are either "RDF/XML" or "TURTLE".
          (annotations (ontology-annotations-rdf c))
          (declarations (declarations-rdf c))
          (serialized
-          (apply 't-jena-serialize  `(cl-user::verbatim 
+           (apply 't-jena-serialize  `(verbatim
+                                       ,(list (ontology-iri c) !rdf:type !owl:Ontology)
                                       ,@imports
                                       ,@annotations
                                       ,@declarations

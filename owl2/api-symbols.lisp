@@ -94,6 +94,7 @@
    #:v3kb-sparql-engine
    #:v3kb-sparql-dataset
    #:make-kb-from-java-object
+   #:verbatim
    ;; dl-query.lisp
    #:children
    #:property-children
@@ -118,6 +119,8 @@
    #:equivalent-classes?
    #:classtree-depth
    #:get-entity-type
+   ;; geturl.lisp
+   #:get-url
    ;; axioms.lisp
    #:each-axiom
    #:simple-subclassof-axiom?
@@ -340,6 +343,34 @@
    #:keyword-iris
    #:allow-unknown-namespaces
    #:iri-prefix
+   ;; rdf-generator.org
+   #:rdf-generator
+   #:destination-path
+   #:ontology-iri
+   #:ontology-annotations
+   #:imports
+   #:iri-initial-offset
+   #:prefixes 
+   #:add-curated-in
+   #:curated-in-iri
+   #:reset-generator
+   #:let-iris
+   #:add-triples
+   #:serialize-rdf
+   ;; xmls-helpers.lisp
+   #:find-element-with-tag
+   #:find-elements-with-tag
+   #:element-with-attribute
+   #:what-tags
+   #:what-attributes
+   ;; strings.lisp
+   #:split-at-regex
+   #:split-at-pattern
+   #:quote-for-regex
+   #:split-at-char
+   #:all-matches
+   #:camelCase
+   #:de-camelcase
    ))
 
 (do-symbols (s (find-package :lsw2))

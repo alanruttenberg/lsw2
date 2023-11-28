@@ -6,6 +6,7 @@
 
 (defvar *namespace-replacements* 
   `(("http://www.openrdf.org/schema/sesame#" "sesame:")
+    ("https://w3id.org/uom/" "uom:")
     ("http://xmlns.com/wordnet/1.6/" "wordnet:") ; used in foaf
     ("http://www.inoh.org/owl#" "inoh:")
     ("http://purl.obolibrary.org/obo/FBbt_" "fb:")
