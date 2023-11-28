@@ -1,0 +1,183 @@
+# -*- Mode: POLY-ORG;  -*- ---
+#+PROPERTY: literate-lang lisp
+#+PROPERTY: literate-load yes
+#+OPTIONS: html-postamble:nil
+#+OPTIONS: ^:nil
+
+#+Author: Alan Ruttenberg
+#+Title: Serialization helper for RDF
+
+#+begin_src lisp
+(in-package :cl-user)
+#+end_src
+
+** Overview
+
+The main class is rdf-generator and the goal is to make generation of
+RDF from patterns reasonably clean. The general pattern is at the
+beginning of each pattern define variables for freshly minted IRIs, and
+then within that call add-triples to add some RDF triples to the
+generator. IRIs are named by keywords and are registered in two
+ways. set-abbreviations gives keywords to IRIs that are already defined
+in the ontology. Or, if a freshly allocated IRI needs to be visible to
+other generators, call register-term-nickname to give it a name, which
+adds it to the generator for later use as as a keyword. Imports are a
+list of IRIs that go in the ~imports~ slot.
+
+Once all triples have been added, call the serialize method, which
+declares the type of each IRI and replaces the keywords with the actual
+IRIs and then writes the RDF to a file, or does everything but so that
+the triples can be inspected for debugging.
+
+** rdf-generator class
+
+Instance variables for customization
+- destination-path :: Where serialize should save the rdf file
+- ontology-annotations :: A list of pairs of (annotation-property value) to be added as ontology annotations
+- imports :: A list of IRIs to ontologies to import  
+- iri-initial-offset :: Where the IRI counter should start
+- prefixes :: A list of pairs of (prefix iri-string) to be used as prefixes in the generated file  
+- add-curated-in :: True if every fresh IRI should have a curated-in annotation. 
+- curated-in-iri :: The annotation property that should be used for the curated-in annotation
+
+#+begin_src lisp
+#+begin_src lisp
+(defclass rdf-generator (keyword-iris)
+  ((triples :initarg :triples :initform nil :accessor triples)
+   (uri-d-triples :initarg :uri-d-triples :initform nil :accessor uri-d-triples)
+   (destination-path :initarg :destination-path :initform nil :accessor destination-path)
+   (ontology-iri :initarg :ontology-iri :initform nil :accessor ontology-iri)
+   (ontology-annotations :initarg :ontology-annotations :initform nil :accessor ontology-annotations)
+   (imports :initarg :imports :initform nil :accessor imports)
+   (iri-counter :initarg :iri-counter :initform 0 :accessor iri-counter :allocation :class)
+   (iri-initial-offset :initarg :iri-initial-offset :initform nil :accessor iri-initial-offset)
+   (prefixes :initarg :prefixes :initform nil :accessor prefixes)
+   (add-curated-in :initarg :add-curated-in :initform nil :accessor add-curated-in)
+   (curated-in-iri :initarg :curated-in-iri :initform nil :accessor curated-in-iri)
+   ))
+#+end_src
+
+Override the base fresh-instance-iri method to generate the usual style
+IRIs, in our case <prefix>DDDDDDD where the Ds signify a
+decimal number, starting at iri-initial-offset
+
+#+begin_src lisp
+(defmethod fresh-instance-iri ((c rdf-generator))
+  (threads:synchronized-on
+   c
+   (let ((*allow-unknown-namespaces* (allow-unknown-namespaces c)))
+     (make-uri-base-relative (format nil "~7,'0d" (+ (iri-initial-offset c) (incf (iri-counter c)))) (iri-prefix c)))))
+#+end_src
+
+Initialization sets the abbreviations, resets the IRI counter and defines the imports.
+
+#+begin_src lisp
+(defmethod initialize-instance ((c rdf-generator) &key prefixes)
+  (call-next-method)
+  (setf (prefixes c)
+        (append prefixes
+                '(("cco" "http://www.ontologyrepository.com/CommonCoreOntologies/")
+                  ("bfo" "http://purl.obolibrary.org/obo/BFO_")
+                  ("obi" "http://purl.obolibrary.org/obo/OBI_")
+                  ("skos" "http://www.w3.org/2004/02/skos/core#"))))
+  (setf (iri-counter c) (iri-initial-offset c)))
+
+(defmethod reset-generator ((c rdf-generator))
+  (setf (iri-counter c) 0)
+  (setf (triples c) nil)
+  (set-abbreviations c)
+  (setf (uri-d-triples c) nil))
+
+
+#+end_src
+
+** let-iris
+
+Use this macro to allocated fresh IRIs.
+
+#+begin_src lisp
+(defmacro let-iris (generator vars &body body)
+  `(let ,(loop for var in vars
+               collect (list var `(fresh-instance-iri ,generator)))
+     (when(add-curated-in ,generator)
+       (add-triples ,generator
+        (loop for var in ',vars
+              collect `(:curated-in ,var ,(ontology-iri ,generator)))))
+     ,@(eval-uri-reader-macro body)))
+#+end_src
+
+
+** add-triples
+
+Call ~add-triples~ with a list of triples. Can be called multiple times.
+
+#+begin_src lisp
+(defmethod add-triples ((c rdf-generator) triples)
+  (push triples (triples c)))
+#+end_src
+
+** Serialize
+
+~serialize~ does the work of generating an RDF file. It does the following:
+
+- Replaces abbreviations with the IRIs
+- Defines RDF for the imports and declarations
+- Creates the RDF string using t-jena-serialize
+- Writes the string to the destination path.
+
+To avoid writing to the file (for debugging) pass :destination nil.
+Keyword :format lets you define the serialization format. The usual
+ones are either "RDF/XML" or "TURTLE".
+
+- ~imports-rdf~ generates the imports triples
+- ~declarations-rdf~ generates the declarations
+
+#+begin_src lisp
+(defmethod imports-rdf ((c rdf-generator))
+  (loop for import in (imports c)
+        collect `(,(ontology-iri c) !owl:imports ,import)))
+
+(defmethod declarations-rdf ((c rdf-generator))
+  (append (when (curated-in-iri c) `((,(curated-in-iri !rdf:type !owl:AnnotationProperty))))
+          (loop for (nil iri type) in (iri-abbreviations *collector*)
+                for type-iri = (cond ((eq type :data-property) !owl:DatatypeProperty)
+                                     ((eq type :class) !owl:Class)
+                                     ((eq type :object-property) !owl:ObjectProperty))
+                when type-iri collect `(,iri !rdf:type ,type-iri))))
+
+(defmethod ontology-annotations-rdf ((c rdf-generator))
+  (loop for (prop value) in (ontology-annotations c)
+        collect `(,(ontology-iri c) ,prop ,value)))
+
+(defmethod serialize ((c rdf-generator) &key (format "RDF/XML") (destination nil destination-supplied-p))
+  (setf (uri-d-triples c) (replace-iri-abbreviations c (apply 'append (reverse (triples c)))))
+  (let ((untranslated (tree-find-if (uri-d-triples c) (lambda (el) (and (keywordp el) (not (member el '(:literal :blank))))))))
+    (when untranslated (error "Keyword ~s not associated with an IRI" untranslated)))
+  (let* ((imports (imports-rdf c))
+         (annotations (ontology-annotations-rdf c))
+         (declarations (declarations-rdf c))
+         (serialized
+          (apply 't-jena-serialize  `(cl-user::verbatim 
+                                      ,@imports
+                                      ,@annotations
+                                      ,@declarations
+                                      ,@(uri-d-triples c))
+                 format
+                 (prefixes c)
+                 )
+          ))
+    (if (and destination-supplied-p (null destination))
+        serialized
+        (let ((dest (if destination-supplied-p destination (destination-path c))))
+          (with-open-file (f dest :direction :output :if-does-not-exist :create :if-exists :supersede)
+            (write-string serialized f))
+          ))))
+#+end_src
+
+
+# Leave this at bottom of file
+# Local Variables:
+# eval: (setf (cdr (assoc :results org-babel-default-header-args)) "none")
+# eval: (pushnew '(:results . "wrap") org-babel-default-header-args :test 'equalp)
+# eval: (add-hook 'after-save-hook 'org-html-export-to-html nil t)
+# End:

@@ -75,7 +75,7 @@
              (:org "owldoc")
              (:file "add-label-comments-to-owl-file")
              (:file "write-catalog")
-
+             (:org "rdf-generator")
 	     )
 	    :depends-on (matcher basics mapping syntax)
 	    )
