@@ -36,9 +36,15 @@
 			    (#"replaceAll" (car args) "(?s)&\\s*$" "")))))))
 
 (defun install-repl-job-command ()
-  (eval `(advise ,(intern "REPL-EVAL" 'swank-repl) (progn (maybe-repl-job-command args) (:do-it)) :when :around)))
+  (eval `(sys::advise ,(intern "REPL-EVAL" 'swank-repl) (progn (maybe-repl-job-command sys::args) (:do-it)) :when :around)))
 
-(pushnew 'install-repl-job-command *after-slime-starts-hook*)
+
+(defun after-swank-is-loaded (hook)
+  (if (find-package 'swank)
+      (funcall hook)
+      (pushnew hook *after-slime-starts-hook*)))
+
+(after-swank-is-loaded 'install-repl-job-command)
 
 ;(unadvise swank::repl-eval)
 ;(untrace)
