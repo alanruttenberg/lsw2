@@ -15,7 +15,7 @@
   (sparql-endpoint-query endpoint
 			 (format nil "~{load <~a>;~%~}" (mapcar (lambda(e) (concatenate 'string folder-iri e))  files)) :command "request"))
 
-(defun sparql-endpoint-query (url query &key query-options geturl-options (command :select) format (trace nil))
+(defun sparql-endpoint-query (url query &key query-options geturl-options (command :select) format (trace nil) &allow-other-keys)
   (when (consp query) 
     (setq command (car query))
     (setq query (sparql-stringify query)))
@@ -153,32 +153,32 @@ labels-for: If the query is lisp form, transform the query so that the given bin
 	       ;; Execute the query and obtain results
 	       ;; QueryExecution qe = QueryExecutionFactory.create(query, model);
 	       (qe (progn (cond ((or (member use-reasoner '(:sparqldl :pellet t)))
-			  (unless (v3kb-pellet-jena-model kb)
-			    (instantiate-reasoner kb :pellet-sparql nil)
-			    (unless (v3kb-pellet-jena-model kb)
-			      (setf (v3kb-pellet-jena-model kb) 
-				     (let ((graph (new 'org.mindswap.pellet.jena.PelletReasoner)))
-				       (#"createInfModel" 'com.hp.hpl.jena.rdf.model.ModelFactory
-							  (#"bind" graph (#"getKB" (v3kb-reasoner kb))))))))
-			  (#"prepare" (v3kb-pellet-jena-model kb))
-			  (#"create" 'SparqlDLExecutionFactory jquery (v3kb-pellet-jena-model kb)))
-			 ((or (eq use-reasoner :none) (eq use-reasoner nil))
-			  (#"create" 'QueryExecutionFactory jquery
-				     (if (java-object-p kb) kb (jena-model kb))))
-			 ((or (eq use-reasoner :jena))
-			  (if (java-object-p kb)
-			      (#"create" 'QueryExecutionFactory jquery kb)
-			      (progn
-				(unless (v3kb-pellet-jena-model kb)
-				  (instantiate-reasoner kb :pellet-sparql nil))
-				(#"create" 'QueryExecutionFactory jquery (v3kb-pellet-jena-model kb)))))
-			 ((eq use-reasoner :owl) (error "Not supported yet")
-			  (#"create" 'QueryExecutionFactory jquery 
-				     (#"createInfModel" 'modelfactory 
-							(#"getOWLReasoner" 'ReasonerRegistry)
-							;; FIXME kb-jena-reasoner not defined
-							(#"getModel" (kb-jena-reasoner kb)))))
-			 (t (error "SPARQL isn't supported with reasoner ~a. It is only supported, currently, when using reasoners :pellet, :pellet-sparql, :none" use-reasoner)))))
+			         (unless (v3kb-pellet-jena-model kb)
+			           (instantiate-reasoner kb :pellet-sparql nil)
+			           (unless (v3kb-pellet-jena-model kb)
+			             (setf (v3kb-pellet-jena-model kb) 
+				           (let ((graph (new 'org.mindswap.pellet.jena.PelletReasoner)))
+				             (#"createInfModel" 'com.hp.hpl.jena.rdf.model.ModelFactory
+							        (#"bind" graph (#"getKB" (v3kb-reasoner kb))))))))
+			         (#"prepare" (v3kb-pellet-jena-model kb))
+			         (#"create" 'SparqlDLExecutionFactory jquery (v3kb-pellet-jena-model kb)))
+			        ((or (eq use-reasoner :none) (eq use-reasoner nil))
+			         (#"create" 'QueryExecutionFactory jquery
+				            (if (java-object-p kb) kb (jena-model kb))))
+			        ((or (eq use-reasoner :jena))
+			         (if (java-object-p kb)
+			             (#"create" 'QueryExecutionFactory jquery kb)
+			             (progn
+				       (unless (v3kb-pellet-jena-model kb)
+				         (instantiate-reasoner kb :pellet-sparql nil))
+				       (#"create" 'QueryExecutionFactory jquery (v3kb-pellet-jena-model kb)))))
+			        ((eq use-reasoner :owl) (error "Not supported yet")
+			         (#"create" 'QueryExecutionFactory jquery 
+				            (#"createInfModel" 'modelfactory 
+							       (#"getOWLReasoner" 'ReasonerRegistry)
+							       ;; FIXME kb-jena-reasoner not defined
+							       (#"getModel" (kb-jena-reasoner kb)))))
+			        (t (error "SPARQL isn't supported with reasoner ~a. It is only supported, currently, when using reasoners :pellet, :pellet-sparql, :none" use-reasoner)))))
 	       ;; ResultSet results = qe.execSelect();
 	       (vars (set-to-list (#"getResultVars" jquery))))
 	  (unwind-protect
