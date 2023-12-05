@@ -145,7 +145,7 @@ ones are either "RDF/XML" or "TURTLE".
                 for type-iri = (cond ((eq type :data-property) !owl:DatatypeProperty)
                                      ((eq type :class) !owl:Class)
                                      ((eq type :object-property) !owl:ObjectProperty))
-                when type-iri collect `(,iri !rdf:type ,type-iri))))
+                when type-iri collect `(,iri !rdf:type ,type-iri)))
 
 (defmethod ontology-annotations-rdf ((c rdf-generator))
   (loop for (prop value) in (ontology-annotations c)
