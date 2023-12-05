@@ -2,9 +2,10 @@
 (in-package :cl-user)
 
 (defun explain-inconsistency (ontology &key (max-explanations 2)  (timeout 10000))
-  (let* ((egf (new 'InconsistentOntologyExplanationGeneratorFactory (get-reasoner-factory ontology) (new 'Long (prin1-to-string timeout)))) ;; milliseconds
-	 (eg (#"createExplanationGenerator" egf (v3kb-ont ontology))))
-    (mapcar 'justified-entailments (j2list (#"getExplanations" eg (subclassof-axiom !owl:Thing !owl:Nothing ontology) max-explanations)))))
+  (let ((*default-kb* ontology))
+    (let* ((egf (new 'InconsistentOntologyExplanationGeneratorFactory (get-reasoner-factory ontology) (new 'Long (prin1-to-string timeout)))) ;; milliseconds
+	   (eg (#"createExplanationGenerator" egf (v3kb-ont ontology))))
+      (replace-with-labels (mapcar 'justified-entailments (j2list (#"getExplanations" eg (subclassof-axiom !owl:Thing !owl:Nothing ontology) max-explanations)))))))
 
 (defun explain-unsatisfiable-class (ontology class &key (max-explanations 2)  (timeout 10000))
   (justify-axiom ontology (subclassof-axiom class !owl:Nothing ontology) :max-explanations max-explanations :timeout timeout))
