@@ -96,7 +96,7 @@
 
 (defmethod maybe-default-reasoner-from-ontology ((ont v3kb))
   (loop for (nil prop value) in (mapcar 'axiom-to-lisp-syntax (get-ontology-annotations ont))
-        for reasoner = (and (eq prop !rdfs:comment)
+        for reasoner = (and (eq prop !rdfs:comment) (not (listp value))
                             (caar (all-matches value "reasoner:(.*)" 1)))
         when reasoner do
           (format *debug-io* "Default reasoner for ontology ~a: ~s" (get-ontology-iri ont) reasoner)
@@ -272,7 +272,7 @@
 	 ,@body))))
 
 (defmacro with-ontology (name (&key base ontology-properties about includes rules eval (collecting t) also-return-axioms only-return-axioms
-				 ontology-iri version-iri load-ontology-args) definitions &body body)
+				 ontology-iri version-iri load-ontology-args imports) definitions &body body)
   (declare (ignore rules includes))
   (let ((axioms-var (make-symbol "AXIOMS"))
 	(oiri (make-symbol "ONTOLOGY-IRI"))
@@ -288,6 +288,7 @@
 		       (append (list* 'ontology
 			      ,@(if (or about oiri) (list (or about oiri)))
 			      ,@(if viri (list viri))
+                              ,@(mapcar (lambda(i) `'(imports ,i)) imports)
 			      ,ontology-properties)
 		       ,(cond (eval definitions)
 			      (collecting `(setq ,axioms-var (collecting-axioms ,@definitions
