@@ -122,10 +122,10 @@
 ;; Otherwise use the second to last component of the IRI, where the last component is either after # or /
 
 (defun append-ontology-parenthetical  (value subject)
-  (let ((ont (or (caar (all-matches subject "(.*/([^_]+)_.*)" 2))
+  (let ((ont (or (caar (all-matches subject "(.*/([A-Z]+)_.*)" 2))
                  (caar (all-matches subject "(.*/(.*)[/#][^/]*)" 2)))))
     (if (equal ont "CommonCoreOntologies") (setq ont "cco"))
-    (#"replaceFirst" value "[\"]?([^@\"]+)[\"]?(@[a-zA-Z-]+)?" (format nil "$1 (~a)$2" (string-upcase ont)))))
+    (#"replaceFirst" value "[\"]?([^@\"]+)[\"]?(@[a-zA-Z-]+)?" (format nil "$1 (~a)$2" (string-downcase ont)))))
 
 (defun test-make-ndpo-module ()
   ;(save-ontology-and-imports-locally "http://ccdb.ucsd.edu/NDPO/1.0/NDPO.owl" "/Users/alanr/Desktop/save/")
