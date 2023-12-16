@@ -54,7 +54,7 @@
 (defun mace-or-prover9 (which assumptions goals &key (timeout 10) (interpformat :baked) (show-translated-axioms nil)
 						  max-memory domain-min-size domain-max-size max-time-per-domain-size  hints
 						  expected-proof term-ordering max-weight cac-redundancy skolems-last
-						  return-proof return-proof-support no-output self-label-ground 
+						  return-proof return-proof-support (include-output nil) self-label-ground 
 			&aux settings)
 
   (assert (numberp timeout) (timeout) "Timeout should be a number of seconds") 
@@ -115,7 +115,7 @@
 		      (prover9-output-proof-section output)
 		      (if return-proof-support
 			  (get-proof-support output)
-			  (unless no-output
+			  (if include-output
 			    (let ((output
 				    (ecase which
 				      (:mace4
@@ -125,7 +125,8 @@
 					     (values))))
 				      (:prover9 output))))
 			    (when *debug* (princ (car output)))
-			    output)))))
+			      output)
+                            (values)))))
 	  )))))
 
 (defun proof-to-hints (assumptions goals &optional (timeout 10))
@@ -293,7 +294,10 @@
 (defun prover9-output-proof-section (&optional (output *last-prover9-output*))
   (and (search "THEOREM PROVED" output)
        (caar (all-matches output "(?sm)={30,30} PROOF =+$(.*?)={30,30} end of proof =+$" 1))))
-  
+
+(defun get-prover9-proof-support ()
+  (get-proof-support))
+
 (defun get-proof-support (&optional (prover9-output *last-prover9-output*))
   (if (consp prover9-output)
       (setq prover9-output (car prover9-output)))
