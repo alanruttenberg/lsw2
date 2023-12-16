@@ -91,7 +91,7 @@
     :components
     ((:file "api-symbols"))
     :depends-on (main query)))
-  :perform (load-op :after (o c) (use-uri-readtable))
+  :perform (load-op :after (o c) (cl-user::use-uri-readtable))
   :depends-on (util xmls owl2libs-mvn2)
   :defsystem-depends-on (lilith))
 
