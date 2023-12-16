@@ -56,7 +56,7 @@
 	 (render :vampire assumptions goals)
 	 (mapcar (lambda(e) (format nil "~a" e)) commands)))
 
-(defun vampire-prove (assumptions goals &key (timeout 30) (mode :vampire) (switches nil) expected-proof &allow-other-keys)
+(defun vampire-prove (assumptions goals &key (timeout 30) (mode :vampire) (include-output nil)  (switches nil) expected-proof &allow-other-keys)
   (if (and goals (atom goals)) (setq goals (list goals)))
   (assert (eq (z3-syntax-check assumptions goals) t) (assumptions goals) "smtlib2 syntax error")
   (let* ((input  (vampire-render assumptions goals '("(check-sat)")))
@@ -75,7 +75,7 @@
 	(setf (prover-input expected-proof) input)
 	(setf (prover-output expected-proof) answer)
 	(setf (result expected-proof) result))
-      result)))
+      (values result (if include-output  answer (values()))))))
     
 (defun vampire-check-unsatisfiable (assumptions &rest keys &key expected-proof &allow-other-keys)
   (let ((result (apply 'vampire-prove assumptions nil keys)))
