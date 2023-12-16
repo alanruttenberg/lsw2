@@ -296,7 +296,7 @@
        finally (return mapper))))
 	 
 (defun uri-mapper-for-source (source)
-  (cond ((and (uri-p source) (#"matches" (uri-full source) "^file:"))
+  (cond ((and (uri-p source) (#"matches" (uri-full source) "^file:.*")) 
 	 (setq source (#"replaceAll" (uri-full source) "^file:/*" "/"))))
   (when (and (not (consp (pathname-host source)))
 	     (probe-file source))
