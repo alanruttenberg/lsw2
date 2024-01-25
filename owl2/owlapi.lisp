@@ -99,7 +99,7 @@
         for reasoner = (and (eq prop !rdfs:comment) (not (listp value))
                             (caar (all-matches value "reasoner:(.*)" 1)))
         when reasoner do
-          (format *debug-io* "Default reasoner for ontology ~a: ~s" (get-ontology-iri ont) reasoner)
+          (format *debug-io* "Default reasoner for ontology ~a: ~s~%" (get-ontology-iri ont) reasoner)
           (return (intern (string-upcase reasoner) 'keyword))))
 
 (defun load-ontology (source &key name reasoner silent-missing mapper (cache t) 
