@@ -54,6 +54,7 @@ Instance variables for customization
    (prefixes :initarg :prefixes :initform nil :accessor prefixes)
    (add-curated-in :initarg :add-curated-in :initform nil :accessor add-curated-in)
    (curated-in-iri :initarg :curated-in-iri :initform nil :accessor curated-in-iri)
+   (readable-uris :initarg :readable-uris :initform nil :accessor readable-uris)
    ))
 #+end_src
 
@@ -62,11 +63,13 @@ IRIs, in our case <prefix>DDDDDDD where the Ds signify a
 decimal number, starting at iri-initial-offset
 
 #+begin_src lisp
-(defmethod fresh-instance-iri ((c rdf-generator))
+(defmethod fresh-instance-iri ((c rdf-generator) &optional name)
   (threads:synchronized-on
    c
    (let ((*allow-unknown-namespaces* (allow-unknown-namespaces c)))
-     (make-uri-base-relative (format nil "~7,'0d" (+ (iri-initial-offset c) (incf (iri-counter c)))) (iri-prefix c)))))
+     (if (and name (readable-uris c))
+         (make-uri-base-relative (string-downcase (string name)) (iri-prefix c))
+         (make-uri-base-relative (format nil "~7,'0d" (+ (iri-initial-offset c) (incf (iri-counter c)))) (iri-prefix c))))))
 #+end_src
 
 Initialization sets the abbreviations, resets the IRI counter and defines the imports.
@@ -100,12 +103,12 @@ Use this macro to allocated fresh IRIs.
 #+begin_src lisp
 (defmacro let-iris (generator vars &body body)
   `(let ,(loop for var in vars
-               collect (list var `(fresh-instance-iri ,generator)))
+               collect (list var `(fresh-instance-iri ,generator ',var)))
      (when(add-curated-in ,generator)
        (add-triples ,generator
                     (list ,@(loop for var in vars
-                                   collect `(list ,var (curated-in-iri ,generator)  (ontology-iri ,generator)))))
-       ,@(eval-uri-reader-macro body))))
+                                   collect `(list ,var (curated-in-iri ,generator)  (ontology-iri ,generator))))))
+     ,@(eval-uri-reader-macro body)))
 #+end_src
 
 

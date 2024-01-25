@@ -72,7 +72,8 @@ counter to keep growing.
 ~fresh-instance-iri~ allocates a new IRI 
 
 #+begin_src lisp
-(defmethod fresh-instance-iri ((kwiri keyword-iris))
+(defmethod fresh-instance-iri ((kwiri keyword-iris) &optional name)
+  (declare (ignore name))
   (threads:synchronized-on
    kwiri
    (let ((*allow-unknown-namespaces* (allow-unknown-namespaces kwiri)))
@@ -143,7 +144,7 @@ Figure out which prefixes we are using in a query
   (let ((*allow-unknown-namespaces* t))
     (tree-walk (eval-uri-reader-macro query)
              (lambda(e)
-               (when (uri-p e)
+               (when (and (uri-p e) (uri-abbreviated e))
                  (when (#"matches" (uri-abbreviated e) ".*:$")
                    (pushnew (intern (substitute #\- #\_ (string-upcase (subseq (uri-abbreviated e) 0 (- (length (uri-abbreviated e)) 1))))
                                     'keyword)  them :test 'equalp))))))
