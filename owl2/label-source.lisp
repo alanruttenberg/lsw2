@@ -308,6 +308,19 @@
 		   (t exp))))
     (one (eval-uri-reader-macro sexp))))
 
+(defmethod replace-with-labels-from-label-source ((source label-source) sexp &key (transform-fn 'identity))
+  (labels ((one (exp)
+	     (cond ((atom exp)
+		    (if (uri-p exp)
+			(or (funcall transform-fn (label-from-uri source exp)) exp)
+			exp))
+		   ((consp exp)
+		    (mapcar #'one exp))
+		   (t exp))))
+    (one (eval-uri-reader-macro sexp))))
+
+
+
 #|
 
 #"hasLang

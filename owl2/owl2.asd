@@ -67,7 +67,7 @@
 	     (:file "hermit-debug")
 	     (:file "domain-and-range")
 	     (:file "short-form-providers")
-	     (:file "diff")
+	     (:org "ontology-diff")
 	     (:file "release")
 ;	     (:file "html-description")
 	     (:file "describe")

@@ -1,10 +1,59 @@
+# -*- Mode: POLY-ORG;  -*- ---
+#+PROPERTY: literate-lang lisp
+#+PROPERTY: literate-load yes
+#+OPTIONS: html-postamble:nil
+#+OPTIONS: ^:nil
+
+#+Author: Alan Ruttenberg
+#+Title: Diff
+
+#+begin_src lisp
 (in-package :cl-user)
+#+end_src
+
+* Comparing ontologies
+
+** Helper functions
+#+begin_src lisp
 (defun get-ontology-annotations (ont)
   (jss::j2list (#"getAnnotations" (v3kb-ont ont))))
+#+end_src
 
-(defun diff-ontologies (ont1 ont2 &key (report t)  (compare-with-labels nil) (include-imports t) additional-label-properties
+** diff-ontologies
+
+Main function. Print out differences between ont1 and ont2, including
+ontology and version IRI, imports, ontology annotations, and axioms.
+
+Options:
+
+- ont1, ont2 :: ontologies to compare. These can be loaded ontologies or
+  paths/iris, in which case they are loaded
+
+- report :: write out the difference in readable format. nil if you only
+  want the diff hash table returned
+
+- compare-with-labels :: instead of comparing using the IRIs, compare by
+  first replacing IRIs with labels. Useful when just rewriting IRIs
+
+- include-imports :: Diff should include all the imports in the comparison
+
+- additional-label-properties :: Defaults are rdfs:label and skos:prefLabel
+
+- label-ont :: Relevant for compare with labels. Useful if you want to
+  compare by labels an ontology that has IRIs from other ontologies. By
+  passing this the labels are taken from the passed ontology
+  instead. Default is to take labels from the ontologies to compare
+
+A hash table is used mapping axioms to a list which is either '(1) '(2)
+or '(2 1) depending on whether the axioms is in one or the other or
+both.
+
+For labels, rather than use the ontology, use label-source since there's
+more flexibility on what the label properties are
+
+#+begin_src lisp
+(defun diff-ontologies (ont1 ont2 &key (report t) (compare-with-labels nil) (include-imports t) additional-label-properties
                                     (label-ont1 ont1)  (label-ont2 ont2))
-  "Print out differences between ont1 and ont2, including ontology and version IRI, imports, ontology annotations, and axioms. Inputs can either be v3kbs, java ontology objects, uris or strings. In the latter 2 cases the ontologies will be loaded"
   (flet ((format-if (&rest args)
            (when report (apply 'format args)))
          (ppax-if (&rest args)
@@ -18,9 +67,10 @@
 	(only-in-1 nil)
 	(only-in-2 nil)
 	(in-both nil)
+        ;; load if necessary
 	(ont1 (if (v3kb-p ont1) ont1 (load-ontology ont1)))
-
 	(ont2 (if (v3kb-p ont2) ont2 (load-ontology ont2)))
+        ;; make label sources if we are comparing with labels
         (labels1 (when compare-with-labels
                    (make-instance
                     'label-source :key :diffont-1
@@ -34,17 +84,22 @@
                     :include-imports-closure t
                     :label-annotation-properties (list* !rdfs:label !skos:prefLabel additional-label-properties)))))
         
-    (loop for ax in (maybe-labels ont1 (mapcar 'axiom-to-lisp-syntax (get-ontology-annotations ont1)))
+    ;; handle ontology-annotations 
+    (loop for ax in (maybe-labels label-ont1 (mapcar 'axiom-to-lisp-syntax (get-ontology-annotations ont1)))
 	  do (setf (gethash ax table) '(1)))
-    (loop for ax in (maybe-labels ont2 (mapcar 'axiom-to-lisp-syntax (get-ontology-annotations ont2)))
+    (loop for ax in (maybe-labels label-ont2 (mapcar 'axiom-to-lisp-syntax (get-ontology-annotations ont2)))
 	  do (push  2 (gethash ax table)))
-    (let ((*default-kb* ont1))
+
+    ;; Iterate over axioms in first ontology, recording them in table
+    (let ((*default-kb* ont1)) ;; I don't think this is needed any more
       (each-axiom ont1
 	  (lambda(ax) 
             (let ((lax (axiom-to-lisp-syntax ax)))
               (when compare-with-labels (setq lax (replace-with-labels-from-label-source labels1 lax)))
               (pushnew 1 (gethash lax table))))
         include-imports))
+
+    ;; Iterate over axioms in second ontology, recording them in table
     (let ((*default-kb* ont2))
       (each-axiom ont2
 	  (lambda(ax) 
@@ -52,6 +107,8 @@
               (when compare-with-labels (setq lax (replace-with-labels-from-label-source labels2 lax)))
               (pushnew 2 (gethash lax table))))
         include-imports))
+
+    ;; Create lists only-in-1, only-in-2, and in-both 
     (maphash (lambda(k v)
 	       (cond ((equal v '(1))
 		      (push k only-in-1))
@@ -59,12 +116,18 @@
 		      (push k only-in-2))
 		     (t (push k in-both))))
 	     table)
-    (multiple-value-bind (annotations axioms) (partition-if (lambda(e) (eq (car e) 'annotation-assertion)) in-both)
-      (format-if t "Common to both: ~a axioms and ~a ontology annotations~%" (length axioms) (length annotations)))
+
+    ;; Write statistics of axioms and annotations that are in common
+    (multiple-value-bind (annotations axioms) (partition-if (lambda(e) (member (car e) '(annotation annotation-assertion))) in-both)
+      (format-if t "Common to both: ~a axioms and ~a annotations~%" (length axioms) (length annotations)))
+
+    ;; Compare ontology and version IRIs
     (unless (eq (get-ontology-iri ont1) (get-ontology-iri ont2))
       (format-if t "~%Ontology IRIs differ: ~a, ~a~%" (get-ontology-iri ont1) (get-ontology-iri ont2)))
     (unless (eq (get-version-iri ont1) (get-version-iri ont2))
       (format-if t "~%Version IRIs differ: ~a, ~a~%" (get-version-iri ont1) (get-version-iri ont2)))
+
+    ;; Compare imports
     (let ((imports1 (get-imports-declarations ont1))
 	  (imports2 (get-imports-declarations ont2)))
       (unless (equalp imports1 imports2)
@@ -74,6 +137,8 @@
 	    (format-if t "Imports only in first: ~{~a~^, ~}~%" only-in-1))
 	  (when only-in-2
 	    (format-if t "Imports only in second: ~{~a~^, ~}~%" only-in-2)))))
+
+    ;; report assertions only in first ontology 
     (multiple-value-bind (annotations axioms) (partition-if (lambda(e) (eq (car e) 'annotation-assertion)) only-in-1)
       (when (or annotations axioms)
 	(format-if t "~%~a only in first~%" (+ (length annotations) (length axioms)))
@@ -83,6 +148,8 @@
 	(when axioms
 	  (let ((*default-kb* ont1))
 	    (ppax-if axioms)))))
+
+    ;; report assertions only in second ontology 
     (multiple-value-bind (annotations axioms) (partition-if (lambda(e) (eq (car e) 'annotation-assertion)) only-in-2)
       (when (or annotations axioms)
 	(format-if t "~%~%~a Only in second~%" (+ (length annotations) (length axioms)))
@@ -92,8 +159,20 @@
 	(when axioms
 	  (let ((*default-kb* ont2))
 	    (ppax-if axioms)))))
-    table)))
 
+    ;; return the table, for debugging
+    table)))
+#+end_src
+
+
+** diff-ontologies-by-import
+
+For an ontology with imports, do the comparison import by
+import. Keywords are defined same as in diff-ontologies. You might want
+to do this if there are a lot of differences and sorting into imports
+would be more helpful to see.
+
+#+begin_src lisp
 (defun diff-ontologies-by-import (ont1 ont2 &key (compare-with-labels nil) additional-label-properties)
   (loop for (path1 nil before) in (loaded-documents ont1)
         for (path2 nil after) = (find (pathname-name path1) (loaded-documents ont2) :test 'equalp :key (lambda(x) (pathname-name (car x))))
@@ -109,5 +188,21 @@
                                 :compare-with-labels compare-with-labels
                                 :additional-label-properties additional-label-properties
                                 :include-imports nil))))
+#+end_src
 
-'(diff-ontologies (load-ontology "~/repos/ngiis/Ontology/crs-db.owl") (load-ontology "~/repos/ngiis/Ontology/crs-db-protege.owl") :include-imports nil :compare-with-labels t :label-ont1 before :label-ont2 before)
+** Example
+
+Suppose you want to compare just one ontology which depends others.
+Before and after are the ontologies to compare importer is an ontology
+that imports both before/after as well as other ontologies it depends
+on.
+
+#+begin_src lisp load no :exports both :results replace
+(diff-ontologies before after :include-imports nil :compare-with-labels t :label-ont1 importer :label-ont2 importer)
+#+end_src
+
+
+
+
+
+

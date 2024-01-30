@@ -160,6 +160,7 @@
    #:check-profile
    ;; diff.lisp
    #:diff-ontologies
+   #:diff-ontologies-by-import
    ;; inferred-axioms.lisp
    #:add-inferred-axioms
    ;; jena.lisp
