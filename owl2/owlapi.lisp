@@ -127,7 +127,9 @@
     (let* ((manager (#"createOWLOntologyManager" 'org.semanticweb.owlapi.apibinding.OWLManager))
            (load-configuration (or configuration (new 'owlontologyloaderconfiguration))))
       (when silent-missing
-        (#"setMissingImportHandlingStrategy" load-configuration (#"valueOf" 'MissingImportHandlingStrategy "SILENT")))
+        ;; sheesh see https://stackoverflow.com/questions/55728478/owl-api-silent-imports
+        (setq load-configuration (#"setMissingImportHandlingStrategy" load-configuration (#"valueOf" 'MissingImportHandlingStrategy "SILENT"))))
+      (setq @ load-configuration)
       (and mapper (#"addIRIMapper" manager mapper))
         (let ((ont
 	        (if uri

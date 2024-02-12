@@ -190,6 +190,45 @@ would be more helpful to see.
                                 :include-imports nil))))
 #+end_src
 
+
+** diff-ontology-to-previous-commit
+
+Get loaded-from, verify in repo, checkout to /tmp, diff
+
+#+begin_src lisp
+(defun diff-ontology-to-previous-commit (path commit)
+  (diff-ontologies (load-ontology path) (load-ontology (checkout-previous-file-commit path commit))))
+
+(defun checkout-previous-file-commit (path commit &optional dest)
+  (let  ((out (or dest (make-temp-file :suffix (pathname-type path)))))
+    (uiop:run-program 
+               (format nil "git show ~a:~a > ~s"
+                       commit
+                       (git-repo-path (namestring (truename path)))
+                       (namestring (translate-logical-pathname out))))
+    out))
+
+
+(defun git-repo-path (path)
+  (c-chdir-to-file-dir path) 
+  (let ((repo-path 
+          (uiop:run-program (format nil "git ls-files --full-name ~a.~a"
+                                    (pathname-name path) (pathname-type path)
+                                    )
+                            :output :string)
+                    ))
+    (string-trim '(#\linefeed) repo-path )
+
+  ))
+
+(defun c-chdir-to-file-dir (path)
+  (let ((dir (namestring (truename (make-pathname :directory (pathname-directory path))))))
+    (c-chdir dir)))
+  
+                                      
+   
+#+end_src
+
 ** Example
 
 Suppose you want to compare just one ontology which depends others.
