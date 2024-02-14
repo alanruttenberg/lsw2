@@ -91,8 +91,8 @@ Initialization sets the abbreviations, resets the IRI counter and defines the im
   (set-abbreviations c)
   (setf (uri-d-triples c) nil))
 
-(defmethod set-abbreviations ((c rdf-generator))
-  )
+(defmethod set-abbreviations :before ((c rdf-generator))
+  (setf (iri-abbreviations c) nil))
 
 #+end_src
 
@@ -118,7 +118,9 @@ Call ~add-triples~ with a list of triples. Can be called multiple times.
 
 #+begin_src lisp
 (defmethod add-triples ((c rdf-generator) triples)
-  (push triples (triples c)))
+  (threads:synchronized-on
+   c
+   (push triples (triples c))))
 #+end_src
 
 ** Serialize

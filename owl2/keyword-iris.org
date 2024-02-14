@@ -97,7 +97,8 @@ mostly to jog memory. Use :property, :individual, :class
                  (if (consp iri-or-label)
                      (eval iri-or-label)
                      iri-or-label))))
-    (pushnew (list keyword IRI kind) (iri-abbreviations kwiri) :key 'car)
+    (remove (find keyword (iri-abbreviations kwiri)) (iri-abbreviations kwiri))
+    (push (list keyword IRI kind) (iri-abbreviations kwiri))
     iri))
 #+end_src
 
@@ -180,7 +181,7 @@ sparql-query method that adds our prefixes to the query. Accepts either prefix v
                        (sparql-stringify query nil :labels-for labels-for)))
     (let ((where-to-query (or (getf args :kb) (repo kwiri))))
         (cond ((stringp where-to-query)
-               (apply 'sparql-endpoint-query (repo kwiri) query args))
+               (apply 'sparql-endpoint-query where query args))
               ((or (typep where-to-query 'graphdb-repository) (typep where-to-query 'graphdb9-repository))
                (apply 'sparql-endpoint-query (query-endpoint where-to-query)  query args))
               ((v3kb-p where-to-query)
