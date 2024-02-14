@@ -74,6 +74,18 @@
 	     (each-axiom ontology (lambda(x) (#"addAxiom" manager (v3kb-ont it) x))))
     (setf (v3kb-uri2entity it) (compute-uri2entity it))
     it))
+
+(defun merge-ontology (ontology)
+  "Take an ontology that imports others and combine all the axioms into one"
+  (let ((ontology-iri (get-ontology-iri ontology))
+        (version-iri (get-ontology-iri ontology)))
+    (let ((new (with-ontology foo (:ontology-iri ontology-iri :version-iri version-iri) () foo))
+          (manager (#"createOWLOntologyManager" 'org.semanticweb.owlapi.apibinding.OWLManager)))
+      (each-axiom ontology
+          (lambda(x)
+            (#"addAxiom" manager (v3kb-ont new) x)) t)
+      (setf (v3kb-uri2entity new) (compute-uri2entity new))
+      new)))
 	
 	  
 
