@@ -68,8 +68,8 @@ more flexibility on what the label properties are
 	(only-in-2 nil)
 	(in-both nil)
         ;; load if necessary
-	(ont1 (if (v3kb-p ont1) ont1 (load-ontology ont1)))
-	(ont2 (if (v3kb-p ont2) ont2 (load-ontology ont2)))
+	(ont1 (if (v3kb-p ont1) ont1 (load-ontology ont1 :ignore-imports (not include-imports))))
+	(ont2 (if (v3kb-p ont2) ont2 (load-ontology ont2 :ignore-imports (not include-imports))))
         ;; make label sources if we are comparing with labels
         (labels1 (when compare-with-labels
                    (make-instance
@@ -196,8 +196,10 @@ would be more helpful to see.
 Get loaded-from, verify in repo, checkout to /tmp, diff
 
 #+begin_src lisp
-(defun diff-ontology-to-previous-commit (path commit)
-  (diff-ontologies (load-ontology path) (load-ontology (checkout-previous-file-commit path commit))))
+(defun diff-ontology-to-previous-commit (path commit &rest diff-args &key (include-imports nil) &allow-other-keys)
+  (apply 'diff-ontologies (load-ontology path :silent-missing (not include-imports))
+         (load-ontology (checkout-previous-file-commit path commit) :silent-missing (not include-imports))
+         diff-args))
 
 (defun checkout-previous-file-commit (path commit &optional dest)
   (let  ((out (or dest (make-temp-file :suffix (pathname-type path)))))
