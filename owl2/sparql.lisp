@@ -543,9 +543,10 @@ labels-for: If the query is lisp form, transform the query so that the given bin
 	     (loop for obj in (cddr clause) do (emit-sparql-clause (list (car (second clause)) (second (second clause)) obj) s))))
 	((eq (car clause) :bind)
 	 (format s "~%BIND(")
-	 (assert (equalp (string (third clause)) "AS") () "BIND missing AS")
-	 (emit-sparql-filter (second clause) s)
-	 (format s " AS ~a) " (fourth clause)))
+                                        ;	 (assert (equalp (string (third clause)) "AS") () "BIND missing AS")
+         (assert (find :as clause :test 'equalp))
+	 (emit-sparql-filter (subseq clause 1 (- (length clause) 2)) s)
+	 (format s " AS ~a) " (car (last clause))))
 	((eq (car clause) :graph)
 	 (format s "graph ~a {" (maybe-sparql-format-uri (second clause)))
 	 (loop for sub in (cddr clause) do
