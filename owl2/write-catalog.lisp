@@ -15,19 +15,6 @@
 ;; "isIgnoredImport" to return true all the
 ;; time. *ignore-imports-load-configuration* is an instance of that class
 
-(defvar *ignore-imports-load-configuration-class*
-   (java:jnew-runtime-class
-   "IgnoreImportsOWLLoadedConfiguration"
-   :methods (list
-             (list "isIgnoredImport" :boolean '("org.semanticweb.owlapi.model.IRI")
-                   (lambda (this iri) (declare (ignore this iri)) t)
-                   )
-             )
-   :superclass "org.semanticweb.owlapi.model.OWLOntologyLoaderConfiguration"))
-
-(defparameter *ignore-imports-load-configuration*
-  (new *ignore-imports-load-configuration-class*))
-
 ;; Return a list of lists of IRI and local path
 (defun directory-ontology-iris-and-paths (directory &key exclude full-path)
   (flet ((local-escaped-path (path)
@@ -51,9 +38,10 @@
                     append path)
               ;; load ontology but don't process imports
             for ontology = (or (ignore-errors
-                                (handler-bind ((warning #'ignore-warning))
-                                  (muffle-warning)
-                                  (load-ontology ont-path :configuration *ignore-imports-load-configuration*)))
+                                (handler-bind ((warning (lambda(&rest x)))) ;#'ignore-warning
+;                                  (muffle-warning)
+                                  (load-ontology ont-path :ignore-imports t))
+                                )
                              (warn "loading file ~s as ontology failed" ont-path))
             for ontology-iri = (and ontology (get-ontology-iri ontology))
             for version-iri = (and ontology (get-version-iri ontology))
