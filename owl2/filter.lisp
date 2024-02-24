@@ -37,6 +37,25 @@
     (setf (v3kb-manager new) manager)
     new))
 
+(defun filter-just-subclasses-and-hasvalue (ont &optional include-imports-closure)
+  (let* ((manager (#"createOWLOntologyManager" 'org.semanticweb.owlapi.apibinding.OWLManager))
+	 (new (make-v3kb :name "foo" :ont (#"createOntology" manager) :datafactory (#"getOWLDataFactory" manager))))
+    (each-axiom ont 
+	(lambda(ax)
+	  (axiom-shapecase ax
+	    ((Declaration . ?x)
+	     (#"addAxiom"  manager (v3kb-ont new) ax))
+	    ((annotation-assertion . ?x)
+	     (#"addAxiom" manager  (v3kb-ont new) ax))
+            ((subclassof (??a ?x) (??a ??y))
+             (#"addAxiom" manager  (v3kb-ont new) ax))
+            ((subclassof (??a ?x) (object-has-value ?p ?v))
+             (#"addAxiom" manager  (v3kb-ont new) ax))))
+      include-imports-closure)
+    (setf (v3kb-uri2entity new) (compute-uri2entity new))
+    (setf (v3kb-manager new) manager)
+    new))
+
 (defun copy-annotations-between-ontologies (ont new)
   (let ((manager (#"createOWLOntologyManager" 'org.semanticweb.owlapi.apibinding.OWLManager)))
     (each-axiom ont 
