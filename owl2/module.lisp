@@ -42,8 +42,10 @@
           (error "can't default dest because source isn't a pathname")
           (setq dest (merge-pathnames (make-pathname :name (format nil "~a-module" (pathname-name source))) source)))))
   (let* ((sig (let ((it (#"getClassesInSignature" (v3kb-ont ontology))))
-		(and include-object-properties (#"addAll" it (#"getObjectPropertiesInSignature" (v3kb-ont ontology))))
-		(and include-data-properties (#"addAll" it (#"getDataPropertiesInSignature" (v3kb-ont ontology))))
+                (and (> (length (set-to-list it)) 0)
+		     (and include-object-properties (#"addAll" it (#"getObjectPropertiesInSignature" (v3kb-ont ontology)))))
+                (and (> (length (set-to-list it)) 0)
+		     (and include-data-properties (#"addAll" it (#"getDataPropertiesInSignature" (v3kb-ont ontology)))))
 		it)))
     (let ((result (create-module-for-signature ontology sig :dest dest :module-iri module-iri :module-type module-type
                                                :label-imported label-imported)))
