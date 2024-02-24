@@ -51,7 +51,7 @@
 ;; All symbols are interned as keywords.
 (defun read-and-tokenize-functional-syntax (stream &optional (eof-marker :eof))
   (let ((*readtable* *as-readtable*)
-	(*package* (load-time-value (find-package :keyword))))
+        (*package* (load-time-value (find-package :keyword))))
     (loop for form = (read stream nil eof-marker)
 	 until (eq form :eof)
 	 collect form)))
@@ -61,10 +61,8 @@
   (let ((as (to-owl-syntax ontology :functional)))
     (setq as (#"replaceAll" as "(#[# ].*)\\n" ""))
     (with-input-from-string (s (regex-replace-all "_value" as "_ value"))
-;      (print-db s)
       (multiple-value-bind (axioms ontology-iri version-iri namespaces)
 	  (parse-functional-syntax (read-and-tokenize-functional-syntax s))
-;	(print-db ontology-iri version-iri namespaces)
 	(let ((base (second (assoc nil namespaces))))
 	  (when (eql (search "##" base :from-end t) (- (length base) 2)) ;; fix a sometimes bug
 	    (setq base (subseq base (1- (length base)))))
@@ -76,10 +74,10 @@
 			    ,@axioms))
 		(values `(with-ontology ,ontnamevar
 			     (:collecting t :base ,(and base (#"replaceFirst" base "#*$" "")) ;; shouldn't be necessary 
-					  :ontology-iri ,ontology-iri
-					  :version-iri ,version-iri
-					  :about ,(make-uri (string (v3kb-name ontology)))
-					  ),axioms)
+			       :ontology-iri ,ontology-iri
+			       :version-iri ,version-iri
+			       :about ,(make-uri (string (v3kb-name ontology)))
+			       ),axioms)
 			axioms
 			ontnamevar
 			base))))))))
@@ -228,6 +226,10 @@
 			     (prog1 (format nil "~a~a" f (second tokenized))
 			       (setf tokenized (cddr tokenized)))
 			     (prog1 f (setf tokenized (cdr tokenized))))))
+                    ((eq f :|DataRangeRestriction|)
+                     (prog1
+                     `(,f . (flatten (second tokenized)))
+                       (setq tokenized (cddr tokenized))))
                     ((eq f :|HasKey|)
                      (let ((rest (second tokenized)))
                        (let ((ce (first rest))
