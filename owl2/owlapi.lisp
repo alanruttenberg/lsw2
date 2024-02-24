@@ -104,7 +104,7 @@
 
 (defun load-ontology (source &key name reasoner silent-missing mapper (cache t) 
                                ignore-imports  
-                               (configuration (if ignore-imports *ignore-imports-load-configuation* nil) configuration-p))
+                               (configuration (if ignore-imports *ignore-imports-load-configuration* nil) configuration-p))
   ;; (set-java-field 'OWLRDFConsumer "includeDublinCoreEvenThoughNotInSpec" nil)
   ;;  (set-java-field 'ManchesterOWLSyntaxEditorParser "includeDublinCoreEvenThoughNotInSpec" nil)
   (when (and ignore-imports configuration-p configuration (not (#"isInstance" *ignore-imports-load-configuration-class* configuration)))
@@ -354,6 +354,20 @@
 	 (new 'long (#"toString" (#"getTimeOut" standard)))
 	 (#"valueOf" 'individualNodeSetPolicy "BY_SAME_AS")
 	 )))
+
+(defvar *ignore-imports-load-configuration-class*
+   (java:jnew-runtime-class
+   "IgnoreImportsOWLLoadedConfiguration"
+   :methods (list
+             (list "isIgnoredImport" :boolean '("org.semanticweb.owlapi.model.IRI")
+                   (lambda (this iri) (declare (ignore this iri)) t)
+                   )
+             )
+   :superclass "org.semanticweb.owlapi.model.OWLOntologyLoaderConfiguration"))
+
+(defparameter *ignore-imports-load-configuration*
+  (new *ignore-imports-load-configuration-class*))
+
 
 (defvar *dont-show-reasoner-progress* nil)
 
