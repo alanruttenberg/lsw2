@@ -20,13 +20,39 @@
        (= (#"size" (#"getClassesInSignature" ax)) 2)
        (every (lambda(e) (jinstance-of-p e (find-java-class 'OWLClass))) (set-to-list (#"getNestedClassExpressions" ax)))))
 
-(defun make-subclass-axioms-from-equivalents (ax kb)
-  "take an equivalentclasses expression in which there is a named class (i.e. not a GCI) and turn it into subclassof axioms for the named class"
-  (let ((elements (set-to-list (#"getNestedClassExpressions" ax))))
-    (let ((named (find-if (lambda(el) (jinstance-of-p el (find-java-class 'OWLClass))) elements)))
-      (loop for el in elements
-	   unless (eq named el)
-	   collect (subclassof-axiom named el kb)))))
+;; This is just wrong
+;; (defun make-subclass-axioms-from-equivalents (ax kb)
+;;   "take an equivalentclasses expression in which there is a named class (i.e. not a GCI) and turn it into subclassof axioms for the named class"
+;;   (let ((elements (set-to-list (#"getNestedClassExpressions" ax))))
+;;     (let ((named (find-if (lambda(el) (jinstance-of-p el (find-java-class 'OWLClass))) elements)))
+;;       (:print-db elements named)
+;;       (loop for el in elements
+;; 	   unless (eq named el)
+;; 	   collect (subclassof-axiom named el kb)))))
+
+(defun make-simplified-subclass-axioms-from-equivalents (ax kb)
+  "take an equivalentclasses expression in which there is a named class (i.e. not a GCI) and turn it into subclassof axioms for the named class, splitting apart the parts that are anded"
+  (let ((elements (set-to-list (#"getClassExpressions" ax))))
+    (when (and (= (length elements) 2)
+             (equal (jobject-class (first elements))
+                    (load-time-value (find-java-class "uk.ac.manchester.cs.owl.owlapi.OWLClassImpl"))))
+      (cons (subclassof-axiom (first elements) (second elements) kb)
+            (when (equal (jobject-class (second elements))
+                         (load-time-value (find-java-class "uk.ac.manchester.cs.owl.owlapi.OWLObjectIntersectionOfImpl")))
+              (let ((conjuncts (set-to-list (#"asConjunctSet" (second elements)))))
+                (loop for el in conjuncts
+                      collect (subclassof-axiom (first elements) el kb))
+                ))))))
+
+;; This would be nice but to-owlapi-axiom barfs on object-inverse-of, and probably other things
+;; (defun make-subclass-axioms-from-equivalents(ax kb)
+;;   (let ((ax (if (consp ax) ax (axiom-to-lisp-syntax ax))))
+;;     (assert (eq (car ax) 'equivalent-classes) () "")
+;;     (if (uri-p (second ax))
+;;         (let ((equivalents (cdr (third ax))))
+;;           (loop for sub in equivalents
+;;                 collect (to-owlapi-axiom `(subclass-of ,(second ax) ,sub) kb)))
+;;         (list ax))))
 
 ;; note bug https://sourceforge.net/tracker/index.php?func=detail&aid=2975093&group_id=90989&atid=595534
 ;; imports declarations not an axiom type and not found by get-axioms.
@@ -53,6 +79,26 @@
 				   unless found do (error "Didn't find axiom type ~a" type)
 				   collect found)
 			      body)))))))
+
+
+;; Example of axiom-shapecase
+;; (each-axiom (with-ontology f () ((asq (declaration (class !x))
+;;                                                 (declaration (object-property !p))
+;;                                                 (declaration (named-individual !v))
+;;                                                 (subclassof !c (objecthasvalue !p !v))))
+;;                                      (cl-user::filter-just-subclasses-and-hasvalue f))
+;;              (lambda(ax) (axiom-shapecase ax 
+;;                ((declaration ((?or named-individual class object-property) ?v))
+;;                 (print (axiom-to-lisp-syntax ax)))
+;;                ((subclassof (??a ?x) (??a ?y)) ;; ?x and ?y are atoms
+;;                 (print (axiom-to-lisp-syntax ax))))))
+
+(defmacro axiom-shapecase (axiom &body clauses)
+  (let ((axiomv (make-symbol "AXIOM")))
+    `(let ((,axiomv (axiom-to-lisp-syntax ,axiom)))
+       (cond ,@(loop for (pat . body) in clauses
+                     collect `((pat-match ',pat ,axiomv) ,@body))))))
+  
 
 (defun owl-declaration-type (declaration-axiom)
   (let ((class (jobject-class (#"getEntity" declaration-axiom))))
