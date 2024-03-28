@@ -196,6 +196,10 @@
 	  (setf (result expected-proof) result))
 	result))))
 
+;; to match the vampire and prover9 functions, just another name for z3-check-satisfiability
+(defun z3-check-unsatisfiable (assumptions &key (timeout 10))
+  (z3-check-satisfiability assumptions :timeout timeout))
+
 (defun z3-check-true (axiom &rest keys)
   (let ((result (apply 'z3-check-satisfiability (negate-axiom axiom) keys)))
     (if (eq result :unsat)

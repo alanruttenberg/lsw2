@@ -40,6 +40,7 @@
    #:collect-axioms-from-spec
    #:z3-prove #:z3-find-model #:z3-get-unsat-core
    #:z3-check-satisfiability
+   #:z3-check-unsatisfiable
    #:z3-syntax-check
    #:z3-check-true
    #:z3-render
