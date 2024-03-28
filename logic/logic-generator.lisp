@@ -191,6 +191,8 @@
   (render-axioms (make-instance g) axs))
 
 (defun render (which assumptions &optional goals &key path at-beginning at-end (sorter 'identity) (with-names t) princ)
+  (when (keywordp assumptions)
+      (setq assumptions (list assumptions)))
   (let ((*print-length* nil)) ;; manually set *print-length* may interfere with render rendering "..." which looks like an unknown constant to z3
     (when (eq goals :princ)
       (setq goals nil princ t))

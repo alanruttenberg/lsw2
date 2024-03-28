@@ -31,7 +31,7 @@
 				 ((and (consp e) (member (car e) '(:exists :forall)))
 				  (let ((body-forms (cddr e)))
 				    (if (> (length body-forms) 1)
-					`(,(car e) ,(second e) (and ,@(mapcar #'fix-tree body-forms)))
+					`(,(car e) ,(mapcar #'fix-tree (second e)) (and ,@(mapcar #'fix-tree body-forms)))
 					e)))
 				 ((and (consp e) (eq (car e) :distinct))
 				  `(and ,@(loop for (e1 . rest) on (cdr e)
