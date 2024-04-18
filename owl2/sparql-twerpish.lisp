@@ -27,8 +27,10 @@
 (defun manchester-to-bgp (manchester stream)
   (multiple-value-bind (transformed bindings) (substitute-uris-for-sparql-variables manchester)
     (let ((triples (t-collect `(ontology ,transformed) nil)))
-      (assert (and (eq (second (car (last triples))) !rdf:type) (eq (third (car (last triples))) !owl:Ontology)) (triples) "Something's changed. Last triple should be ontology declaration!")
-      (setq triples (butlast triples))
+      (assert (and (eq (second (car triples)) !rdf:type) (eq (third (car triples)) !owl:Ontology)) (triples) "Something's changed. Last triple should be ontology declaration!")
+      (setq triples (cdr triples))
+      (setq triples (remove-if (lambda(x) (eq (third x) !owl:Restriction)) triples))
+
       (loop for triple in (unblank-uniri-vars triples)
 	 do (emit-sparql-clause triple stream)))))
 
