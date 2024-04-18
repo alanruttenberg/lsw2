@@ -1,6 +1,29 @@
 (in-package :cl-user)
 ;; start of manchester syntax reader
 
+#|
+This file provides a way to write manchesterish syntax for class expressions via sexps.
+The forms are:
+
+(and &rest conjuncts) ->   (object-intersection-of conjuncts)
+(or &rest disjunctions) -> (object-union-of conjuncts)
+(some prop class) ->       (object-some-values-from prop class)
+(all prop class) ->        (object-all-values-from prop class)
+(min n class) ->           (object-min-cardinality n class)
+(max n class) ->           (object-max-cardinality n class)
+(exactly n class) ->       (object-exact-cardinality n class)
+(not class) ->             (object-complement-of class)
+(value class instance) ->  (object-has-value class instance)
+
+In all cases a keyword can be used as the first element instead of the symbol 
+
+Within a with-ontology form, you can use this syntax as follows. 
+
+(subclass-of !a (ce (or !b (min 1 !c))))
+
+|#
+
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun manchester-expression (form)
     (cond ((atom form) form)
