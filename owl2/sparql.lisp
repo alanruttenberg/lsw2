@@ -5,6 +5,71 @@
 
 ;; https://www.w3.org/TR/sparql11-query/
 
+#|A lispy syntax for SPARQL
+
+(:select (<var-or-expression>+) (<options>)
+         (<clause>*)
+         )
+options:
+  :distinct t <options>*
+  :count t <options>*
+  :limit <integer> <options>*
+  :order-by (<var>+) <options>*
+  :group-by (<var>+) <options>*
+  :from <IRI> <options>*
+
+var:
+  ?<symbol>
+  
+var-or-expression:
+   <var> | <expression>
+
+var-or-node:
+   <var> | <bnode>
+
+bnode:
+  :_<symbol>
+  
+symbol:
+  matches regex [A-Za-z][A-Za-z0-9_]*
+
+path:
+   <IRI>
+   | (* <path>) 
+   | (+ <path>)
+   | (? <path)
+   | (/ <path>+)
+   | (^ <path>)
+   | (not <path>)
+   | (or <path> <path>)
+   | ({ <path> <number> [<number>|t])
+
+clause:
+  (<var-or-node> [<var-or-node> | <path>] [<var-or-node> | <literal>]
+  | (:filter <filter-expression>) 
+  | (:filter-not-exists (<clause>+)) 
+  | (:filter-exists (<clause>+))
+  | (:optional (<clause>+))
+  | (:union (<clause>+) (<clause>+))
+  | (:minus (<clause>+))
+  | (:verbatim <string>)
+  | (:graph <IRI> (<clause>+))
+  | (:bind <var> :as <expression>)
+  | (<var-or-node> [!rdfs:subClassOf | !rdf:type] <class-expression>)
+
+class-expression:
+  <IRI>
+  | ([:and|:that] <class-expression>)
+  | (:or <class-expression>)
+  | (:not <class-expression>)
+  | (:some <IRI> <class-expression>)
+  | (:all <IRI> <class-expression>)
+  | (:min <integer> <class-expression>)
+  | (:max <integer> <class-expression>)
+  | (:exactly <integer> <class-expression>)
+  | (:value <IRI> [<IRI> | <literal>]
+
+|#
 (defvar *include-reasoning-prefix*)
 (defvar *sparql-using-pellet* nil)
 (defvar *sparql-namespace-uses* nil)
@@ -276,7 +341,7 @@ labels-for: If the query is lisp form, transform the query so that the given bin
     (let ((query (adding-sparql-prefixes 
 		  (lambda()
 		    (cond ((eq (car form) :select)
-			   (destructuring-bind (vars (&key limit distinct from count offset order-by group-by) &rest clauses) (cdr form)
+			   (destructuring-bind (vars (&key  limit distinct from count offset order-by group-by) &rest clauses) (cdr form)
 			     (with-output-to-string (s) 
 			       (let ((*print-case*  :downcase))
 				 (format s "SELECT ~a~a~{~a~^ ~}~a~a~%WHERE { "
@@ -441,7 +506,9 @@ labels-for: If the query is lisp form, transform the query so that the given bin
       (let ((name (string-downcase (subseq (string name) 1))))
 	(if (equal name "")
 	    (emit-blank-node '[] stream)
-	    (write-string (concatenate 'string "_:" name) stream)))))
+	    ;(write-string (concatenate 'string "_:" name) nil) ;; side effect writes to standard out when stream nil
+            (format stream "~a" (concatenate 'string "_:" name))
+            ))))
 
 ;; Need to add the rest of these. As of now there's just "*"
 ;; uri	A URI or a prefixed name. A path of length one.
@@ -515,7 +582,9 @@ labels-for: If the query is lisp form, transform the query so that the given bin
 ;;))
 
 (defun emit-sparql-clause (clause s)
-  (cond ((eq (car clause) :optional)
+  (cond ((eq (car clause) :verbatim)
+         (format s "~&~a~%" (second clause)))
+        ((eq (car clause) :optional)
 	 (format s "~%OPTIONAL { ")
 	 (loop for sub in (cdr clause) do (funcall 'emit-sparql-clause sub s))
 	 (format s "}."))
@@ -536,6 +605,12 @@ labels-for: If the query is lisp form, transform the query so that the given bin
 	((eq (car clause) :filter)
 	 (format s "~%FILTER ")
 	 (emit-sparql-filter (second clause) s))
+        ((member (car clause) '(:filter-not-exists :filter-exists))
+	 (format s "~%FILTER ~aEXISTS {" (if (eq (car clause) :filter-exists) "" "NOT "))
+         (map nil (lambda(x) (emit-sparql-clause x s)) (second clause))
+         (if (third clause)
+	      (emit-sparql-filter (third clause) s))
+         (format s "}"))
 	((eq (car clause) :with)
 	 ;; expect either an atom then pairs or a pair then atoms
 	 (if (atom (second clause))
@@ -552,7 +627,7 @@ labels-for: If the query is lisp form, transform the query so that the given bin
 	 (loop for sub in (cddr clause) do
 	   (emit-sparql-clause  sub s))
 	 (format s "~%}")(values))
-	((member (car clause) '(:minus :exists :not-exists))
+	((member (car clause) '(:minus))
 	 (format s "~%~a {"
 		 (string (car clause)))
 	 (loop for sub in (cdr clause) do
@@ -610,7 +685,7 @@ See: https://www.w3.org/2009/sparql/docs/property-paths/Overview.xml
 	   )))
       (if (uri-p form)
 	  (maybe-sparql-format-uri form)
-	  (error ""))))
+	  (error "Error in sparql path"))))
 
 (defun sparql-twerpish-class? (clause)
   (and (consp clause)
