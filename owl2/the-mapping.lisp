@@ -1,6 +1,8 @@
 (in-package :cl-user)
 (setq *rules* nil)
 
+(defvar *add-declarations* t)
+
 (defun add-rule (pattern action)
   (setq *rules* (delete pattern *rules* :key 'car :test 'equalp))
   (setq *rules* (append *rules* (list (cons pattern action)))))
@@ -118,6 +120,8 @@
 
 (defrdfm objectinverseof 
     (:pattern (objectinverseof ?object-property) :head (:blank ?x) :case :subscript-free)
+    (when (and *add-declarations* (atom ?object-property))
+      (triple ?object-property !rdf:type !owl:ObjectProperty))
   (triple (:blank ?x) !owl:inverseOf (t ?object-property)))
 
 (defrdfm dataintersectionof 
@@ -348,11 +352,19 @@
 ;; manual reversal of the next two because the pattern matcher isn't good enough and so needs to have it's priorities right.
 (defrdfm subobjectpropertyof 
     (:pattern (subobjectpropertyof (objectpropertychain (:subscript ?object-property-expression 1) :elipsis (:subscript ?object-property-expression ?n)) ?object-property-expression) :case :sequence)
+    (when (and *add-declarations* (atom ?object-property-expression))
+      (triple ?object-property-expression !rdf:type !owl:ObjectProperty))
+    (:subscript ?object-property-expression 1) :elipsis (:subscript ?object-property-expression ?n)
   (triple (t ?object-property-expression) !owl:propertyChainAxiom (t (seq (:subscript ?object-property-expression 1) :elipsis (:subscript ?object-property-expression ?n)))))
 
 (defrdfm subobjectpropertyof 
     (:pattern (subobjectpropertyof (:subscript ?object-property-expression 1) (:subscript ?object-property-expression 2)) :case :named-variable)
-  (triple (t (:subscript ?object-property-expression 1)) !rdfs:subPropertyOf (t (:subscript ?object-property-expression 2))))
+    (when *add-declarations*
+      (when (atom (:subscript ?object-property-expression 1))
+        (triple (:subscript ?object-property-expression 1) !rdf:type !owl:ObjectProperty))
+      (when (atom (:subscript ?object-property-expression 2))
+        (triple (:subscript ?object-property-expression 2) !rdf:type !owl:ObjectProperty)))
+    (triple (t (:subscript ?object-property-expression 1)) !rdfs:subPropertyOf (t (:subscript ?object-property-expression 2))))
 
 (defrdfm equivalentobjectproperties 
     (:pattern (equivalentobjectproperties (:subscript ?object-property-expression 1) :elipsis (:subscript ?object-property-expression ?n)) :case :foreach)
