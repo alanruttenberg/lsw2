@@ -92,7 +92,7 @@
     ((:file "api-symbols"))
     :depends-on (main query)))
   :perform (load-op :after (o c) (cl-user::use-uri-readtable))
-  :depends-on (util xmls owl2libs-mvn2)
+  :depends-on (util xmls owl2libs-mvn2 javaparser)
   :defsystem-depends-on (lilith))
 
 (defun cl-user::test-lsw2-owlapi ()
