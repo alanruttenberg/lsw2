@@ -344,6 +344,20 @@
   (print-unreadable-object (obj stream :identity t)
     (format stream "java class ~a" (jclass-name obj))))
 
+(defmethod print-object ((obj (jclass "uk.ac.manchester.cs.owl.owlapi.concurrent.ConcurrentOWLOntologyImpl")) stream) 
+  (print-unreadable-object (obj stream :identity t)
+    (let ((iri (ignore-errors (#"toString" (#"get" (#"getOntologyIRI" (#"getOntologyID" obj)))))))
+      (if iri
+          (format stream "ontology(java) ~a" iri)
+          (call-next-method)))))
+
+(defmethod print-object ((obj (jclass "uk.ac.manchester.cs.owl.owlapi.OWLOntologyImpl")) stream) 
+  (print-unreadable-object (obj stream :identity t)
+    (let ((iri (#"toString" (#"get" (#"getOntologyIRI" (#"getOntologyID" obj))))))
+      (format stream "ontology(java) ~a" iri))))
+
+
+
 (defun pellet-reasoner-config ()
   (let ((standard (new 'SimpleConfiguration))
 	(progressMonitor (new 'owlapi.reasoner.ConsoleProgressMonitor)))
@@ -852,7 +866,8 @@
 					  (list :individual (#"getIndividualsInSignature" ont))
 					  (list :object-property (#"getObjectPropertiesInSignature" ont))
 					  (list :data-property (#"getDataPropertiesInSignature" ont))
-					  (list :annotation-property (#"getAnnotationPropertiesInSignature" ont)))
+					  (list :annotation-property (#"getAnnotationPropertiesInSignature" ont))
+                                          (list :datatype (#"getDatatypesInSignature" ont)))
 	    do
 	    (loop for entity in (set-to-list entities)
 	       do (pushnew (list entity type ont) (gethash (make-uri (#"toString" (#"getIRI" entity))) table)
