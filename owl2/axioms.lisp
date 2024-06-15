@@ -97,8 +97,17 @@
   (let ((axiomv (make-symbol "AXIOM")))
     `(let ((,axiomv (axiom-to-lisp-syntax ,axiom)))
        (cond ,@(loop for (pat . body) in clauses
-                     collect `((pat-match ',pat ,axiomv) ,@body))))))
-  
+                     if (eq pat 'otherwise)
+                       collect `((t ,@body))
+                     else collect `((pat-match ',pat ,axiomv) ,@body))))))
+
+(defmacro when-has-shape (axiom shapes &body body)
+  (let ((axiomv (make-symbol "AXIOM")))
+    `(let ((,axiomv (axiom-to-lisp-syntax ,axiom)))
+       (when (loop for shape in ',shapes
+                   thereis (pat-match shape ,axiomv))
+         ,@body))))
+
 
 (defun owl-declaration-type (declaration-axiom)
   (let ((class (jobject-class (#"getEntity" declaration-axiom))))

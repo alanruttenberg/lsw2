@@ -186,7 +186,10 @@ labels-for: If the query is lisp form, transform the query so that the given bin
 |#
 
 
-(defun sparql (query &rest all &key (kb (and (boundp '*default-kb*) *default-kb*)) (use-reasoner :pellet) (flatten nil) (trace nil) (trace-show-query trace) endpoint-options geturl-options (values t) (endpoint nil) (chunk-size nil) (syntax :sparql) labels-for explicit-literals &allow-other-keys &aux (command :select) count)
+(defun sparql (query &rest all &key (kb (and (boundp '*default-kb*) *default-kb*)) (use-reasoner :pellet) (flatten nil) (trace nil) (trace-show-query trace) endpoint-options geturl-options (values t) (endpoint nil) (chunk-size nil) (syntax :sparql) labels-for explicit-literals stringify &allow-other-keys &aux (command :select) count)
+  (when stringify (return-from sparql
+                    (if (stringp query) query
+                        (sparql-stringify query use-reasoner :labels-for labels-for))))
   (when chunk-size (return-from sparql (apply 'sparql-by-chunk query all)))
   (setq use-reasoner (or endpoint use-reasoner))
   (setq count (and (consp query)
@@ -620,7 +623,9 @@ labels-for: If the query is lisp form, transform the query so that the given bin
 	 (format s "~%BIND(")
                                         ;	 (assert (equalp (string (third clause)) "AS") () "BIND missing AS")
          (assert (find :as clause :test 'equalp))
-	 (emit-sparql-filter (subseq clause 1 (- (length clause) 2)) s)
+         (if (atom (second clause))
+             (format s "~a" (sparql-path (second clause) t))
+	     (emit-sparql-filter (subseq clause 1 (- (length clause) 2)) s))
 	 (format s " AS ~a) " (car (last clause))))
 	((eq (car clause) :graph)
 	 (format s "graph ~a {" (maybe-sparql-format-uri (second clause)))
@@ -769,21 +774,80 @@ See: https://www.w3.org/2009/sparql/docs/property-paths/Overview.xml
 ;;
 ;; e.g. (transform-for-labels '(:select (?a ?b) ()  (?a !ex:r ?b)) '(?a))
 ;; -> '(:select (?a ?b) nil (?a_inst !rdfs:label ?a) (?a_inst !ex:r ?b))
-
-(defun transform-for-labels (query labels &aux extra)
-  (let ((rewritten 
-          (tree-replace
-           (lambda(el)
-             (if (member el labels)
-                 (let ((new-var 
-                         (intern (format nil "~a_INST" (string el)) (symbol-package el))))
-                   (pushnew `(,new-var ,!rdfs:label ,el) extra :test 'equalp)
-                   new-var)
-                 el))
-           (eval-uri-reader-macro (cdddr query)))))
-    `(,(car query) ,(second query) ,(third query) ,@extra ,@rewritten )))
-
-
+;;
+;; We need to add the label triple beside other bindings of the unlabeled.
+;; At each level we have bgp + maybe :optional, :minus, :union, :filter[-exists|-not-exists] forms
+;; DOES NOT HANDLE VERBATIM, SO DONT USE VERBATIM WITH LABEL REPLACEMENT
+;; If the triples at any level contains one of the ?vars, we can add the label there
+;; and not bother recursing 
+;; Otherwise recurse on the special forms 
+(defun transform-for-labels (query labels)
+  (labels (;; given ?var creates triple (?var_ !rdfs:label ?var)
+           (label-triple (el)
+             (let ((new-var 
+                     (intern (format nil "~a_" (string el)) (symbol-package el))))
+               `(,new-var ,!rdfs:label ,el)))
+           ;; Given the body of a sparql query, transform it by rewriting ?var as ?var_ then
+           ;; add a label triple. pattern is all the forms in the body
+           (transform-1 (pattern labels)
+             ;; We're going to use nsubst to replace the ?var with ?var_ so make a copy first
+             (setq pattern (mapcar 'copy-list pattern)) 
+             ;; Triples will be forms in the body that are triple patterns, or BIND statements
+             ;; Triples will be augmented by label-triples 
+             ;; The others are :union, :optional, :minus, and :filters and they will be
+             ;; transformed by a recursive call. Critically, if a label-triple has been added
+             ;; before the call, it won't need to be added in a recursive call.
+             ;; The result will be that the label-triple will be added at the highest level
+             ;; that there are triples that constrain it. Other wise we can have:
+             ;; * (:optional (?a_ !p ?b)) (?a_ !rdfs:label ?a)). If the optional doesn't result in a binding
+             ;; we get (?a_ !rdfs:label ?a) without further constraint, triggering a cross produce
+             ;; as any of the other bindings could be paired with every possible label of something else.
+             ;; So instead of *, we have (:optional (?a_ !p ?b) (?a_ !rdfs:label ?a)) - the label-triple
+             ;; is inside the optional, so it won't have a label binding unless the optional block is satisfied
+             ;; triples will be the elements we aren't recursing into.
+             (let ((triples (remove-if (lambda(el) (and (keywordp (car el)) (not (eq el :bind))))
+                                       pattern)))
+               ;; Extras will be the label-triples to add at this level
+               (let* ((extras
+                        (loop for label in labels
+                              if (tree-find label triples)
+                              collect (label-triple label))))
+                 ;; Once we've determined which ?vars are going to be replaced with ?var_
+                 ;; we remove ?var from the labels so we don't also add the label-triple in another place.
+                 (setq labels (set-difference labels (mapcar 'third extras)))
+                 ;; Here's the recursive call,which is done for any form that has a nested pattern.
+                 ;; Again, not sure I have to do this in all cases, but better safe than sorry
+                 (let ((rewritten 
+                         (loop for el in pattern
+                               ;; These forms have one pattern as argument
+                               collect (cond ((member (car el) '(:optional :minus :filter-exists :filter-not-exists))
+                                              `(:optional ,@(transform-1
+                                                             (cdr el) 
+                                                             labels)))
+                                             ;; Union has two patterns as arguments
+                                             ((eq (car el) :union)
+                                              `(:union ,(transform-1 (second el) labels)
+                                                       ,(transform-1 (third el) labels)))
+                                             ;; Anything else we don't recurse on
+                                             (t el)) into rewritten
+                               finally 
+                                  ;; Now we do the replacement of ?var with ?var_ in the initial form
+                                  ;; We can reuse extras to get the necessary replacements
+                                  ;; We use nsubst since it will poke the replacement where we want it
+                                  ;; without having to do another walk 
+                                  (loop for (instance-var nil label-var) in extras
+                                        do (setq rewritten (nsubst instance-var label-var rewritten)))
+                                  ;; The result is the rewritten pattern, followed by the label-triples
+                                  (return (append rewritten extras)))))
+                   rewritten
+                   )))))
+    ;; Top level is (:select <vars> <options> &rest pattern). :select, <vars>, and <options> are to be
+    ;; left alone. We only transform the body pattern
+    ;; The intersection with vars is because if we're not selecting the variable then there's no
+    ;; point computing the label, despite what the called has said.
+    (destructuring-bind (cmd vars options . pattern) query
+        `(,cmd ,vars ,options ,@(transform-1 pattern (intersection labels vars))))))
+    
 
 
 ;; (sparql-endpoint-query "http://localhost:8080/openrdf-sesame/repositories/reactome43"  
