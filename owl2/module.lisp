@@ -17,22 +17,26 @@
 ;; Module type can be "STAR", "TOP", and "BOTTOM". I've found STAR to be
 ;; most useful.
 
-;; By default all classes, object properties and data properties are
-;; included in the signature. use :include-data-properties or
-;; :include-object-properties as nil to disable either.
+;; By default all classes, object properties, data properties and individuals are
+;; included in the signature. use :include-data-properties, :include-individuals,
+;; :include-object-properties as nil to disable
 
 ;; If module-iri is past an iri then the module ontology iri is set to
 ;; that, otherwise its the same as the original.
 
 ;; By default, any terms that are brought into the module but not in the original
-;; are labeled by their source (as heuristically determined based on their IRI)
+;; are labeled by their source, as is any term which doesn't have a label, assumed
+;; to be a marker that a term is actually defined in the ontology, rather than just
+;; mentioned by IDI. The label source is heuristically determined
 ;; Use :label-imported nil to override that behavior
 
 (defun trimmed-imports-module (ontology &key (module-iri )
 			                  dest (module-type "STAR")
 			                  (include-object-properties t)
 			                  (include-data-properties t)
+                                          (include-individuals t)
                                           (label-imported t)
+                                          (only-with-label `(,!rdfs:label ,!skos:prefLabel))
 			                  )
   (when (stringp ontology)
     (setq ontology (load-ontology ontology)))
@@ -46,15 +50,21 @@
 		     (and include-object-properties (#"addAll" it (#"getObjectPropertiesInSignature" (v3kb-ont ontology)))))
                 (and (> (length (set-to-list it)) 0)
 		     (and include-data-properties (#"addAll" it (#"getDataPropertiesInSignature" (v3kb-ont ontology)))))
+                (and (> (length (set-to-list it)) 0)
+		     (and include-individuals (#"addAll" it (#"getIndividualsInSignature" (v3kb-ont ontology)))))
 		it)))
-    (let ((result (create-module-for-signature ontology sig :dest dest :module-iri module-iri :module-type module-type
-                                               :label-imported label-imported)))
-      (when dest
-        (setf (v3kb-source result) dest))
-      result)))
+    (let ((labeled-entities nil))
+      (each-entity-label ontology only-with-label (lambda(uri propuri label)
+                                                    (declare (ignore propuri label))
+                                                    (push uri labeled-entities)))
+      (let ((result (create-module-for-signature ontology sig :dest dest :module-iri module-iri :module-type module-type
+                                                              :label-imported (and label-imported labeled-entities))))
+        (when dest
+          (setf (v3kb-source result) dest))
+        result))))
 
 
-(defun create-module-for-signature (ontology signature &key module-iri dest (module-type "STAR") (label-imported t))
+(defun create-module-for-signature (ontology signature &key module-iri dest (module-type "STAR") (label-imported nil))
   ;; Default module-iri to same as original 
   (unless module-iri
     (setq module-iri (#"get" (#"getOntologyIRI" (#"getOntologyID" (v3kb-ont ontology))))))
@@ -76,16 +86,19 @@
     (let ((entities (loop for el in (append  (set-to-list (#"getObjectPropertiesInSignature" extracted))
 					     (set-to-list (#"getDataPropertiesInSignature" extracted))
 					     (set-to-list (#"getAnnotationPropertiesInSignature" extracted))
-					     (set-to-list (#"getClassesInSignature" extracted)))
+					     (set-to-list (#"getClassesInSignature" extracted))
+                                             (set-to-list (#"getIndividualsInSignature" extracted)))
 		          with table = (make-hash-table :test 'equal)
 		          do (setf (gethash (#"toString" (#"getIRI" el)) table ) t)
 		          finally (return table))))
       ;; Copy over annotations from the source ontology
       (let ((sig-as-strings (and label-imported
                                  (loop with table = (make-hash-table :test 'equalp)
-                                  for el in (j2list signature)
-                                  do (setf (gethash (#"toString" (#"getIRI" el)) table) t)
-                                  finally (return table)))))
+                                       for el in (j2list signature)
+                                       for uri = (#"toString" (#"getIRI" el))
+                                       when (member (make-uri uri) label-imported)
+                                         do (setf (gethash uri table) t)
+                                       finally (return table)))))
         (each-axiom ontology 
 	    (lambda(ax)
 	      (axiom-typecase ax
@@ -118,6 +131,16 @@
 	(write-rdfxml extracted-ont dest))
       ;; Return the module ontology object
       extracted-ont)))
+
+(defun create-module-for-branch (ont root)
+  (let ((ont (merge-ontology ont)))
+    (let ((signature (to-hashset
+                      (mapcar (lambda(iri)
+                                (caar (gethash iri (v3kb-uri2entity ont))))
+                              (append (descendants root ont)
+                                      (instances root ont))))))
+      (create-module-for-signature ont signature))))
+      
 
 ;; get an ontology label from an IRI
 ;; First check OBO iris, XXX_dddddd and use XXX when found
