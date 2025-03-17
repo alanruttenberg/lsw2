@@ -53,6 +53,7 @@
    #:unsatisfiable-classes
    #:unsatisfiable-properties
    #:get-ontology-iri
+   #:set-ontology-iri
    #:get-version-iri
    #:get-imports-declarations
    #:add-change
@@ -211,6 +212,12 @@
    ;; filter.lisp
    #:filter-just-branch-of-ontology
    #:filter-just-subclasses
+   #:filter-remove-signature
+   #:filter-just-subclasses-subproperties-and-hasvalue
+   #:filter-just-subclasses
+   #:filter-just-branch-of-ontology
+   #:filter-remove-intermediates
+   #:filter-remove-prefix-annotations
    #:copy-annotations-between-ontologies
    #:add-axioms-to-ontology
    #:axiom-within-signature?
@@ -373,6 +380,14 @@
    #:all-matches
    #:camelCase
    #:de-camelcase
+   ;; background.lisp
+   #:flush-jobs
+   #:jobs
+   #:%.
+   #:%&
+   #:reset-workers
+   #:&
+   #:%
    ))
 
 (do-symbols (s (find-package :lsw2))
