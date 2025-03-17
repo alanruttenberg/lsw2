@@ -5,7 +5,9 @@
 (defparameter *blankprefix* "urn:blank:")
 
 (defvar *namespace-replacements* 
-  `(("http://www.openrdf.org/schema/sesame#" "sesame:")
+  `(("http://qudt.org/schema/qudt/" "qudt:")
+    ("http://qudt.org/vocab/unit/" "qunit:")
+    ("http://www.openrdf.org/schema/sesame#" "sesame:")
     ("https://w3id.org/uom/" "uom:")
     ("http://xmlns.com/wordnet/1.6/" "wordnet:") ; used in foaf
     ("http://www.inoh.org/owl#" "inoh:")
@@ -111,6 +113,9 @@
     ("http://dbpedia.org/ontology/" "dbo:")           
     ("http://dbpedia.org/property/" "dbp:")
     ("http://www.opengis.net/def/function/geosparql/" "geof:")
+    ("http://www.opengis.net/def/uom/OGC/1.0/" "ogcuom:")
+    ("http://rdf.useekm.com/ext#" "useekm:")
+    ("guide:" "guide:")
     (,*blankprefix* "blank:")
     ))
 
@@ -128,7 +133,7 @@
   (unless *qnameable-pattern-according-to-spec*
     (setq *qnameable-pattern-according-to-spec*
 	   (#"compile" 'util.regex.pattern "^[a-zA-Z_][a-zA-Z_.0-9-]*$")))
-  (with-constant-signature ((matches "matches") 
+  (jss::with-constant-signature ((matches "matches") 
 			    (matcher "matcher" t)
 ;;			    (substring "substring" t)
 			    (concat "concat"))
@@ -167,7 +172,7 @@
 
 (defun maybe-unabbreviate-namespace (s)
   (declare (optimize (speed 3) (safety 0)))
-  (with-constant-signature ((matches "matches") 
+  (jss::with-constant-signature ((matches "matches") 
 			    (matcher "matcher" t)
 			    (substring "substring" t)
 			    (concat "concat"))
