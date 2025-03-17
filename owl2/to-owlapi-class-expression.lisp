@@ -183,6 +183,8 @@
 	(df (v3kb-datafactory ont)))
     (assert axiom-type (axiom-type) "Don't know how to translate axiom type ~a" (car axiom))
     (case axiom-type
+      ((declaration)
+       (make-declaration-axiom axiom ont))
       ((subclassof disjointclasses equivalentclasses) 
        (apply 'jcall (owlapi-axiom-constructor axiom-type) df (mapcar (lambda(e)(to-class-expression e ont)) (cdr axiom))))
       ((TransitiveObjectProperty AsymmetricObjectProperty
@@ -213,3 +215,18 @@
 	      (to-owlapi-literal (fourth axiom) df)))
       (t (error "don't know how to create owlapi for axiom ~a yet" axiom-type)))))
 
+(defun make-declaration-axiom (form ont)
+  (let ((type (first (second form)))
+        (object (second (second form))))
+    (let ((thing (ecase type
+                   (object-property
+                       (#"getOWLObjectProperty" (v3kb-datafactory ont) (to-iri object)))
+                   (data-property
+                    (#"getOWLDataProperty" (v3kb-datafactory ont) (to-iri object)))
+                   (annotation-property
+                    (#"getOWLAnnotationProperty" (v3kb-datafactory ont) (to-iri object)))
+                   (class 
+                    (#"getOWLClass" (v3kb-datafactory ont) (to-iri object)))
+                   (named-individual
+                    (#"getOWLNamedIndividual" (v3kb-datafactory ont) (to-iri object))))))
+      (#"getOWLDeclarationAxiom" (v3kb-datafactory ont) thing))))
