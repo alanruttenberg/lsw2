@@ -13,6 +13,9 @@
           (add-to-classpath (ABCL-ASDF:RESOLVE "net.java.dev.jna/jna/LATEST")))
         (setq *jna-loaded* t))))
 
+(eval-when (:load-toplevel)
+  (ensure-jna-loaded))
+
 (defun c-setenv (variable value)
   (ensure-jna-loaded)
   (#"invokeInt" (#"getFunction" (#"getInstance" 'jna.nativelibrary "c") "putenv")
@@ -20,12 +23,24 @@
 
 (defun c-getenv (variable)
   (ensure-jna-loaded)
-  (let ((found (#"invokePointer" (#"getFunction" (#"getInstance" 'jna.nativelibrary "c") "getenv")
-                                  (java:jnew-array-from-list "java.lang.Object" (list variable)))))
-    (when found
-      (#"getString" found  0))))
+  (let ((buffer (jnew-array "byte" 10000)))
+    (let ((found (#"invokePointer" (#"getFunction" (#"getInstance" 'jna.nativelibrary "c") "getenv")
+                                   (java:jnew-array-from-list "java.lang.Object" (list variable buffer)))))
+      (when found
+        (values (#"toString" 'jna.native buffer)
+                (#"getString" found  0))))))
 
 (defun c-chdir (dir)
   (ensure-jna-loaded)
   (#"invokePointer" (#"getFunction" (#"getInstance" 'jna.nativelibrary "c") "chdir")
                     (java:jnew-array-from-list "java.lang.Object" (list dir))))
+
+(defun c-getcwd (&optional (maxlength 1000))
+  (ensure-jna-loaded)
+  (let* ((buffer (jnew-array "byte" maxlength))
+         (found 
+          (#"invokePointer" (#"getFunction" (#"getInstance" 'jna.nativelibrary "c") "getcwd")
+                            (java:jnew-array-from-list "java.lang.Object" (list buffer maxlength)))))
+    (assert found () "getcwd failed, presumably because the length of the result string was longer than ~a" maxlength)
+    (and found
+         (#"toString" 'jna.native buffer))))
