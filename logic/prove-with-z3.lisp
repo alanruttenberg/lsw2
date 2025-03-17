@@ -165,7 +165,7 @@
 		  names))
         (if (does-z3-output-say-timeout answer)
             :timeout
-            (if (does-z3-output-say-sat)
+            (if (does-z3-output-say-sat answer)
                 :sat
                 (error "Unexpected output from z3-get-unsat-core for ~s" assumptions))))))
 

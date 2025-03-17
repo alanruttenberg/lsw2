@@ -28,9 +28,16 @@
   (setf *last-vampire-axiom-map* (setf (axiom-map g) (coerce a 'vector)))
   (values (call-next-method) g))
 
-(defun get-vampire-proof-support ()
-  (loop for (num) in (butlast (all-matches *last-vampire-output* "(?m)(\\d+)\\.\\s+(\\S+).*\\[input\\]" 1 2))
-	for ax = (svref *last-vampire-axiom-map* (1- (parse-integer num)))
+(defun get-vampire-proof-support (&optional (output *last-vampire-output*) (map *last-vampire-axiom-map*))
+  (loop for (num) in (butlast (all-matches output "(?m)(\\d+)\\.\\s+(\\S+).*\\[input\\]" 1 2))
+	for ax = (svref map (1- (parse-integer num)))
+	if (typep ax 'axiom)
+	  collect (keywordify (axiom-name ax))
+	else collect ax))
+
+(defun get-vampire-unsat-support (&optional (output *last-vampire-output*) (map *last-vampire-axiom-map*))
+  (loop for (num) in  (all-matches output "(?m)(\\d+)\\.\\s+(\\S+).*\\[input\\]" 1 2)
+	for ax = (svref map (1- (parse-integer num)))
 	if (typep ax 'axiom)
 	  collect (keywordify (axiom-name ax))
 	else collect ax))
@@ -52,30 +59,36 @@
 ;; Then look for lines with [input] and extract to recover the axiom.
 ;; Will require making a copy of the axiom
 (defun vampire-render (assumptions &optional goals commands)
-  (apply 'concatenate 'string
-	 (render :vampire assumptions goals)
-	 (mapcar (lambda(e) (format nil "~a" e)) commands)))
+  (let ((gen nil))
+    (values 
+     (apply 'concatenate 'string
+	    (multiple-value-bind (rendering generator)
+                (render :vampire assumptions goals)
+              (setq gen generator)
+              rendering)
+	    (mapcar (lambda(e) (format nil "~a" e)) commands))
+     gen)))
 
-(defun vampire-prove (assumptions goals &key (timeout 30) (mode :vampire) (include-output nil)  (switches nil) expected-proof &allow-other-keys)
+(defun vampire-prove (assumptions goals &key (timeout 30) (mode :vampire) (include-output nil) (include-map nil) (switches nil) expected-proof &allow-other-keys)
   (if (and goals (atom goals)) (setq goals (list goals)))
   (assert (eq (z3-syntax-check assumptions goals) t) (assumptions goals) "smtlib2 syntax error")
-  (let* ((input  (vampire-render assumptions goals '("(check-sat)")))
-	 (answer 
-	   (setq *last-vampire-output* 
-		 (run-vampire (setq *last-vampire-input* input)  timeout mode switches))
-	   ))
-    (let ((result
-	    (cond ((or (search "Termination reason: Time limit" answer)
-		       (search "Proof not found in time" answer))
-		   :timeout)
-		  ((search "Refutation found." answer)
-		   :proved)
-		  (t :failed))))
-      (when expected-proof
-	(setf (prover-input expected-proof) input)
-	(setf (prover-output expected-proof) answer)
-	(setf (result expected-proof) result))
-      (values result (if include-output  answer (values()))))))
+  (multiple-value-bind (input generator) (vampire-render assumptions goals '("(check-sat)"))
+    (let ((answer 
+	    (setq *last-vampire-output* 
+		  (run-vampire (setq *last-vampire-input* input)  timeout mode switches))
+	    ))
+      (let ((result
+	      (cond ((or (search "Termination reason: Time limit" answer)
+		         (search "Proof not found in time" answer))
+		     :timeout)
+		    ((search "Refutation found." answer)
+		     :proved)
+		    (t :failed))))
+        (when expected-proof
+	  (setf (prover-input expected-proof) input)
+	  (setf (prover-output expected-proof) answer)
+	  (setf (result expected-proof) result))
+        (values result (if include-output  answer (values())) (if include-map (axiom-map generator)))))))
     
 (defun vampire-check-unsatisfiable (assumptions &rest keys &key expected-proof &allow-other-keys)
   (let ((result (apply 'vampire-prove assumptions nil keys)))

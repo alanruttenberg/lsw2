@@ -295,8 +295,8 @@
   (and (search "THEOREM PROVED" output)
        (caar (all-matches output "(?sm)={30,30} PROOF =+$(.*?)={30,30} end of proof =+$" 1))))
 
-(defun get-prover9-proof-support ()
-  (get-proof-support))
+(defun get-prover9-proof-support (&rest args)
+  (apply 'get-proof-support args))
 
 (defun get-proof-support (&optional (prover9-output *last-prover9-output*))
   (if (consp prover9-output)

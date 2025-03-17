@@ -35,7 +35,9 @@ names don't consist of standard characters. TBD
 		(intern form))))))
 
 (defun no-mangling-style (form)
-  (intern form))
+  (if (find #\space form :test 'char-equal)
+      form
+      (intern (string-upcase form))))
 
 
 (defun starting-a-comment (stream)
@@ -111,7 +113,7 @@ names don't consist of standard characters. TBD
 								 else collect (list sym 
 										    (maybe-rewrap-comment maybe-comment-sym 
 												      (intern (concatenate 'string "?" (string-upcase sym))))))))
-					      `(:forall ,(mapcar 'second renamed)
+					      `(,(if (equalp name "FORALL") :forall :exists) ,(mapcar 'second renamed)
 						 ,@(mapcar (lambda(e) (walk e (append renamed bindings))) (cddr form))))))
 					 ((member (maybe-comment-inner name) '("AND" "OR" "IFF" "IF" "NOT" "=") :test 'equalp)
 					  (let ((maybe-wrapped-name (maybe-comment-inner name)))
