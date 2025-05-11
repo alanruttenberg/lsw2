@@ -1,0 +1,264 @@
+# -*- Mode: POLY-ORG;  -*- ---
+#+PROPERTY: literate-lang lisp
+#+PROPERTY: literate-load yes
+#+OPTIONS: html-postamble:nil
+#+OPTIONS: ^:nil
+
+#+Author: Alan Ruttenberg
+#+Title: Text ontology reports
+
+
+#+begin_src lisp
+(uiop::define-package :docset (:use cl-user cl lsw2))
+(in-package :docset)
+#+end_src
+
+** Class and constructor
+
+#+begin_src lisp
+(defparameter *sets* nil)
+
+(defvar *docset-annotations*
+  '(eval-uri-reader-macro (!rdf:isDefinedBy
+    "editor note"
+    !skos:scopeNote
+    !rdfs:comment
+    !skos:editorialNote
+    !rdfs:seeAlso)))
+
+(defclass docset ()
+  ((name :initarg :name :initform nil :accessor name)
+   (keys :initarg :keys :initform nil :accessor keys)
+   (terms :initarg :terms :initform nil :accessor terms)
+   (ontology :initarg :ontology :initform nil :accessor ontology)
+   ))
+
+(defmethod initialize-instance ((o docset) &rest args)
+  (call-next-method)
+  (setf (v3kb-uri2entity (ontology o)) (compute-uri2entity (ontology o) t)))
+
+#+begin_src lisp
+    
+(defmethod print-object ((o docset) stream)
+  (print-unreadable-object (o stream :type t)
+    (format stream "~a" (name o))))
+
+(defun get-set (name)
+  (find name *sets* :key 'name))
+
+(defmacro defset (name ontology keys &rest terms)
+  `(let ((instance (make-instance 'docset :name ',name :keys ',keys :terms ',terms :ontology ,ontology)))
+     (setf *sets* (remove ',name *sets* :key 'name))
+     (push instance *sets*)))
+
+#+end_src
+
+** Functions that iterate over terms
+
+
+Run a processing over all sets
+
+#+begin_src lisp
+(defun process-all (&optional (process-fn 'process))
+  (loop for o in *sets* do (funcall process-fn o)))
+
+#+end_src
+
+Check that every term in a set has a definition
+
+#+begin_src lisp
+(defmethod process-check-definitions ((o docset))
+  (loop for term in (terms o)
+        for iri = (label-uri term (ontology o))
+        unless iri
+          do (warn "missing ~a" iri)
+        unless (assoc !skos:definition (entity-annotations iri (ontology o)))
+          do (unless (eq (name o) 'mpeasurements)
+               (warn "Missing definition for ~a" term))))
+#+end_src
+
+To collect all the different annotation properties used in a set
+#+begin_src lisp
+(defmethod process-collect-all-annotation-types ((o docset))
+  (declare (special *collect-annotations*))
+  (loop for term in (terms o)
+        for iri = (label-uri term (ontology o))
+        for annotations = (entity-annotations iri (ontology o))
+        do
+           (loop for (annotation-iri value) in annotations
+                 for annotation-readable = (or (uri-label annotation-iri (ontology o))
+                                               annotation-iri)
+                 do (pushnew annotation-readable *collect-annotations* :test 'equalp))))
+
+#+end_src
+
+*** Functions to support pretty-printing terms
+
+In parents-up-to-bfo, q is list of parents. Generally there will only be
+one because single inheritance if top of q is a BFO term, add it to
+parents-list and end otherwise add top of q, pop it off and add it to
+parents-list, and append its parents to q
+
+#+begin_src lisp
+
+(defun source-ontology-suffix (iri)
+  (cond ((#"matches" (uri-full iri) ".*BFO_.*") "(bfo)")
+        ((#"matches" (uri-full iri) ".*commoncore.*") "(cco)")
+        ((#"matches" (uri-full iri) ".*qudt.*") "(qudt)")
+        (t "")))
+
+(defun parents-up-to-bfo (iri-or-label ont &key (kind :class))
+  "Calculates names of all the transitive parents of a term up to the BFO term.
+   Markes terms from cco or bfo with a parenthetical"
+  (flet ((maybe-append-source (iri label)
+           (concatenate 'string label (source-ontology-suffix iri))))
+    (when (stringp iri-or-label) (setq iri-or-label (label-uri iri-or-label ont)))
+    (loop with q = (funcall (cond ((eq kind :class) 'parents)
+                                  ((eq kind :property) 'property-parents)
+                                  (t (error "Don't know how to get parents of ~a" kind)))
+                            iri-or-label ont)
+          for top = (pop q)
+          for inverse-p = (consp top)
+          when top
+            do (if (consp top) (setq top (second top))) and
+          collect (let ((before (maybe-append-source top (uri-label top ont))))
+                    (if inverse-p
+                        `(object-inverse-of ,before)
+                        before))  into parents-list
+          and do (when top (setq q (append q (parents top ont))))
+          until (or (null q) (#"matches" (uri-full top) ".*BFO_.*")
+                    (eq q !owl:topObjectProperty)
+                    (eq q !owl:topDataProperty))
+          finally (return (remove-duplicates parents-list :test 'equalp)))))
+
+
+
+(defun justify-paragraph (text width &optional( indent 3))
+  "Takes a text, splits to words, add carriage return after ~width~
+  characters and ~indent~ spaces past the first line"
+  (if (null text)
+      ""
+      (if (uri-p text)
+          (uri-full text)
+          (let ((words (split-at-char text #\Space)))
+            (let ((lines (loop with line = nil
+                               for word in words
+                               do (push word line)
+                               when (>= (+ (length (format nil "~{~A~^ ~}" line))
+                                           (length word))
+                                        width)
+                                 collect (format nil "~{~A~^ ~}" (reverse line)) into lines
+                                 and do (setf line (list))
+                               finally (return (if line
+                                                   (append lines (list (format nil "~{~A~^ ~}" (reverse line))))
+                                                   lines)))))
+              (format nil "~{~a~^~%~}"
+                      (cons (car lines) (mapcar (lambda (x) (concatenate 'string (subseq "          " 0 indent) x)) (cdr lines)))))))))
+
+#+end_src
+
+The main function to print a term
+
+#+begin_src lisp
+
+(defun maybe-uri-label (annotation-property)
+  "Expects an annotation property label and returns it unless there
+ isn't one. as for skos, in which case we return an appropriate label"
+  (cond ((eq annotation-property !skos:scopeNote) "Scope note")
+        ((eq annotation-property !rdfs:comment) "Comment")
+        ((eq annotation-property !skos:editorialNote) "Editorial note")
+        ((eq annotation-property !skos:altLabel) "Alternative label")
+        ((eq annotation-property !rdf:isDefinedBy) "Defined by")
+        ((eq annotation-property !skos:definition) "Definition")
+        ((eq annotation-property !rdfs:seeAlso) "Also see")
+        (t annotation-property)))
+
+(defmacro maybe-annotation (docset annotation iri &optional (show-label t) (stream t))
+  `(let ((annot-value (second (assoc (or (ignore-errors (label-uri ,annotation (ontology ,docset))) ,annotation)
+                                     (entity-annotations ,iri (ontology ,docset))))))
+     (when annot-value
+       (when (consp annot-value) (setq annot-value (second annot-value))) ;; literals
+       (format ,stream "~a: ~a~%" (if ,show-label (string-capitalize (maybe-uri-label ,annotation)) "")
+               (justify-paragraph annot-value 80)))))
+  
+(defun remove-initial-noise (term axiom)
+  (#"replaceFirst" axiom (format nil "'?~a'? (SubClassOf )?" term) ""))
+                             
+(defmethod print-one-term ((o docset) term &optional (stream t) &aux kind )
+  (setq kind (second (first (gethash (label-uri term (ontology o)) (v3kb-uri2entity (ontology o))))))
+  (let ((iri (label-uri term (ontology o))))
+    (format stream "~a: ~a~a~%IRI: ~a~%" (#"replaceAll" (string-capitalize (string kind)) "_|-" " ") term (source-ontology-suffix iri) (uri-full iri))
+    (format stream "Definition: ~a~%" 
+            (justify-paragraph (or (second (assoc !skos:definition (entity-annotations iri (ontology o)))) "none") 80))
+    (maybe-annotation o !skos:altLabel iri t stream)
+    (when (eq kind :class)
+      (format stream "Parents: ~a" (justify-paragraph (format nil "~{~a~^, ~}~%" (parents-up-to-bfo iri (ontology o)  :kind :class)) 80)))
+    (when (member kind '(:object-property :data-property :property))
+      (let ((supers (parents-up-to-bfo iri (ontology o) :kind :property)))
+        (when supers
+          (format stream "Superproperties: ~a" (justify-paragraph (format nil "~{~a~^, ~}~%" supers) 80)))))
+    (when (getf (keys o) :instances)
+      (let ((instances (instances iri (ontology o))))
+        (format stream "Instances: ~%")
+        (loop for instance in instances
+              do (format stream " - ~a: "
+                         (uri-label instance (ontology o)))
+                 (maybe-annotation o !skos:definition instance nil stream)
+              )))
+    (loop for prop in *docset-annotations*
+          do
+             (maybe-annotation o prop iri t stream))
+    (let ((axioms (mapcar (lambda(x) (remove-initial-noise term x))
+                          (cl-user::manchester-logical-axioms-for-entity-text iri (ontology o) kind nil))))
+      (when axioms
+        (format stream "Axioms:~%~{~a~%~}" axioms)))
+    (format stream "~%----------------~%")))
+
+(defmethod write-docset ((o docset) &optional (stream t))
+  (format stream "Term set: ~a~%" (string-capitalize (#"replaceAll" (string (name o)) "-" " ")))
+  (format stream "Notes: ~a~%--~%" (justify-paragraph (getf (keys o) :doc) 80))
+  (loop for term in (terms o)
+        do (print-one-term o term stream)))
+#+end_src
+
+** Test 
+#+begin_src lisp load no :exports both :results replace
+(defvar *ont* (load-ontology "~/repos/BFO-2020/src/owl/bfo-core.ttl"))
+
+(defset bfo-test *ont* ()
+  "continuant"
+  "occurrent")
+
+(print-terms-info (get-set 'bfo-test))
+#+end_src
+
+#+begin_quote
+Term: emissivity value specification
+Definition: a radiometric value specification that specifies the amount of energy given
+   off by a body in unit time, relative to the amount of energy per unit time given
+   off by a black body at the same temperature, given as a percentage
+Parents: radiometric value specification, value specification, Information content
+   entity(cco), information entity, generically dependent continuant(bfo)
+Nitf Cross Reference: BANDSB
+Axioms:
+'emissivity value specification' SubClassOf 'has unit' some 'Measurement Unit of Emissivity'
+'emissivity value specification' SubClassOf describes some 'Radiation Emissivity'
+#+end_quote
+
+
+#+begin_src lisp
+;(process-all)
+;(defvar *collect-annotations* nil)
+;(let ((*collect-annotations* nil))
+;  (process-all 'process-collect-all-annotation-types)
+;  *collect-annotations*)
+
+#+end_src
+
+
+# Leave this at bottom of file
+# Local Variables:
+# eval: (setf (cdr (assoc :results org-babel-default-header-args)) "none")
+# eval: (pushnew '(:results . "wrap") org-babel-default-header-args :test 'equalp)
+# eval: (add-hook 'after-save-hook 'org-html-export-to-html nil t)
+# End:
