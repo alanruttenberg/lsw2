@@ -17,7 +17,8 @@
    (description :accessor axiom-description :initarg :description :initform nil)
    (plist :accessor axiom-plist :initarg :plist :initform nil)
    (generation-form :accessor axiom-generation-form)
-   (from :accessor axiom-from :initform nil :initarg :from)))
+   (from :accessor axiom-from :initform nil :initarg :from)
+   (alias :initarg :alias :initform nil :accessor alias)))
 
 (defmethod axiom-plist ((name symbol))
   (axiom-plist (get-axiom name)))
@@ -28,14 +29,17 @@
   (call-next-method)
   (setf (axiom-sexp a) (expand-axiom-sexp (slot-value a 'sexp)))
   (unless (getf keys :dont-validate)
-    (validate-formula-well-formed (axiom-sexp a) (axiom-name a)))
+    (validate-formula-well-formed (axiom-sexp a) (axiom-name a)
+                                  (assoc :allow-free (slot-value a 'plist))))
   a)
 
+
 (defmacro def-logic-formula (name sexp &optional description &rest key-values)
+  (setq sexp (expand-axiom-sexp sexp))
   (when (keywordp description) (push description key-values) (setq description nil))
   `(progn
      (sys::record-source-information-for-type  ',name 'def-logic-axiom)
-     (validate-formula-well-formed ',sexp ',name)
+     (validate-formula-well-formed ',sexp ',name (getf  ',key-values :allow-free ))
      (let* ((sexp-1 ',sexp)
 	      (sexp (if  (and (consp sexp-1) (keywordp (car sexp-1)))
 			 sexp-1
@@ -46,7 +50,7 @@
 				       :description ,description :name ',name
 				       :plist (append
 					       (loop for (pred) in predicates collect `(:relation ,(keywordify pred)))
-					       (loop for function in functions collect `(:function ,(keywordify function)))
+					       (loop for (function) in functions collect `(:function ,(keywordify function)))
 					       (loop for const in constants collect `(:constant ,(keywordify const)))
 					       (loop for (k v) on ',key-values by #'cddr
 						     collect (list k (if (symbolp v)
@@ -256,7 +260,7 @@
   (when (tree-find :expand a)
     (setq a (tree-replace
 	     (lambda(e) (if (and (consp e) (eq (car e) :expand))
-			    (macroexpand (second e))
+			    (expand-axiom-sexp (macroexpand (second e)))
 			    e))
 	     a)))
   (when (tree-find :axiom a)
@@ -564,13 +568,14 @@
 				 "Used ~s vs ~s in ~s (reserved keyword)"
 				 e (intern e 'keyword) (or label formula))))))
 
-(defun validate-formula-well-formed (formula &optional label)
+(defun validate-formula-well-formed (formula &optional label allow-free)
   (when (symbolp formula) 
       (setq formula (axiom-sexp (get-axiom formula))))
   (when (typep formula 'axiom)
       (setq formula (axiom-sexp formula)))
   (let ((free (free-variables formula)))
-    (assert (null free) (formula) "~{~a~^, ~} ~a free in ~a" free (if (> (length free) 1) "are" "is") (or label formula))
+    (unless allow-free
+      (assert (null free) (formula) "~{~a~^, ~} ~a free in ~a" free (if (> (length free) 1) "are" "is") (or label formula)))
     (multiple-value-bind (predicates constants functions variables) (formula-elements formula)
       (loop for (p) in predicates
 	    if (> (count p predicates :key 'car) 1)
