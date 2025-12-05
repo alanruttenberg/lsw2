@@ -3,7 +3,7 @@
 (defclass z3-logic-generator (logic-generator)
   ((with-declarations :accessor with-declarations :initarg :with-declarations :initform t )
    (with-names :accessor with-names :initarg :with-names :initform t)
-   (domain-sort :accessor domain-sort :initarg :domain-sort :initform '|Int|)))
+   (domain-sort :accessor domain-sort :initarg :domain-sort :initform '|Entity|)))
 
 (defmethod normalize-names ((g z3-logic-generator) e)
   (if (and (symbolp e) (digit-char-p (char (string e) 0)))
@@ -83,6 +83,8 @@
       (formula-elements `(:and ,@(mapcar 'axiom-sexp a)))
     (apply 'concatenate 'string
 	   (append
+            (if (not (member (domain-sort g) '(|Int| |Real|)))
+                (list (to-string g `(declare-sort ,(domain-sort g) 0))))
 	    (and include-constants
 		 (loop for c in (remove-duplicates constants :key 'string :test 'equalp)
 		       collect (to-string g `(declare-const ,(normalize-names g c) ,(domain-sort g)))))
@@ -90,12 +92,12 @@
 		 (loop for (f arity) in functions
 		       collect (to-string g
 					  `(declare-fun ,(normalize-names g f)
-							,(loop repeat arity collect (domain-sort g)) ,(domain-sort g)))))
+							,(or (loop repeat arity collect (domain-sort g)) "()") ,(domain-sort g)))))
 	    (and include-predicates
 		 (loop for (p arity) in (remove-duplicates predicates :test 'equalp :key (lambda(e) (string(car e))))
 		       collect (to-string g
 					  `(declare-fun ,(normalize-names g p)
-							,(loop repeat arity collect (domain-sort g)) |Bool|))))))))
+							,(or (loop repeat arity collect (domain-sort g)) "()") |Bool|))))))))
 
   
 (defmethod mangle-label ((g z3-logic-generator) label)
