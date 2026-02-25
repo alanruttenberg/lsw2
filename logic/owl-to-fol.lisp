@@ -21,6 +21,12 @@
 ;; (class-expression !owl:Thing) -> `(:exists (?x) (rdf-type ?x ,*classinstancevar*))
 ;; (class-expression !owl:Thing) -> `(:not (:exists (?x) (rdf-type ?x ,*classinstancevar*)))
 
+;; This is  incorrect. ?x and ?y could both be instances or both be classes.
+;; We want to say
+;; Every thing in the domain of discourse is either such that
+;;(:forall (?x) (or (:exists (?y) (rdf:type ?x ?y)) (:exists (?y) (rdf:type ?y ?x))))
+;; That's a little agressive in that it says all classes are joint satisfiable.
+
 (def-logic-axiom rdf-type-separation
   (:forall (?x__x ?y__y)
     (:and (:not (:= ?x__x ?y__y))

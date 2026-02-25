@@ -123,8 +123,8 @@ For each constants, function, and predicate that aren't unguarded add (:individu
 
 
 (rewrite-impredicative '(:forall (?x) ((f ?x) y)))
-(:and (individual. y)
- (:forall (?x) (:implies (:and (individual. ?x)) (holds. (funcall. f ?x) y))))
+->
+(:and (:individual_ y) (:individual_ (f ?x)) (:forall (?x) (:implies (:and (:individual_ ?x)) (:holds2 (:funcall2 f ?x) y))))
 
 Update to Common Logic 2018
 
