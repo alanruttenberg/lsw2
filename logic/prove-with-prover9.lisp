@@ -110,23 +110,19 @@
 				       (if (search "SEARCH FAILED" output)
 					   :failed
 					   (maybe-exceeded-resource-limit)))))))
+	  (when *debug* (princ (car output)))
 	  (values status
 		  (if return-proof
 		      (prover9-output-proof-section output)
 		      (if return-proof-support
 			  (get-proof-support output)
-			  (if include-output
-			    (let ((output
-				    (ecase which
-				      (:mace4
-				       (let ((model (make-instance 'mace4-model :raw-form output)))
-					 (if (search "interpretation(" output)
-					     (cook-mace4-output output interpformat model)
-					     (values))))
-				      (:prover9 output))))
-			    (when *debug* (princ (car output)))
-			      output)
-                            (values)))))
+			  (if (eq which :mace4)
+			      (let ((model (make-instance 'mace4-model :raw-form output)))
+			        (if (search "interpretation(" output)
+				    (cook-mace4-output output interpformat model)
+				    (if include-output (values nil output))))
+			      (if include-output (values status output)
+                              (values))))))
 	  )))))
 
 (defun proof-to-hints (assumptions goals &optional (timeout 10))
@@ -180,7 +176,6 @@
 			 (unaccounted-for-numbers 
 			   (sort (set-difference mentioned-numbers (mapcar 'parse-integer (mapcar 'second matched))) '<))
 			 (already (count-if (lambda(e) (#"matches" (car e) "^c\\d+")) matched)))
-                    (:print-db unaccounted-for-numbers)
 		    ;; augment matched list with skolems
 		    (setq matched (append (loop for number in unaccounted-for-numbers 
 						for count from (1+ already)
