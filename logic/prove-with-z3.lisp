@@ -217,7 +217,83 @@
 ;; 2022-09-18 20:33:02 alanr
 ;; (z3-find-model '((:and (:not (:= c1 p1)) (:not (:= c1 t1)) (:not (:= p1 t1))) :dr-pi :dr-po :dr-pow :disjoint-cover :part-of-while-operating :trans-part-of (:fact (part-of c1 c1 t1))))
 ;; has one of the values = '(- 1)
-;; hack to replace '(- 1) with -1 
+;; hack to replace '(- 1) with -1
+
+;; How this works
+
+;; 1) Extract the domain along with map to symbols. There
+;; will be declarations of the symbols in the formula as well as some
+;; extra one which we will eventually give names to (usually c1,c2...)
+;; When the domain is Int, the interval value will be a number. There
+;; isn't an explicit list of the domain values, just the integers in
+;; declarations and function. If the Domain is a sort there will be a
+;; declation of the universe at the top, from which we get the model.
+
+#| Domain declaration for custom sorts.
+;; definitions for universe elements:
+  (declare-fun Entity!val!3 () Entity)
+  (declare-fun Entity!val!2 () Entity)
+  (declare-fun Entity!val!0 () Entity)
+  (declare-fun Entity!val!1 () Entity)
+  ;; cardinality constraint:
+  (forall ((x Entity))
+          (or (= x Entity!val!3)
+              (= x Entity!val!2)
+              (= x Entity!val!0)
+              (= x Entity!val!1)))
+|#
+
+;; 2) Following will be a mapping of our symbols to theirs like so
+;;     (define-fun test2 () Entity
+;;          Entity!val!1)
+;;     ...
+;;    or for Int
+;;     (define-fun test2 () Int
+;;          1)
+
+;;   In the case of custom sorts, all of the domain (including elements
+;;   generated for the model) will have a mapping. In the case of Int
+;;   domain only our symbols will have a mapping and the rest will
+;;   be constants embedded in the functions. e.g.
+;;
+;;     (define-fun f ((x!0 Int) (x!1 Int)) Bool
+;;        (and (not (= x!0 2)) (not (= x!1 3))))
+;;
+;;   There are explicit mappings for the integers 0 and 1, but this
+;;   function mentions 2 and 3 which are new elements of the domain 
+
+;; 3) Finally, we want to get the model as a set of propositions.
+;;    Z3 represents models as a function per relation, which returns true
+;;    when the relation holds.
+;;    To do that, first we convert the functions to lisp functions
+;;    Via substitutions and some other monging and figure out their arity
+;;    Then we call the function with every element of the domain (or
+;;    cross of the domain for binary,etc, collecting those
+
+;; Worked Example
+;;
+;; (z3-find-model '((:and (:forall (?x ?y)
+;;                          (:implies (f ?x ?y)
+;;                              (g ?x ?y)))
+;;                   (f test1 test2)
+;;                   (:exists (?a ?b)
+;;                     (:not (g ?a ?b) )))))
+
+;; transform-z3-model returns 3 values :
+;; <1      ((:g 2) (:f 2)) -- functions and arities
+;; <1      #<eql hash-table 4 entries, 11 buckets {2D0C4860}> -- map of z3 symbols to our symbols
+;; <1      ((|g| (|x!0| |x!1|) (and (not (= |x!0| 2)) (not (= |x!1| 3)))) -- Functions for evaluating relations f & g.
+;;          (|f| (|x!0| |x!1|) (and (not (= |x!0| 2)) (not (= |x!1| 3)))))
+;;
+;; z3-model-form returns
+;; ((universe test2 test1 c1 c2) (g test2 test2)
+;;  (g test2 test1) (g test2 c1) (g test1 test2)
+;;  (g test1 test1) (g test1 c1) (g c2 test2) (g c2 test1)
+;;  (g c2 c1) (f test2 test2) (f test2 test1) (f test2 c1)
+;;  (f test1 test2) (f test1 test1) (f test1 c1)
+;;  (f c2 test2) (f c2 test1) (f c2 c1))
+
+;; Note: In the above I've removed package prefixes for legibility
 
 (defun transform-z3-model (z3-output)
   (if (equal z3-output "") 
@@ -229,13 +305,14 @@
 	       (named (make-hash-table :test 'eql))
 	       (forms nil)
 	       (relations nil)
-	       (model nil)
+               (model nil)
 	       (result nil))
 	  (let ((*package* *z3-model-symbol-package*)
 		(*readtable* z3-readtable))
 	    (setq result (read s))
-	    (when  (equal (string result) "sat")
-	      (setq model (read s))))
+	    (if  (and (symbolp result) (equal (string result) "sat"))
+	         (setq model (read s))
+                 (setq model result)))
 	  (if (not model)
 	      z3-output
 	      (let ((ints (let ((them nil))
@@ -286,10 +363,10 @@
 					   (,(intern "false" *z3-model-symbol-package*) nil))
 				       (labels ,forms
 					 (list ,@(mapcar (lambda(f) `(function ,(car f))) forms))))))
-		 (funs (funcall (if compile?
+		 (funs (progn (:print-db function-source) (funcall (if compile?
 			   (let ((ext::*suppress-compiler-warnings* t))
 			     (compile nil  function-source))
-			   (eval function-source)))))
+			   (eval function-source))))))
 	    (let ((table (make-hash-table)))
 	      (loop for (name) in forms
 		    for fun in funs
@@ -315,6 +392,7 @@
 					   (loop for (name2 value2) in constants
 						 append
 						 (loop for (name3 value3) in constants
+;                                                       do (break)
 						       when (funcall (gethash pred table) value1 value2 value3)
 							 collect `(,pred ,name1 ,name2 ,name3))))))))))))
 
