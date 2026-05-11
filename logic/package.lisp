@@ -137,6 +137,8 @@
    #:disjunctive-normal-form
    #:conjunctive-normal-form
    #:subjects-of
+   #:clif-form-to-lsw
+   #:def-logic-formula
    ))
 
 
