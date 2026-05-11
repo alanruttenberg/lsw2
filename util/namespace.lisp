@@ -7,6 +7,7 @@
 (defvar *namespace-replacements* 
   `(("http://qudt.org/schema/qudt/" "qudt:")
     ("http://qudt.org/vocab/unit/" "qunit:")
+    ("http://qudt.org/vocab/quantitykind/" "qkind:")
     ("http://www.openrdf.org/schema/sesame#" "sesame:")
     ("https://w3id.org/uom/" "uom:")
     ("http://xmlns.com/wordnet/1.6/" "wordnet:") ; used in foaf
@@ -106,6 +107,7 @@
     ("http://snomed.info/id/" "snomed:")
     ("http://opensextant.org/ontology/" "osex:") ; https://github.com/orgs/OpenSextant
     ("http://www.ontologyrepository.com/CommonCoreOntologies/" "cco:") ;https://github.com/CommonCoreOntology/
+    ("http://www.commoncoreontologies.org/" "cco2:")
     ("http://purl.obolibrary.org/obo/" "obo:")
     ("http://www.opengis.net/ont/geosparql#" "geosparql:")
     ("http://www.opengis.net/ont/sf#"  "simple-feature:")
