@@ -327,6 +327,7 @@
 	 (bindings 
 	   (bt:with-lock-held (*prolog-lock*)
 	     (eval `(paiprolog::prolog-collect ,to-solve ,query)))))
+    (setq bindings (remove-duplicates bindings :test 'equalp))
     `(:forall-enumerated (,(if (= (length to-solve) 1) (car to-solve) to-solve) ,@bindings)
        (,@(if to-iterate (list :forall to-iterate) (list :and))
         (:implies ,(second implication) ,(third implication))))))
@@ -599,15 +600,16 @@ second value is the list of formulas that failed"
     (setq *evaluate-timing* (make-hash-table :test 'equalp))
     (declare (special *evaluate-timing*))
     (progv (if debug-supplied-p `(*debug-eval-formula*)) (if debug-supplied-p (list debug))
-      (let ((results 
-	      (funcall (if parallel 'lparallel::pmapcan  'mapcan)
+      (let* ((start-time nil) (end-time nil)
+             (map-over (coerce rewritten (if parallel 'vector 'list)))
+             (results 
+	      (funcall (if parallel (lambda(f over) (lparallel::pmapcan f :parts (length rewritten) over))  'mapcan)
 		       (lambda(e)
 			 (if (and (typep e 'axiom) (member (axiom-name e) *skip-evaluation-for-now*  :test (lambda(a b) (equalp (string a) (string b)))))
 			     (format t "~&Skipping evaluation of ~a for now~%" (string-downcase (axiom-name e)))
 			     (progn
 		     
-			       (setf (gethash (if (typep e 'axiom) (axiom-name e) e) *evaluate-timing*)
-				     (list (#"currentTimeMillis" 'system) nil))
+			       (setf start-time (#"currentTimeMillis" 'system))
 			       (let ((paiprolog::*trail* paiprolog::*trail* ))
 				 (if (prog1 (evaluate-formula
 					     (car (if rewrite (rewrite-inverses (list (axiom-sexp e))
@@ -615,10 +617,16 @@ second value is the list of formulas that failed"
 										:ternary-inverses ternary-inverses) (list (axiom-sexp e))))
 					     model
 					     :implies-optimize implies-optimize)
-				       (setf (cdr (gethash (if (typep e 'axiom) (axiom-name e) e) *evaluate-timing*)) (#"currentTimeMillis" 'system)))
+                                       (princ ".")
+                                       (setf end-time (#"currentTimeMillis" 'system))
+                                       (setf (gethash (if (typep e 'axiom) (axiom-name e) e) *evaluate-timing*) (cons start-time end-time))
+				       )
 				     nil
-				     (list  (axiom-name e)))))))
-		       (coerce rewritten (if parallel 'vector 'list)))))
+                                     (progn
+				       (list  (axiom-name e)))))
+
+                               )))
+		       map-over)))
 	(if results
 	    (values :failed (setq *last-failed-formulas* results))
 	    :satisfying-model)))))
