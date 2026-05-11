@@ -405,7 +405,75 @@
 
 
 ;; return predicates, constants, function symbols in formula
+;; (defun formula-elements (sexp)
+;;   ;; expecting an sexp but accept a spec.
+;;   ;; sexp might be missing :fact
+;;   ;; spec can be '(:name ...) '((:kind ..))) ((:forall ..))
+;;   ;; it's a spec if
+;;   ;;  1) it starts with a keyword other than :forall ...
+;;   ;;  2) the first element is an axiom
+;;   ;;  3) The first element is a list
+;;   (when (or (and (keywordp (car sexp))
+;; 		 (not (member (car sexp) '(:forall :exists :and :or :iff :implies := :not :not=))))
+;; 	    (consp (car sexp))
+;; 	    (typep (car sexp) 'axiom))
+;;     (setq sexp `(:and ,@(mapcar 'axiom-sexp (collect-axioms-from-spec sexp)))))
+;;   (let ((predicates nil)
+;; 	(constants nil)
+;; 	(variables nil)
+;; 	(functions nil)
+;; 	(exp (axiom-sexp sexp))) ;; so macroexpansion happens
+;;     (labels ((uses-constant (sym) (pushnew sym constants))
+;; 	     (uses-predicate (sym args) (pushnew (list sym (length args)) predicates :test 'equalp))
+;; 	     (uses-function (sym arity) (pushnew (list sym arity) functions :test 'equalp))
+;; 	     (uses-variable (sym) (pushnew sym variables))
+;; 	     (walk-function (form)
+;; 	       (uses-function (car form) (length (cdr form)))
+;; 	       (walk-terms (cdr form)))
+;; 	     (walk-terms (form)
+;; 	       (loop for el in form
+;; 		     do
+;; 			(cond ((and (symbolp el) 
+;; 				    (if (char= (char (string el) 0 ) #\?)
+;; 					 (uses-variable el)
+;; 					 (uses-constant el))))
+;; 			      ((atom el))
+;; 			      (t (walk-function el)))))
+;; 	     (walk (form)
+;; 	       (cond ((atom form)
+;; 		      (break "shouldn't be here: ~a" form)
+;; 		      (if (and (symbolp form) (char= (char (string form) 0 ) #\?))
+;; 			  nil
+;; 			  (uses-constant form)))
+;; 		     (t (case (car form)
+;; 			  ((:forall :exists) 
+;; 			   (map nil #'walk (cddr form))
+;; 			   (mapcar #'uses-variable (second form)))
+;; 			  ((:axiom) (walk (axiom-sexp (get-axiom (second form)))))
+;; 			  ((:implies :iff :and :or :not  :fact) 
+;; 			   (map nil #'walk (rest form)))
+;; 			  ((:distinct := :not=) (walk-terms (rest form)))
+;; 			  (otherwise
+;; 			   (uses-predicate (car form) (Rest form))
+;; 			   (walk-terms (rest form))))))))
+;;       (walk exp)
+;;       (values predicates constants functions variables))))
+
+;; return predicates, constants, function symbols in formula
+;; refactored
 (defun formula-elements (sexp)
+  (let ((predicates nil)
+        (constants nil)
+        (functions nil)
+        (variables nil))
+    (walk-formula sexp
+                  :f-variable (lambda(v) (pushnew v variables))
+                  :f-constant (lambda(c) (pushnew c constants))
+                  :f-function (lambda(sym args) (pushnew (list sym (length args)) functions :test 'equalp))
+                  :f-predicate (lambda(sym args) (pushnew (list sym (length args)) predicates :test 'equalp)))
+      (values predicates constants functions variables)))    
+
+(defun walk-formula (sexp &key f-variable f-predicate f-constant f-function )
   ;; expecting an sexp but accept a spec.
   ;; sexp might be missing :fact
   ;; spec can be '(:name ...) '((:kind ..))) ((:forall ..))
@@ -423,12 +491,12 @@
 	(variables nil)
 	(functions nil)
 	(exp (axiom-sexp sexp))) ;; so macroexpansion happens
-    (labels ((uses-constant (sym) (pushnew sym constants))
-	     (uses-predicate (sym args) (pushnew (list sym (length args)) predicates :test 'equalp))
-	     (uses-function (sym arity) (pushnew (list sym arity) functions :test 'equalp))
-	     (uses-variable (sym) (pushnew sym variables))
+    (labels ((uses-constant (sym) (and f-constant (funcall f-constant sym)))
+	     (uses-predicate (sym args) (and f-predicate (funcall f-predicate sym args)))
+	     (uses-function (sym args) (and f-function (funcall f-function sym args)))
+	     (uses-variable (sym) (and f-variable (funcall f-variable sym)))
 	     (walk-function (form)
-	       (uses-function (car form) (length (cdr form)))
+	       (uses-function (car form) (cdr form))
 	       (walk-terms (cdr form)))
 	     (walk-terms (form)
 	       (loop for el in form
