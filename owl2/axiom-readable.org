@@ -1,0 +1,38 @@
+# -*- Mode: POLY-ORG;  -*- ---
+#+PROPERTY: literate-lang lisp
+#+PROPERTY: literate-load yes
+#+OPTIONS: html-postamble:nil
+#+OPTIONS: ^:nil
+
+#+Author: Alan Ruttenberg
+#+Title: Axiom Readable
+
+#+begin_src lisp
+(in-package :cl-user)
+#+end_src
+
+#+begin_src lisp
+(defun manchester-logical-axioms-for-entity-text (class ont kind &optional (include-referencing nil))
+  (setq ont (or (v3kb-weakened-from ont) ont))
+  (if (stringp class) (setq class (make-uri class)))
+  (if (or (not (get-entity class kind ont))) (equal class !owl:Nothing))
+      nil
+      (remove-duplicates
+       (let* ((direct-axioms (get-rendered-referencing-axioms class kind ont t))
+	      (referenced-axioms (and include-referencing (set-difference (get-rendered-referencing-axioms class kind ont) direct-axioms :key 'second))))
+	 (loop for (sentence ax) in (append direct-axioms referenced-axioms)
+	       unless (or (simple-subclassof-axiom? ax)
+                          (simple-supropertyof-axiom? ax)
+		          (jinstance-of-p ax (find-java-class 'OWLDeclarationAxiom )))
+	    collect sentence)
+         )
+       :test 'equal))
+#+end_src
+
+
+# Leave this at bottom of file
+# Local Variables:
+# eval: (setf (cdr (assoc :results org-babel-default-header-args)) "none")
+# eval: (pushnew '(:results . "wrap") org-babel-default-header-args :test 'equalp)
+# eval: (add-hook 'after-save-hook 'org-html-export-to-html nil t)
+# End:

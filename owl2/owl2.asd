@@ -50,6 +50,7 @@
 	    ((:file "graph")
 	     (:file "preferred-label")
 	     (:file "axioms")
+             (:org "axiom-readable")
 	     (:file "weaken")
 	     (:file "filter")
 ;	     (:file "materialize-restrictions-for-triplestore")
