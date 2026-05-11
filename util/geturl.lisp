@@ -22,6 +22,7 @@
 
 (defun get-url (url &key post (force-refetch  post) (dont-cache post) (to-file nil) (persist (and (not post) (not to-file))) cookiestring nofetch verbose tunnel referer (follow-redirects t) when-done  
 		      (ignore-errors *default-ignore-errors*)  head accept  extra-headers (appropriate-response (lambda(res) (and (numberp res) (>= res 200) (< res 400)))) (verb "GET")
+                      print-post-body 
 		&aux it done)
     (declare (special *http-stream))
   (when *trace-geturl* (format t "Getting ~s~%" url))
@@ -35,7 +36,7 @@
 						 :to-file to-file :persist persist :cookiestring cookiestring :nofetch nofetch
 						 :verbose verbose :tunnel tunnel :referer referer :follow-redirects follow-redirects
 						 :ignore-errors ignore-errors :head head :accept accept :extra-headers extra-headers
-						 :appropriate-response appropriate-response :verb verb
+						 :appropriate-response appropriate-response :verb verb :print-post-body print-post-body
 						 )))
 			   (prog1
 			       (if when-done
@@ -51,7 +52,7 @@
       ))
 
 (defun get-url-1 (url &key post (force-refetch  post) (dont-cache post) (to-file nil) (persist (and (not post) (not to-file))) cookiestring nofetch verbose tunnel referer (follow-redirects t) 
-		(ignore-errors nil) head accept  extra-headers (appropriate-response (lambda(res) (and (numberp res) (>= res 200) (< res 400)))) (verb "GET")
+		(ignore-errors nil) head accept  extra-headers (appropriate-response (lambda(res) (and (numberp res) (>= res 200) (< res 400)))) (verb "GET") print-post-body
 		&aux headers doing-ftp)
   "Get the contents of a page, saving it for this session in *page-cache*, so when debugging we don't keep fetching"
   (sleep 0.0001)			; give time for control-c
@@ -123,6 +124,7 @@
                                    do (format s "~a=~a&" prop (#"encode" 'java.net.URLEncoder (coerce value 'simple-string) "UTF-8")))
                              (setq post (get-output-stream-string s))
                              (setq post (subseq post 0 (- (length post) 1)))
+                             (when print-post-body (princ post) (terpri))
                              (#"setRequestProperty" connection "Content-Type" "application/x-www-form-urlencoded"))
                            (#"setRequestProperty" connection "Content-Type" "text/xml")))
 		   (let ((out (new 'PrintWriter (#"getOutputStream" connection))))
