@@ -89,6 +89,7 @@ names don't consist of standard characters. TBD
       rewritten-inner))
 
 (defun clif-form-to-lsw (form &key (stylefn 'no-mangling-style) (keep-comments nil))
+  (if (stringp form) (setq form (read-clif-form (make-string-input-stream form))))
   (labels ((walk (form bindings)
 	     (let ((result 
 		     (if (atom form)
