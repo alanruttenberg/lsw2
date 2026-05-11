@@ -139,7 +139,7 @@
 			     (progn
 			       (cache-ontology-and-imports uri)
 			       (multiple-value-bind (dir ont headers-file) (ontology-cache-location uri)
-			         (#"loadOntologyFromOntologyDocument" manager (new 'iridocumentsource (to-iri (namestring ont)) load-configuration))))
+			         (#"loadOntologyFromOntologyDocument" manager (new 'iridocumentsource (to-iri (namestring ont))) load-configuration)))
 			     (#"loadOntologyFromOntologyDocument" manager (new 'iridocumentsource (to-iri uri)) load-configuration)))
 		    (#"loadOntologyFromOntologyDocument" manager (new 'streamdocumentsource
                                                                           (new 'java.io.ByteArrayInputStream
