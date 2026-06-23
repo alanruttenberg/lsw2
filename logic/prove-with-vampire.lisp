@@ -78,11 +78,11 @@
 		  (run-vampire (setq *last-vampire-input* input)  timeout mode switches))
 	    ))
       (let ((result
-	      (cond ((or (search "Termination reason: Time limit" answer)
+	      (cond ((search "Refutation found." answer)
+		     :proved)
+		    ((or (search "Termination reason: Time limit" answer)
 		         (search "Proof not found in time" answer))
 		     :timeout)
-		    ((search "Refutation found." answer)
-		     :proved)
 		    (t :failed))))
         (when expected-proof
 	  (setf (prover-input expected-proof) input)
