@@ -54,7 +54,7 @@
 (defun mace-or-prover9 (which assumptions goals &key (timeout 10) (interpformat :baked) (show-translated-axioms nil)
 						  max-memory domain-min-size domain-max-size max-time-per-domain-size  hints
 						  expected-proof term-ordering max-weight cac-redundancy skolems-last
-						  return-proof return-proof-support (include-output nil) self-label-ground 
+						  return-proof return-proof-support (include-output nil ) cores strategies self-label-ground 
 			&aux settings)
 
   (assert (numberp timeout) (timeout) "Timeout should be a number of seconds") 
@@ -80,7 +80,7 @@
 	 (output
 	   (run-program-string->string
 	    (ecase which (:mace4 (prover-binary "mace4")) (:prover9 (prover-binary "prover9")))
-	    `(,@(if (eq which :mace4) '("-c") nil) "-t" ,(prin1-to-string timeout))
+	    `(,@(if (eq which :mace4) '("-c") nil) "-t" ,(prin1-to-string timeout) ,@(if cores `("-cores" ,(prin1-to-string cores))) ,@(if strategies `("-strategies" ,(prin1-to-string strategies))))
 	    input
 	    )))
     (setq *last-prover9-input* input *last-prover9-output* output)
@@ -225,7 +225,7 @@
 		  (close (process-output process)))))
 	  output)))
 
-(defun prover9-prove (assumptions goals  &rest keys &key (timeout 10) (show-translated-axioms nil) &allow-other-keys)
+(defun prover9-prove (assumptions goals  &rest keys &key (timeout 30) (show-translated-axioms nil) &allow-other-keys)
   (when (and goals (atom goals)) (setq goals (list goals)))
   (apply 'mace-or-prover9  :prover9 assumptions goals :timeout timeout :show-translated-axioms show-translated-axioms keys))
 
@@ -287,8 +287,10 @@
 	result)))
 
 (defun prover9-output-proof-section (&optional (output *last-prover9-output*))
-  (and (search "THEOREM PROVED" output)
-       (caar (all-matches output "(?sm)={30,30} PROOF =+$(.*?)={30,30} end of proof =+$" 1))))
+  (when (or (search "THEOREM PROVED" output) (search "====== PROOF ======" output))
+           (caar (all-matches output "(?sm)={30,30} PROOF =+$(.*?)={30,30} end of proof =+$" 1))))
+
+           
 
 (defun get-prover9-proof-support (&rest args)
   (apply 'get-proof-support args))
@@ -296,7 +298,8 @@
 (defun get-proof-support (&optional (prover9-output *last-prover9-output*))
   (if (consp prover9-output)
       (setq prover9-output (car prover9-output)))
-  (if (search "THEOREM PROVED" prover9-output)
+  (if (or (search "THEOREM PROVED" prover9-output)
+          (search "====== PROOF ======" prover9-output))
       (let* ((proof-section (prover9-output-proof-section prover9-output))
 	     (without-goal-deny (#"replaceAll" proof-section "(?m)^(.*((label\\(goal)|(\\[deny)).*?)$" ""))
 	     (labels (mapcar 'car (all-matches without-goal-deny "# label\\(\"([^\"]+?)\"" 1))))
