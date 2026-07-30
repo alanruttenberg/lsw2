@@ -298,7 +298,8 @@
 (defun transform-z3-model (z3-output)
   (if (equal z3-output "") 
       z3-output
-      (let ((z3-readtable (copy-readtable)))
+      (let ((z3-readtable (copy-readtable))
+            (z3-domain-values (get-z3-symbolic-domain-values z3-output)))
 	(setf (readtable-case z3-readtable) :preserve)
 	(set-syntax-from-char #\! #\- *readtable* z3-readtable)
 	(let* ((s (make-string-input-stream z3-output))
@@ -344,26 +345,32 @@
 				     (push `(,name ,(mapcar 'car args) ,@(tree-replace (lambda(x) (if (and (consp x) (eq (car x) '-))
                                                                                                       (- (second x))
                                                                                                       x))
-                                                                                       (subst 'let lets (subst 'or  or (subst 'not not (subst 'and  and (subst 'if ite body))))))) forms)
+                                                                                       (subst 'eql '= (subst 'let lets (subst 'or  or (subst 'not not (subst 'and  and (subst 'if ite body)))))))) forms)
 				     )))))
 		(loop for el in (set-difference ints (alexandria::hash-table-keys named))
 		      with count = 0
 		      do (push (intern (format nil "C~a" (incf count)) :keyword) (gethash el named)))
-		(values relations named forms)))))))
+		(values relations named forms z3-domain-values)))))))
+
+(defun get-z3-symbolic-domain-values (z3-output)
+  (remove-duplicates (mapcar (lambda(x) (intern x 'z3z3)) (mapcar 'car (all-matches z3-output "(?m)(Entity!val!\\d+)" 1)))))
+
 
 (defun z3-model-form (model &key (compile? t))
-  (multiple-value-bind (relations named forms)
-      (transform-z3-model model)
+  (multiple-value-bind (relations named forms universe)
+      (transform-z3-model model )
     (if (stringp relations)
 	relations
 	(let ((constants (loop for no being the hash-keys of named using (hash-value name)
 			       collect (list  (intern (string-upcase (format nil "~{~a~^=~}" name)) 'keyword) no))))
 	  (let* ((function-source  `(lambda()
 				     (let ((,(intern "true" *z3-model-symbol-package*) t)
-					   (,(intern "false" *z3-model-symbol-package*) nil))
+					   (,(intern "false" *z3-model-symbol-package*) nil)
+                                           ,@(mapcar (lambda (e) `(,e ',e)) universe)
+                                           )
 				       (labels ,forms
 					 (list ,@(mapcar (lambda(f) `(function ,(car f))) forms))))))
-		 (funs (progn (:print-db function-source) (funcall (if compile?
+		 (funs (progn '(pprint function-source) (funcall (if compile?
 			   (let ((ext::*suppress-compiler-warnings* t))
 			     (compile nil  function-source))
 			   (eval function-source))))))

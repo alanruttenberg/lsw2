@@ -105,7 +105,8 @@
 			(:mace4 (if (search "interpretation" output)
 				    :sat
 				    (maybe-exceeded-resource-limit)))
-			(:prover9 (if  (search "THEOREM PROVED" output)
+			(:prover9 (if  (or (search "THEOREM PROVED" output)
+                                           (all-matches output "(?i)exiting with \\d+ proof" ))
 				       :proved
 				       (if (search "SEARCH FAILED" output)
 					   :failed
