@@ -1,9 +1,11 @@
 (in-package :logic)
 
+(defvar *default-smtlib-domain-sort* '|Entity|)
+
 (defclass z3-logic-generator (logic-generator)
   ((with-declarations :accessor with-declarations :initarg :with-declarations :initform t )
    (with-names :accessor with-names :initarg :with-names :initform t)
-   (domain-sort :accessor domain-sort :initarg :domain-sort :initform '|Entity|)))
+   (domain-sort :accessor domain-sort :initarg :domain-sort :initform *default-smtlib-domain-sort*)))
 
 (defmethod normalize-names ((g z3-logic-generator) e)
   (if (and (symbolp e) (digit-char-p (char (string e) 0)))
