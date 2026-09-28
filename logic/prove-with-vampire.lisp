@@ -11,7 +11,8 @@
               (uiop::run-program  (concatenate 'string "which " vamp)
                :output :string
                )))))
-    (or (which "vampire")
+    (or (and (boundp 'cl-user::*vampire-executable*) cl-user::*vampire-executable*)
+        (which "vampire")
         (which "vampire_rel")
         "/usr/local/bin/vampire_rel")))
 
