@@ -46,7 +46,7 @@
   (setq head (reduce-objectinversof head))
   (when (and (consp head) (eq (car head) 'cl-user::o-objectinverseof))
     (setq args (reverse args)))
-  (apply 'pred-property head args))
+  (apply 'pred-property (if (consp head) (second head) head) args))
     
 (defun o-class-expression (expression)
   (if (atom expression)
