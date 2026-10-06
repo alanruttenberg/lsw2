@@ -382,7 +382,7 @@
 
 (defmethod latex-packages ((c (eql 'latex-logic-generator-2)))
   '("amsmath" "flexisym" "xcolor" "tabularx" "trimclip" "scrextend" "needspace" "parskip" 
-    "fancyhdr" ))
+    "fancyhdr" "hyperref"))
 
 (defmethod latex-preamble ((c (eql 'latex-logic-generator-2)))
   nil)

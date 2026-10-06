@@ -40,7 +40,8 @@
 				 (t e)))
 			 form)))
     (let ((form (fix-tree (axiom-sexp axiom))))
-      (let ((*print-pretty* t))
+      (let ((*print-pretty* t)
+            (*print-right-margin* 70))
 	    (if (typep axiom 'axiom)
 		(format nil "(cl:comment 'label:~a')~%~{(cl:comment '~a')~%~}~a~%" 
 			(quote-string (string-downcase (string (axiom-name axiom))) )
