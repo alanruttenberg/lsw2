@@ -30,14 +30,14 @@
   (values (call-next-method) g))
 
 (defun get-vampire-proof-support (&optional (output *last-vampire-output*) (map *last-vampire-axiom-map*))
-  (loop for (num) in (butlast (all-matches output "(?m)(\\d+)\\.\\s+(\\S+).*\\[input\\]" 1 2))
+  (loop for (num) in (butlast (all-matches output "(?m)(\\d+)\\.\\s+(\\S+).*\\[input(\\(assumption\\))?\\]" 1 2))
 	for ax = (svref map (1- (parse-integer num)))
 	if (typep ax 'axiom)
 	  collect (keywordify (axiom-name ax))
 	else collect ax))
 
 (defun get-vampire-unsat-support (&optional (output *last-vampire-output*) (map *last-vampire-axiom-map*))
-  (loop for (num) in  (all-matches output "(?m)(\\d+)\\.\\s+(\\S+).*\\[input\\]" 1 2)
+  (loop for (num) in  (all-matches output "(?m)(\\d+)\\.\\s+(\\S+).*\\[input(\\(assumption\\))?\\]" 1 2)
 	for ax = (svref map (1- (parse-integer num)))
 	if (typep ax 'axiom)
 	  collect (keywordify (axiom-name ax))
